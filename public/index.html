@@ -1,25 +1,20 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>CyberVoid</title>
-  <link rel="stylesheet" href="/css/style.css">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css" />
 </head>
 <body>
-  <canvas id="gameCanvas"></canvas>
-  <div id="hud">
-    <div id="score">MASS: <span id="massVal">10</span></div>
-    <div id="leaderboard">
-      <div class="lb-title">⚡ TOP PLAYERS</div>
-      <ol id="lbList"></ol>
-    </div>
-  </div>
   <div id="startScreen">
-    <h1>CYBER<span class="accent">VOID</span></h1>
-    <input type="text" id="nameInput" placeholder="ENTER HANDLE" maxlength="15" autocomplete="off">
-    <button id="playBtn">JACK IN</button>
+    <h1 class="title">CYBER<span class="accent">VOID</span></h1>
+    <input type="text" id="nameInput" placeholder="Enter callsign..." maxlength="16" />
+    <button id="startBtn">JACK IN</button>
   </div>
+  <canvas id="game" style="display:none;"></canvas>
+  <div id="score"></div>
   <script src="/js/game.js"></script>
 </body>
 </html>
