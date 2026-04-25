@@ -17,11 +17,11 @@ const BORDER_SHRINK_RATE = 0.5;
 const MIN_BORDER = 400;
 const BORDER_PENALTY = 10;
 const BOT_COUNT = 6;
+const BOT_MAX_RADIUS = 55;
 const KILL_FEED_MAX = 6;
 
 const BOT_NAMES = ['NEXUS', 'CIPHER', 'PHANTOM', 'VECTOR', 'RAZOR', 'GLITCH', 'PULSE', 'WRAITH'];
 
-// Food types — color determines size and value
 const FOOD_TYPES = [
   { color: '#ff00ff', size: 4, value: 1 },
   { color: '#00ffff', size: 6, value: 1.5 },
@@ -31,9 +31,11 @@ const FOOD_TYPES = [
 ];
 
 let players = {};
+let connections = {};
 let foods = [];
 let kills = [];
 let borderSize = MAP_SIZE;
+let gameActive = false;
 
 function spawnFood() {
   const type = FOOD_TYPES[Math.floor(Math.random() * FOOD_TYPES.length)];
@@ -48,9 +50,13 @@ function spawnFood() {
   };
 }
 
-for (let i = 0; i < FOOD_COUNT; i++) {
-  foods.push(spawnFood());
+function initFoods() {
+  foods = [];
+  for (let i = 0; i < FOOD_COUNT; i++) {
+    foods.push(spawnFood());
+  }
 }
+initFoods();
 
 // --- BOT SYSTEM ---
 
@@ -72,8 +78,24 @@ function createBot() {
   };
 }
 
-for (let i = 0; i < BOT_COUNT; i++) {
-  createBot();
+function resetGame() {
+  // Clear bots
+  for (const id in players) {
+    if (players[id].isBot) delete players[id];
+  }
+  // Respawn fresh bots
+  for (let i = 0; i < BOT_COUNT; i++) {
+    createBot();
+  }
+  // Reset border and food
+  borderSize = MAP_SIZE;
+  kills = [];
+  initFoods();
+  gameActive = true;
+}
+
+function getRealPlayerCount() {
+  return Object.values(players).filter((p) => !p.isBot).length;
 }
 
 function updateBots() {
@@ -83,6 +105,9 @@ function updateBots() {
   for (const id in players) {
     const bot = players[id];
     if (!bot.isBot) continue;
+
+    // Cap bot size
+    if (bot.radius > BOT_MAX_RADIUS) bot.radius = BOT_MAX_RADIUS;
 
     let bestFood = null;
     let bestScore = 0;
@@ -162,6 +187,11 @@ wss.on('connection', (ws) => {
   const id = Math.random().toString(36).substr(2, 9);
   const center = MAP_SIZE / 2;
 
+  // If no real players were connected, reset everything fresh
+  if (getRealPlayerCount() === 0) {
+    resetGame();
+  }
+
   players[id] = {
     id,
     x: center + (Math.random() - 0.5) * 200,
@@ -176,6 +206,7 @@ wss.on('connection', (ws) => {
     isBot: false,
   };
 
+  connections[id] = ws;
   ws.playerId = id;
   ws.send(JSON.stringify({ type: 'init', id, mapSize: MAP_SIZE }));
 
@@ -194,6 +225,12 @@ wss.on('connection', (ws) => {
 
   ws.on('close', () => {
     delete players[id];
+    delete connections[id];
+
+    // If no real players left, pause the game
+    if (getRealPlayerCount() === 0) {
+      gameActive = false;
+    }
   });
 });
 
@@ -209,6 +246,8 @@ function addKill(killerName, victimName, killerColor, victimColor) {
 }
 
 function gameLoop() {
+  if (!gameActive) return;
+
   const center = MAP_SIZE / 2;
 
   if (borderSize > MIN_BORDER) {
@@ -263,8 +302,15 @@ function gameLoop() {
       const o = players[otherId];
       const dist = Math.sqrt((p.x - o.x) ** 2 + (p.y - o.y) ** 2);
       if (dist < p.radius - o.radius * 0.5 && p.radius > o.radius * 1.2) {
-        // Kill event
         addKill(p.name, o.name, p.color, o.color);
+
+        // Send death event to victim
+        if (connections[otherId] && connections[otherId].readyState === 1) {
+          connections[otherId].send(JSON.stringify({
+            type: 'death',
+            killer: p.name || 'Anon',
+          }));
+        }
 
         p.radius += o.radius * 0.5;
         p.score += o.score + 50;
