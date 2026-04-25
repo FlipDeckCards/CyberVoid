@@ -126,25 +126,23 @@ function pickZombieType(w) {
 function spawnZombie() {
   var type = pickZombieType(wave);
   var stats = zombieStats(type, wave);
-  // Spawn locations: left doors, right doors, alleys, end of street
+  // All zombies spawn from far end of street, spread across road width
   var spawns = [
-    { x: -LANE_W * 3.0, z: STREET_DEPTH * 0.4 },  // far left building door
-    { x: -LANE_W * 2.0, z: STREET_DEPTH * 0.6 },  // left alley
-    { x: -LANE_W * 1.0, z: STREET_DEPTH * 0.85 }, // left side of street
-    { x: 0,             z: STREET_DEPTH * 1.0 },   // end of street center
-    { x: LANE_W * 0.5,  z: STREET_DEPTH * 0.95 },  // slightly right of center
-    { x: LANE_W * 1.0,  z: STREET_DEPTH * 0.85 },  // right side of street
-    { x: LANE_W * 2.0,  z: STREET_DEPTH * 0.6 },   // right alley
-    { x: LANE_W * 3.0,  z: STREET_DEPTH * 0.4 },   // far right building door
+    { x: -LANE_W * 3.0 },
+    { x: -LANE_W * 2.0 },
+    { x: -LANE_W * 1.0 },
+    { x: 0 },
+    { x: LANE_W * 1.0 },
+    { x: LANE_W * 2.0 },
+    { x: LANE_W * 3.0 }
   ];
   var sp = spawns[Math.floor(Math.random() * spawns.length)];
-  // Add slight randomness so they don't stack
   var xJitter = (Math.random() - 0.5) * LANE_W * 0.4;
-  var zJitter = Math.random() * 20;
+  var zJitter = Math.random() * 30;
   zombies.push({
     x: sp.x + xJitter,
-    z: sp.z + zJitter,
-    type: type, hp: stats.hp, maxHp: stats.hp,
+    z: STREET_DEPTH * 1.0 + zJitter,
+    type: type, hp: stats.hp, maxhp: stats.hp,
     speed: stats.speed + Math.random() * 0.015,
     points: stats.points, attackDmg: stats.attackDmg,
     flash: 0,
@@ -337,83 +335,168 @@ function getZombieSprite(type) {
 }
 
 function drawZombie(z) {
-  const p = proj(z.x, 0, z.z);
-  const topP = proj(z.x, ZOMBIE_H, z.z);
-  const screenH = p.y - topP.y;
-  const screenW = screenH * 0.6;
-  if (p.x < -screenW || p.x > W+screenW || screenH < 2) return;
-  const sc = screenH / 60;
+  var foot = proj(z.x, 0, z.z);
+  var head = proj(z.x, ZOMBIE_H, z.z);
+  var bodyH = foot.y - head.y;
+  var bodyW = bodyH * 0.35;
+  var cx = foot.x;
 
-  if (!z.animPhase) z.animPhase = Math.random() * Math.PI * 2;
-  z.animPhase += 0.12 * (z.speed * 600 + 2);
-  var bounce = Math.abs(Math.sin(z.animPhase)) * 5 * sc;
-  var lean = Math.sin(z.animPhase * 0.7) * 0.06;
-  var squashX = 1 + Math.sin(z.animPhase * 2) * 0.04;
-  var stretchY = 1 - Math.sin(z.animPhase * 2) * 0.03;
+  if (bodyH < 2) return;
 
-  var FRAMES = 6;
-  var frameIndex = Math.floor(z.animPhase * 1.5) % FRAMES;
+  // Walking animation from wobble
+  var walk = z.wobble;
+  var legSwing = Math.sin(walk) * 0.35;
+  var armSwing = Math.sin(walk + Math.PI) * 0.3;
 
-  // Shadow
-  ctx.fillStyle = 'rgba(0,0,0,0.5)';
-  ctx.beginPath();
-  ctx.ellipse(p.x, p.y + 4, screenW * 0.5, screenH * 0.12, 0, 0, Math.PI * 2);
-  ctx.fill();
+  // Type-based colors
+  var bodyColor, glowColor;
+  if (z.type === 'tank') {
+    bodyColor = '#2a1a3a'; glowColor = '#ff00ff';
+  } else if (z.type === 'runner') {
+    bodyColor = '#1a2a1a'; glowColor = '#00ff88';
+  } else if (z.type === 'exploder') {
+    bodyColor = '#3a1a0a'; glowColor = '#ff4400';
+  } else {
+    bodyColor = '#1a1a2a'; glowColor = '#00ccff';
+  }
 
-  var sheet = getZombieSpriteSheet(z.type);
-  var single = getZombieSprite(z.type);
+  var flashCol = z.flash > 0 ? 'rgba(255,100,100,' + z.flash + ')' : null;
+  var headSize = bodyH * 0.15;
+  var torsoTop = head.y + headSize;
+  var torsoBot = head.y + bodyH * 0.55;
+  var torsoW = bodyW * 0.7;
+  var limbW = Math.max(1, bodyW * 0.15);
+  var hipY = torsoBot;
+  var legLen = foot.y - hipY;
+  var shoulderY = torsoTop + bodyH * 0.05;
+  var armLen = bodyH * 0.35;
 
   ctx.save();
-  ctx.translate(p.x, p.y - bounce);
-  ctx.rotate(lean);
-  ctx.scale(squashX, stretchY);
+  ctx.shadowColor = glowColor;
+  ctx.shadowBlur = bodyH * 0.12;
 
-  if (sheet && sheet.complete && sheet.naturalWidth > 0) {
-    var frameW = sheet.naturalWidth / FRAMES;
-    var frameH = sheet.naturalHeight;
-    var sx = frameIndex * frameW;
-    if (z.flash > 0) { ctx.globalAlpha = 0.7; ctx.filter = 'brightness(3)'; }
-    ctx.drawImage(sheet, sx, 0, frameW, frameH, -screenW / 2, -screenH, screenW, screenH);
-    ctx.filter = 'none'; ctx.globalAlpha = 1;
-  } else if (single && single.complete) {
-    if (z.flash > 0) { ctx.globalAlpha = 0.7; ctx.filter = 'brightness(3)'; }
-    ctx.drawImage(single, -screenW / 2, -screenH, screenW, screenH);
-    ctx.filter = 'none'; ctx.globalAlpha = 1;
-  } else {
-    ctx.fillStyle = z.flash > 0 ? '#fff' : '#1a1a2a';
-    ctx.fillRect(-screenW / 2, -screenH, screenW, screenH);
+  // ---- LEGS ----
+  // Left leg
+  var lkx = cx - torsoW * 0.3 + Math.sin(legSwing) * legLen * 0.3;
+  var lky = hipY + legLen * 0.5;
+  var lfx = cx - torsoW * 0.3 - Math.sin(legSwing) * legLen * 0.15;
+  ctx.strokeStyle = flashCol || bodyColor;
+  ctx.lineWidth = limbW;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(cx - torsoW * 0.3, hipY);
+  ctx.quadraticCurveTo(lkx, lky, lfx, foot.y);
+  ctx.stroke();
+  // Neon accent
+  ctx.strokeStyle = flashCol || glowColor;
+  ctx.lineWidth = Math.max(0.5, limbW * 0.3);
+  ctx.globalAlpha = 0.6;
+  ctx.beginPath();
+  ctx.moveTo(cx - torsoW * 0.3, hipY);
+  ctx.quadraticCurveTo(lkx, lky, lfx, foot.y);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  // Right leg
+  var rkx = cx + torsoW * 0.3 + Math.sin(-legSwing) * legLen * 0.3;
+  var rky = hipY + legLen * 0.5;
+  var rfx = cx + torsoW * 0.3 - Math.sin(-legSwing) * legLen * 0.15;
+  ctx.strokeStyle = flashCol || bodyColor;
+  ctx.lineWidth = limbW;
+  ctx.beginPath();
+  ctx.moveTo(cx + torsoW * 0.3, hipY);
+  ctx.quadraticCurveTo(rkx, rky, rfx, foot.y);
+  ctx.stroke();
+  ctx.strokeStyle = flashCol || glowColor;
+  ctx.lineWidth = Math.max(0.5, limbW * 0.3);
+  ctx.globalAlpha = 0.6;
+  ctx.beginPath();
+  ctx.moveTo(cx + torsoW * 0.3, hipY);
+  ctx.quadraticCurveTo(rkx, rky, rfx, foot.y);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+
+  // ---- TORSO ----
+  ctx.fillStyle = flashCol || bodyColor;
+  ctx.beginPath();
+  ctx.moveTo(cx - torsoW * 0.5, torsoTop);
+  ctx.lineTo(cx + torsoW * 0.5, torsoTop);
+  ctx.lineTo(cx + torsoW * 0.4, torsoBot);
+  ctx.lineTo(cx - torsoW * 0.4, torsoBot);
+  ctx.closePath();
+  ctx.fill();
+
+  // Neon rib lines
+  ctx.strokeStyle = flashCol || glowColor;
+  ctx.lineWidth = Math.max(0.5, bodyH * 0.01);
+  ctx.globalAlpha = 0.5;
+  for (var i = 0; i < 3; i++) {
+    var ribY = torsoTop + (torsoBot - torsoTop) * (0.25 + i * 0.25);
+    ctx.beginPath();
+    ctx.moveTo(cx - torsoW * 0.35, ribY);
+    ctx.lineTo(cx + torsoW * 0.35, ribY);
+    ctx.stroke();
   }
+  ctx.globalAlpha = 1;
+
+  // ---- ARMS ----
+  // Left arm
+  var lex = cx - torsoW * 0.5 - bodyW * 0.15;
+  var ley = shoulderY + armLen * 0.5;
+  var lhx = cx - torsoW * 0.5 - bodyW * 0.1 + Math.sin(armSwing) * armLen * 0.3;
+  var lhy = shoulderY + armLen + Math.cos(armSwing) * armLen * 0.1;
+  ctx.strokeStyle = flashCol || bodyColor;
+  ctx.lineWidth = Math.max(1, limbW * 0.8);
+  ctx.beginPath();
+  ctx.moveTo(cx - torsoW * 0.5, shoulderY);
+  ctx.quadraticCurveTo(lex, ley, lhx, lhy);
+  ctx.stroke();
+
+  // Right arm
+  var rex = cx + torsoW * 0.5 + bodyW * 0.15;
+  var rey = shoulderY + armLen * 0.5;
+  var rhx = cx + torsoW * 0.5 + bodyW * 0.1 + Math.sin(-armSwing) * armLen * 0.3;
+  var rhy = shoulderY + armLen + Math.cos(-armSwing) * armLen * 0.1;
+  ctx.strokeStyle = flashCol || bodyColor;
+  ctx.lineWidth = Math.max(1, limbW * 0.8);
+  ctx.beginPath();
+  ctx.moveTo(cx + torsoW * 0.5, shoulderY);
+  ctx.quadraticCurveTo(rex, rey, rhx, rhy);
+  ctx.stroke();
+
+  // ---- HEAD ----
+  var headCY = head.y + headSize * 0.5;
+  ctx.fillStyle = flashCol || bodyColor;
+  ctx.beginPath();
+  ctx.ellipse(cx, headCY, headSize * 0.5, headSize * 0.6, 0, 0, Math.PI * 2);
+  ctx.fill();
 
   // Glowing eyes
-  var eyeY = -screenH * 0.82;
-  var eyeSize = Math.max(1.5, sc * 2.5);
-  var eyeCol = z.type === 'runner' ? '#ffaa00' : z.type === 'tank' ? '#00ff66' : z.type === 'exploder' ? '#ff4400' : '#ff2200';
-  ctx.fillStyle = eyeCol;
-  ctx.shadowColor = eyeCol;
-  ctx.shadowBlur = eyeSize * 5;
+  ctx.shadowColor = glowColor;
+  ctx.shadowBlur = headSize * 0.5;
+  ctx.fillStyle = flashCol || glowColor;
+  var eyeGap = headSize * 0.22;
+  var eyeR = Math.max(1, headSize * 0.12);
   ctx.beginPath();
-  ctx.arc(-screenW * 0.1, eyeY, eyeSize, 0, Math.PI * 2);
+  ctx.arc(cx - eyeGap, headCY - headSize * 0.05, eyeR, 0, Math.PI * 2);
   ctx.fill();
   ctx.beginPath();
-  ctx.arc(screenW * 0.1, eyeY, eyeSize, 0, Math.PI * 2);
+  ctx.arc(cx + eyeGap, headCY - headSize * 0.05, eyeR, 0, Math.PI * 2);
   ctx.fill();
-  ctx.shadowBlur = 0;
+
+  // ---- HEALTH BAR ----
+  if (z.hp < z.maxhp) {
+    ctx.shadowBlur = 0;
+    var barW = bodyW * 0.8;
+    var barH = Math.max(2, bodyH * 0.03);
+    var barY = head.y - barH - 4;
+    ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    ctx.fillRect(cx - barW/2, barY, barW, barH);
+    ctx.fillStyle = z.hp/z.maxhp > 0.5 ? '#0f0' : z.hp/z.maxhp > 0.25 ? '#ff0' : '#f00';
+    ctx.fillRect(cx - barW/2, barY, barW * (z.hp/z.maxhp), barH);
+  }
 
   ctx.restore();
-
-  // HP bar
-  if (z.hp < z.maxHp) {
-    var barW = screenW + 10 * sc;
-    var barH = Math.max(3, 4 * sc);
-    var barY = topP.y - bounce - 10 * sc;
-    ctx.fillStyle = 'rgba(64,0,0,0.7)';
-    ctx.fillRect(p.x - barW / 2, barY, barW, barH);
-    ctx.fillStyle = '#ff0033';
-    ctx.shadowColor = '#ff0000';
-    ctx.shadowBlur = 6;
-    ctx.fillRect(p.x - barW / 2, barY, barW * (z.hp / z.maxHp), barH);
-    ctx.shadowBlur = 0;
-  }
 }
 
 function drawPowerup(pu) {
