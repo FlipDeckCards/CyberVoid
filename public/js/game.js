@@ -3,10 +3,14 @@ const ctx = canvas.getContext('2d');
 const nameInput = document.getElementById('nameInput');
 const startBtn = document.getElementById('startBtn');
 const startScreen = document.getElementById('startScreen');
+const deathScreen = document.getElementById('deathScreen');
+const killerNameEl = document.getElementById('killerName');
+const respawnBtn = document.getElementById('respawnBtn');
 const scoreEl = document.getElementById('score');
 
 let ws;
 let myId = null;
+let myName = 'Anon';
 let state = { players: {}, foods: [], kills: [], borderSize: 3000, mapSize: 3000 };
 let mouse = { x: 0, y: 0 };
 let cam = { x: 0, y: 0 };
@@ -23,26 +27,45 @@ function connect() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   ws = new WebSocket(`${proto}://${location.host}`);
 
-  ws.onopen = () => console.log('Connected');
+  ws.onopen = () => {
+    console.log('Connected');
+    setTimeout(() => {
+      if (ws && ws.readyState === 1) {
+        ws.send(JSON.stringify({ type: 'name', name: myName }));
+      }
+    }, 300);
+  };
+
   ws.onmessage = (e) => {
     const msg = JSON.parse(e.data);
     if (msg.type === 'init') myId = msg.id;
     if (msg.type === 'state') state = msg;
+    if (msg.type === 'death') showDeath(msg.killer);
   };
+
   ws.onclose = () => setTimeout(connect, 2000);
 }
 
+function showDeath(killer) {
+  killerNameEl.textContent = `by ${killer}`;
+  deathScreen.classList.add('show');
+}
+
+function hideDeath() {
+  deathScreen.classList.remove('show');
+}
+
 startBtn.addEventListener('click', () => {
-  const name = nameInput.value.trim() || 'Anon';
+  myName = nameInput.value.trim() || 'Anon';
   startScreen.style.display = 'none';
   canvas.style.display = 'block';
   playing = true;
   connect();
-  setTimeout(() => {
-    if (ws && ws.readyState === 1) {
-      ws.send(JSON.stringify({ type: 'name', name }));
-    }
-  }, 500);
+});
+
+respawnBtn.addEventListener('click', () => {
+  hideDeath();
+  // Server already respawned our blob — just keep playing
 });
 
 canvas.addEventListener('mousemove', (e) => {
@@ -174,7 +197,6 @@ function drawKillFeed() {
 
     const fade = age > 5 ? 1 - (age - 5) / 3 : 1;
 
-    // Background pill
     ctx.fillStyle = `rgba(0, 0, 0, ${0.5 * fade})`;
     const text = `${k.killer}  ☠  ${k.victim}`;
     ctx.font = '13px "Orbitron", monospace';
@@ -183,17 +205,14 @@ function drawKillFeed() {
     ctx.roundRect(x, y - 14, w, 22, 4);
     ctx.fill();
 
-    // Killer name
     ctx.fillStyle = k.killerColor ? k.killerColor.replace(')', `, ${fade})`).replace('hsl', 'hsla') : `rgba(0, 255, 255, ${fade})`;
     ctx.textAlign = 'left';
     ctx.fillText(k.killer, x + 8, y);
 
-    // Skull
     const killerW = ctx.measureText(k.killer).width;
     ctx.fillStyle = `rgba(255, 60, 80, ${fade})`;
     ctx.fillText('☠', x + 8 + killerW + 6, y);
 
-    // Victim name
     const skullW = ctx.measureText('☠').width;
     ctx.fillStyle = k.victimColor ? k.victimColor.replace(')', `, ${fade})`).replace('hsl', 'hsla') : `rgba(255, 0, 255, ${fade})`;
     ctx.fillText(k.victim, x + 8 + killerW + 6 + skullW + 6, y);
@@ -227,7 +246,6 @@ function drawHUD() {
     ctx.fillText('⚠ BORDER', canvas.width / 2, 60);
   }
 
-  // Minimap
   const mm = 120;
   const mx = canvas.width - mm - 15;
   const my = canvas.height - mm - 15;
