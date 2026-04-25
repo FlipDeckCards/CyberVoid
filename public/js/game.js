@@ -866,6 +866,9 @@ startBtn.addEventListener('click', () => {
   playerName = nameInput.value.trim() || 'Anon';
   startScreen.style.display = 'none';
   canvas.style.display = 'block';
+  resize();
+  mouse.x = canvas.width / 2;
+  mouse.y = canvas.height / 2;
   hideGameOver();
   resetGame();
   loop();
