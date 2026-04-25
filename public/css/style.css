@@ -1,13 +1,11 @@
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
+* { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
   background: #0a0a1a;
   overflow: hidden;
   font-family: 'Orbitron', monospace;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 #startScreen {
@@ -15,20 +13,68 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 100vh;
-  gap: 20px;
+  min-height: 100vh;
+  gap: 16px;
+  padding: 20px;
 }
 
 .title {
-  font-size: 4rem;
+  font-size: 3.5rem;
   color: #0ff;
   text-shadow: 0 0 20px #0ff, 0 0 60px #0ff;
   letter-spacing: 6px;
 }
 
 .accent {
-  color: #f0f;
-  text-shadow: 0 0 20px #f0f, 0 0 60px #f0f;
+  color: #ff0050;
+  text-shadow: 0 0 20px #ff0050, 0 0 60px #ff0050;
+}
+
+.subtitle {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.8rem;
+  letter-spacing: 6px;
+  margin-top: -8px;
+}
+
+#leaderboardBox {
+  background: rgba(0, 255, 255, 0.03);
+  border: 1px solid rgba(0, 255, 255, 0.15);
+  border-radius: 8px;
+  padding: 16px 24px;
+  width: 340px;
+  max-width: 90vw;
+}
+
+.lb-title {
+  font-size: 0.7rem;
+  color: rgba(0, 255, 255, 0.5);
+  letter-spacing: 4px;
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.lb-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(0, 255, 255, 0.06);
+  font-size: 0.75rem;
+}
+
+.lb-row:last-child { border-bottom: none; }
+
+.lb-rank { color: rgba(255, 255, 255, 0.3); width: 30px; }
+.lb-name { color: #f0f; flex: 1; text-align: left; margin-left: 8px; }
+.lb-score { color: #ffff00; width: 60px; text-align: right; }
+.lb-wave { color: rgba(255, 255, 255, 0.3); width: 50px; text-align: right; font-size: 0.65rem; }
+
+.lb-empty {
+  color: rgba(255, 255, 255, 0.2);
+  text-align: center;
+  font-size: 0.7rem;
+  padding: 12px 0;
 }
 
 #nameInput {
@@ -44,9 +90,7 @@ body {
   letter-spacing: 2px;
 }
 
-#nameInput::placeholder {
-  color: rgba(0, 255, 255, 0.4);
-}
+#nameInput::placeholder { color: rgba(0, 255, 255, 0.4); }
 
 #startBtn {
   background: transparent;
@@ -67,67 +111,7 @@ body {
   box-shadow: 0 0 30px rgba(255, 0, 255, 0.5), inset 0 0 20px rgba(255, 0, 255, 0.2);
 }
 
-#score {
-  position: fixed;
-  top: 15px;
-  right: 15px;
-  color: #0ff;
-  font-size: 1.1rem;
-  text-shadow: 0 0 10px #0ff;
-  z-index: 10;
-}
-
-#deathScreen {
-  display: none;
-  position: fixed;
-  top: 0; left: 0;
-  width: 100%; height: 100%;
-  background: rgba(10, 10, 26, 0.85);
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 20px;
-  z-index: 100;
-}
-
-#deathScreen.show {
-  display: flex;
-}
-
-.death-title {
-  font-size: 2.5rem;
-  color: #ff0050;
-  text-shadow: 0 0 20px #ff0050, 0 0 60px #ff0050;
-  letter-spacing: 4px;
-}
-
-.death-killer {
-  font-size: 1.2rem;
-  color: #f0f;
-  text-shadow: 0 0 10px #f0f;
-  letter-spacing: 2px;
-}
-
-#respawnBtn {
-  background: transparent;
-  border: 2px solid #0ff;
-  color: #0ff;
-  font-family: 'Orbitron', monospace;
-  font-size: 1rem;
-  padding: 12px 40px;
-  cursor: pointer;
-  letter-spacing: 4px;
-  text-shadow: 0 0 10px #0ff;
-  box-shadow: 0 0 15px rgba(0, 255, 255, 0.3), inset 0 0 15px rgba(0, 255, 255, 0.1);
-  transition: all 0.2s;
-}
-
-#respawnBtn:hover {
-  background: rgba(0, 255, 255, 0.15);
-  box-shadow: 0 0 30px rgba(0, 255, 255, 0.5), inset 0 0 20px rgba(0, 255, 255, 0.2);
-}
-
-#victoryScreen {
+#gameOverScreen {
   display: none;
   position: fixed;
   top: 0; left: 0;
@@ -140,64 +124,53 @@ body {
   z-index: 200;
 }
 
-#victoryScreen.show {
-  display: flex;
-}
+#gameOverScreen.show { display: flex; }
 
-.victory-title {
+.go-title {
   font-size: 3rem;
-  color: #0ff;
-  text-shadow: 0 0 30px #0ff, 0 0 80px #0ff;
+  color: #ff0050;
+  text-shadow: 0 0 30px #ff0050, 0 0 80px #ff0050;
   letter-spacing: 6px;
 }
 
-.victory-round {
+.go-wave {
   font-size: 1rem;
   color: rgba(255, 255, 255, 0.5);
   letter-spacing: 3px;
 }
 
-.victory-winner {
+.go-score {
   font-size: 1.5rem;
-  color: #f0f;
-  text-shadow: 0 0 15px #f0f;
+  color: #ffff00;
+  text-shadow: 0 0 15px #ffff00;
   letter-spacing: 3px;
 }
 
-.victory-score {
-  font-size: 1.1rem;
-  color: #ffff00;
-  text-shadow: 0 0 10px #ffff00;
-  letter-spacing: 2px;
-}
-
-.victory-next {
+.go-rank {
   font-size: 0.9rem;
-  color: rgba(0, 255, 255, 0.7);
+  color: #0ff;
   letter-spacing: 2px;
-  display: none;
+  min-height: 20px;
 }
 
-#playAgainBtn {
+#restartBtn {
   background: transparent;
-  border: 2px solid #f0f;
-  color: #f0f;
+  border: 2px solid #0ff;
+  color: #0ff;
   font-family: 'Orbitron', monospace;
-  font-size: 1.1rem;
+  font-size: 1rem;
   padding: 14px 48px;
   cursor: pointer;
   letter-spacing: 4px;
-  text-shadow: 0 0 10px #f0f;
-  box-shadow: 0 0 15px rgba(255, 0, 255, 0.3), inset 0 0 15px rgba(255, 0, 255, 0.1);
+  text-shadow: 0 0 10px #0ff;
+  box-shadow: 0 0 15px rgba(0, 255, 255, 0.3), inset 0 0 15px rgba(0, 255, 255, 0.1);
   transition: all 0.2s;
   margin-top: 10px;
 }
 
-#playAgainBtn:hover {
-  background: rgba(255, 0, 255, 0.15);
-  box-shadow: 0 0 30px rgba(255, 0, 255, 0.5), inset 0 0 20px rgba(255, 0, 255, 0.2);
+#restartBtn:hover {
+  background: rgba(0, 255, 255, 0.15);
+  box-shadow: 0 0 30px rgba(0, 255, 255, 0.5), inset 0 0 20px rgba(0, 255, 255, 0.2);
 }
 
-canvas {
-  display: block;
-}
+canvas { display: block; cursor: none; }
