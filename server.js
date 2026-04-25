@@ -17,6 +17,7 @@ const BORDER_SHRINK_RATE = 0.5;
 const MIN_BORDER = 400;
 const BORDER_PENALTY = 10;
 const BOT_COUNT = 6;
+const KILL_FEED_MAX = 6;
 
 const BOT_NAMES = ['NEXUS', 'CIPHER', 'PHANTOM', 'VECTOR', 'RAZOR', 'GLITCH', 'PULSE', 'WRAITH'];
 
@@ -31,6 +32,7 @@ const FOOD_TYPES = [
 
 let players = {};
 let foods = [];
+let kills = [];
 let borderSize = MAP_SIZE;
 
 function spawnFood() {
@@ -70,7 +72,6 @@ function createBot() {
   };
 }
 
-// Spawn initial bots
 for (let i = 0; i < BOT_COUNT; i++) {
   createBot();
 }
@@ -83,7 +84,6 @@ function updateBots() {
     const bot = players[id];
     if (!bot.isBot) continue;
 
-    // Find best food — weighted by value / distance (prefers big nearby food)
     let bestFood = null;
     let bestScore = 0;
     for (const f of foods) {
@@ -95,7 +95,6 @@ function updateBots() {
       }
     }
 
-    // Check nearby players — flee or chase
     let flee = null;
     let chase = null;
     let fleeDist = Infinity;
@@ -115,7 +114,6 @@ function updateBots() {
       }
     }
 
-    // Priority: flee > chase > eat food
     if (flee) {
       bot.targetX = bot.x - flee.x;
       bot.targetY = bot.y - flee.y;
@@ -127,7 +125,6 @@ function updateBots() {
       bot.targetY = bestFood.y - bot.y;
     }
 
-    // Border avoidance — steer away from edges
     const margin = 80;
     if (bot.x < center - half + margin) bot.targetX = Math.abs(bot.targetX) + 3;
     if (bot.x > center + half - margin) bot.targetX = -Math.abs(bot.targetX) - 3;
@@ -135,7 +132,6 @@ function updateBots() {
     if (bot.y > center + half - margin) bot.targetY = -Math.abs(bot.targetY) - 3;
   }
 
-  // Maintain bot count — respawn if bots got cleaned up somehow
   let botCount = Object.values(players).filter((p) => p.isBot).length;
   while (botCount < BOT_COUNT) {
     createBot();
@@ -201,19 +197,27 @@ wss.on('connection', (ws) => {
   });
 });
 
+function addKill(killerName, victimName, killerColor, victimColor) {
+  kills.push({
+    killer: killerName || 'Anon',
+    victim: victimName || 'Anon',
+    killerColor,
+    victimColor,
+    time: Date.now(),
+  });
+  if (kills.length > KILL_FEED_MAX) kills.shift();
+}
+
 function gameLoop() {
   const center = MAP_SIZE / 2;
 
-  // Shrink border
   if (borderSize > MIN_BORDER) {
     borderSize -= BORDER_SHRINK_RATE;
     if (borderSize < MIN_BORDER) borderSize = MIN_BORDER;
   }
 
-  // Update bot AI
   updateBots();
 
-  // Remove food outside border
   foods = foods.filter((f) => !isOutsideBorder(f.x, f.y));
   while (foods.length < FOOD_COUNT) {
     foods.push(spawnFood());
@@ -223,7 +227,6 @@ function gameLoop() {
     const p = players[id];
     const speed = getSpeed(p.radius);
 
-    // Movement
     const dx = p.targetX;
     const dy = p.targetY;
     const len = Math.sqrt(dx * dx + dy * dy);
@@ -232,7 +235,6 @@ function gameLoop() {
       p.y += (dy / len) * speed;
     }
 
-    // Border collision — heavy penalty
     if (p.borderHit > 0) p.borderHit--;
 
     if (isOutsideBorder(p.x, p.y)) {
@@ -245,7 +247,6 @@ function gameLoop() {
       }
     }
 
-    // Eat food
     for (let i = foods.length - 1; i >= 0; i--) {
       const f = foods[i];
       const dist = Math.sqrt((p.x - f.x) ** 2 + (p.y - f.y) ** 2);
@@ -257,16 +258,17 @@ function gameLoop() {
       }
     }
 
-    // Eat smaller players
     for (const otherId in players) {
       if (otherId === id) continue;
       const o = players[otherId];
       const dist = Math.sqrt((p.x - o.x) ** 2 + (p.y - o.y) ** 2);
       if (dist < p.radius - o.radius * 0.5 && p.radius > o.radius * 1.2) {
+        // Kill event
+        addKill(p.name, o.name, p.color, o.color);
+
         p.radius += o.radius * 0.5;
         p.score += o.score + 50;
 
-        // Reset eaten player
         o.x = center + (Math.random() - 0.5) * 200;
         o.y = center + (Math.random() - 0.5) * 200;
         o.radius = INITIAL_RADIUS;
@@ -275,11 +277,11 @@ function gameLoop() {
     }
   }
 
-  // Broadcast state
   const gameState = JSON.stringify({
     type: 'state',
     players,
     foods,
+    kills,
     borderSize,
     mapSize: MAP_SIZE,
   });
