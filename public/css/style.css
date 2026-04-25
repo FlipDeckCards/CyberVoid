@@ -1,0 +1,493 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: #0a0a0f;
+  overflow: hidden;
+  font-family: 'Share Tech Mono', monospace;
+  cursor: none;
+}
+
+canvas {
+  display: block;
+  position: fixed;
+  top: 0;
+  left: 0;
+}
+
+/* HUD */
+#hud {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  pointer-events: none;
+  z-index: 10;
+}
+
+#score {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  color: #0ff;
+  font-family: 'Orbitron', monospace;
+  font-size: 18px;
+  text-shadow: 0 0 10px #0ff, 0 0 20px #0ff;
+}
+
+#leaderboard {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: rgba(10, 10, 20, 0.85);
+  border: 1px solid #0ff;
+  box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
+  padding: 15px;
+  min-width: 180px;
+}
+
+.lb-title {
+  color: #0ff;
+  font-family: 'Orbitron', monospace;
+  font-size: 13px;
+  margin-bottom: 10px;
+  text-shadow: 0 0 8px #0ff;
+}
+
+#lbList {
+  list-style: none;
+  padding: 0;
+}
+
+#lbList li {
+  color: #c0c0c0;
+  font-size: 12px;
+  padding: 3px 0;
+  border-bottom: 1px solid rgba(0, 255, 255, 0.1);
+}
+
+#lbList li:first-child {
+  color: #ff00ff;
+  text-shadow: 0 0 6px #ff00ff;
+}
+
+/* Start Screen */
+#startScreen {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  background: radial-gradient(ellipse at center, #0a0a1a 0%, #000 70%);
+}
+
+#startScreen h1 {
+  font-family: 'Orbitron', monospace;
+  font-size: 64px;
+  color: #0ff;
+  text-shadow: 0 0 20px #0ff, 0 0 40px #0ff, 0 0 80px #00aaff;
+  margin-bottom: 40px;
+  letter-spacing: 8px;
+}
+
+.accent {
+  color: #ff00ff;
+  text-shadow: 0 0 20px #ff00ff, 0 0 40px #ff00ff, 0 0 80px #aa00ff;
+}
+
+#nameInput {
+  background: rgba(0, 255, 255, 0.05);
+  border: 1px solid #0ff;
+  color: #0ff;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 18px;
+  padding: 12px 24px;
+  text-align: center;
+  outline: none;
+  margin-bottom: 20px;
+  width: 280px;
+  letter-spacing: 2px;
+}
+
+#nameInput::placeholder {
+  color: rgba(0, 255, 255, 0.3);
+}
+
+#nameInput:focus {
+  box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
+}
+
+#playBtn {
+  background: transparent;
+  border: 2px solid #ff00ff;
+  color: #ff00ff;
+  font-family: 'Orbitron', monospace;
+  font-size: 20px;
+  padding: 14px 48px;
+  cursor: pointer;
+  letter-spacing: 4px;
+  text-shadow: 0 0 10px #ff00ff;
+  transition: all 0.3s;
+}
+
+#playBtn:hover {
+  background: rgba(255, 0, 255, 0.15);
+  box-shadow: 0 0 30px rgba(255, 0, 255, 0.4);
+}
+public/js/game.js
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// ─── CONFIG ───
+const WORLD_SIZE = 4000;
+const FOOD_COUNT = 300;
+const BOT_COUNT = 15;
+const NEON_COLORS = ['#0ff', '#ff00ff', '#00ff66', '#ff3366', '#ffcc00', '#6633ff', '#ff6600'];
+
+// ─── STATE ───
+let player = null;
+let foods = [];
+let bots = [];
+let camera = { x: 0, y: 0 };
+let mouse = { x: 0, y: 0 };
+let gameRunning = false;
+let animFrame = null;
+
+// ─── RESIZE ───
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ─── HELPERS ───
+function rand(min, max) { return Math.random() * (max - min) + min; }
+function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
+function massToRadius(mass) { return Math.sqrt(mass) * 4; }
+
+function randomColor() {
+  return NEON_COLORS[Math.floor(Math.random() * NEON_COLORS.length)];
+}
+
+// ─── FOOD ───
+function spawnFood() {
+  return {
+    x: rand(0, WORLD_SIZE),
+    y: rand(0, WORLD_SIZE),
+    color: randomColor(),
+    mass: 1,
+    pulse: rand(0, Math.PI * 2)
+  };
+}
+
+function initFoods() {
+  foods = [];
+  for (let i = 0; i < FOOD_COUNT; i++) foods.push(spawnFood());
+}
+
+// ─── BOTS ───
+function spawnBot() {
+  return {
+    x: rand(200, WORLD_SIZE - 200),
+    y: rand(200, WORLD_SIZE - 200),
+    mass: rand(10, 60),
+    color: randomColor(),
+    name: 'PROG_' + Math.floor(rand(100, 999)),
+    dx: rand(-1, 1),
+    dy: rand(-1, 1),
+    turnTimer: 0
+  };
+}
+
+function initBots() {
+  bots = [];
+  for (let i = 0; i < BOT_COUNT; i++) bots.push(spawnBot());
+}
+
+// ─── PLAYER ───
+function createPlayer(name) {
+  return {
+    x: rand(500, WORLD_SIZE - 500),
+    y: rand(500, WORLD_SIZE - 500),
+    mass: 10,
+    color: '#0ff',
+    name: name || 'ANON'
+  };
+}
+
+// ─── UPDATE ───
+function update() {
+  if (!player) return;
+
+  // Player movement toward mouse
+  const speed = Math.max(1.5, 8 - player.mass * 0.03);
+  const angle = Math.atan2(
+    mouse.y - canvas.height / 2,
+    mouse.x - canvas.width / 2
+  );
+  player.x += Math.cos(angle) * speed;
+  player.y += Math.sin(angle) * speed;
+
+  // Clamp to world
+  player.x = Math.max(0, Math.min(WORLD_SIZE, player.x));
+  player.y = Math.max(0, Math.min(WORLD_SIZE, player.y));
+
+  // Camera
+  camera.x = player.x - canvas.width / 2;
+  camera.y = player.y - canvas.height / 2;
+
+  const playerR = massToRadius(player.mass);
+
+  // Eat food
+  for (let i = foods.length - 1; i >= 0; i--) {
+    if (dist(player, foods[i]) < playerR) {
+      player.mass += foods[i].mass;
+      foods[i] = spawnFood();
+    }
+  }
+
+  // Bot AI
+  bots.forEach(bot => {
+    bot.turnTimer -= 1;
+    if (bot.turnTimer <= 0) {
+      bot.dx = rand(-1, 1);
+      bot.dy = rand(-1, 1);
+      bot.turnTimer = rand(60, 180);
+    }
+
+    const botSpeed = Math.max(1, 6 - bot.mass * 0.03);
+    bot.x += bot.dx * botSpeed;
+    bot.y += bot.dy * botSpeed;
+    bot.x = Math.max(0, Math.min(WORLD_SIZE, bot.x));
+    bot.y = Math.max(0, Math.min(WORLD_SIZE, bot.y));
+
+    // Bots eat food
+    const botR = massToRadius(bot.mass);
+    for (let i = foods.length - 1; i >= 0; i--) {
+      if (dist(bot, foods[i]) < botR) {
+        bot.mass += foods[i].mass;
+        foods[i] = spawnFood();
+      }
+    }
+  });
+
+  // Player eats smaller bots
+  for (let i = bots.length - 1; i >= 0; i--) {
+    const bot = bots[i];
+    const botR = massToRadius(bot.mass);
+    if (player.mass > bot.mass * 1.2 && dist(player, bot) < playerR - botR * 0.3) {
+      player.mass += bot.mass * 0.8;
+      bots[i] = spawnBot();
+    }
+  }
+
+  // Bots eat player
+  bots.forEach(bot => {
+    const botR = massToRadius(bot.mass);
+    if (bot.mass > player.mass * 1.2 && dist(player, bot) < botR - playerR * 0.3) {
+      gameOver();
+    }
+  });
+
+  // Slow mass decay
+  if (player.mass > 15) player.mass -= 0.005;
+
+  // Update HUD
+  document.getElementById('massVal').textContent = Math.floor(player.mass);
+  updateLeaderboard();
+}
+
+// ─── DRAW ───
+function drawGrid() {
+  const gridSize = 80;
+  const offsetX = -camera.x % gridSize;
+  const offsetY = -camera.y % gridSize;
+
+  ctx.strokeStyle = 'rgba(0, 255, 255, 0.06)';
+  ctx.lineWidth = 1;
+
+  for (let x = offsetX; x < canvas.width; x += gridSize) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, canvas.height);
+    ctx.stroke();
+  }
+  for (let y = offsetY; y < canvas.height; y += gridSize) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(canvas.width, y);
+    ctx.stroke();
+  }
+}
+
+function drawBlob(entity, isPlayer) {
+  const sx = entity.x - camera.x;
+  const sy = entity.y - camera.y;
+  const r = massToRadius(entity.mass);
+
+  // Off-screen check
+  if (sx + r < 0 || sx - r > canvas.width || sy + r < 0 || sy - r > canvas.height) return;
+
+  // Outer glow
+  ctx.save();
+  ctx.shadowColor = entity.color;
+  ctx.shadowBlur = isPlayer ? 40 : 25;
+
+  // Body
+  ctx.beginPath();
+  ctx.arc(sx, sy, r, 0, Math.PI * 2);
+  ctx.fillStyle = entity.color + '33';
+  ctx.fill();
+
+  // Edge ring
+  ctx.beginPath();
+  ctx.arc(sx, sy, r, 0, Math.PI * 2);
+  ctx.strokeStyle = entity.color;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Inner core
+  ctx.beginPath();
+  ctx.arc(sx, sy, r * 0.3, 0, Math.PI * 2);
+  ctx.fillStyle = entity.color + '88';
+  ctx.fill();
+
+  ctx.restore();
+
+  // Name
+  ctx.fillStyle = '#fff';
+  ctx.font = `${Math.max(12, r * 0.4)}px 'Orbitron', monospace`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(entity.name, sx, sy);
+}
+
+function drawFood(food, time) {
+  const sx = food.x - camera.x;
+  const sy = food.y - camera.y;
+
+  if (sx < -10 || sx > canvas.width + 10 || sy < -10 || sy > canvas.height + 10) return;
+
+  const pulse = Math.sin(time * 0.003 + food.pulse) * 0.5 + 0.5;
+  const r = 3 + pulse * 2;
+
+  ctx.save();
+  ctx.shadowColor = food.color;
+  ctx.shadowBlur = 8 + pulse * 6;
+  ctx.beginPath();
+  ctx.arc(sx, sy, r, 0, Math.PI * 2);
+  ctx.fillStyle = food.color;
+  ctx.fill();
+  ctx.restore();
+}
+
+function drawBorder() {
+  ctx.strokeStyle = '#ff00ff';
+  ctx.lineWidth = 3;
+  ctx.shadowColor = '#ff00ff';
+  ctx.shadowBlur = 20;
+  ctx.strokeRect(-camera.x, -camera.y, WORLD_SIZE, WORLD_SIZE);
+  ctx.shadowBlur = 0;
+}
+
+function draw(time) {
+  // Clear
+  ctx.fillStyle = '#0a0a0f';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  drawGrid();
+  drawBorder();
+
+  foods.forEach(f => drawFood(f, time));
+  bots.forEach(b => drawBlob(b, false));
+  if (player) drawBlob(player, true);
+
+  // Crosshair cursor
+  const mx = mouse.x;
+  const my = mouse.y;
+  ctx.strokeStyle = 'rgba(0, 255, 255, 0.4)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(mx - 12, my); ctx.lineTo(mx + 12, my);
+  ctx.moveTo(mx, my - 12); ctx.lineTo(mx, my + 12);
+  ctx.stroke();
+}
+
+// ─── LEADERBOARD ───
+function updateLeaderboard() {
+  const all = [...bots.map(b => ({ name: b.name, mass: b.mass }))];
+  if (player) all.push({ name: player.name, mass: player.mass });
+  all.sort((a, b) => b.mass - a.mass);
+
+  const list = document.getElementById('lbList');
+  list.innerHTML = all.slice(0, 8).map((e, i) =>
+    `<li>${i + 1}. ${e.name} — ${Math.floor(e.mass)}</li>`
+  ).join('');
+}
+
+// ─── GAME LOOP ───
+function loop(time) {
+  update();
+  draw(time);
+  animFrame = requestAnimationFrame(loop);
+}
+
+// ─── START / GAME OVER ───
+function startGame() {
+  const name = document.getElementById('nameInput').value.trim().toUpperCase() || 'ANON';
+  player = createPlayer(name);
+  initFoods();
+  initBots();
+  gameRunning = true;
+
+  document.getElementById('startScreen').style.display = 'none';
+  document.getElementById('hud').style.display = 'block';
+
+  if (animFrame) cancelAnimationFrame(animFrame);
+  animFrame = requestAnimationFrame(loop);
+}
+
+function gameOver() {
+  gameRunning = false;
+  player = null;
+  if (animFrame) cancelAnimationFrame(animFrame);
+
+  document.getElementById('hud').style.display = 'none';
+  document.getElementById('startScreen').style.display = 'flex';
+}
+
+// ─── INPUT ───
+canvas.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  mouse.x = e.touches[0].clientX;
+  mouse.y = e.touches[0].clientY;
+}, { passive: false });
+canvas.addEventListener('touchstart', e => {
+  mouse.x = e.touches[0].clientX;
+  mouse.y = e.touches[0].clientY;
+});
+
+document.getElementById('playBtn').addEventListener('click', startGame);
+document.getElementById('nameInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') startGame();
+});
+
+// Start ambient draw (grid animation before playing)
+function ambientLoop(time) {
+  if (gameRunning) return;
+  ctx.fillStyle = '#0a0a0f';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  camera.x = Math.sin(time * 0.0002) * 200;
+  camera.y = Math.cos(time * 0.0003) * 200;
+  drawGrid();
+  requestAnimationFrame(ambientLoop);
+}
+requestAnimationFrame(ambientLoop);
