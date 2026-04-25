@@ -8,21 +8,21 @@ const wss = new WebSocketServer({ server });
 
 app.use(express.static('public'));
 
-// Game constants
+// Base constants
 const TICK_RATE = 60;
 const MAP_SIZE = 3000;
-const FOOD_COUNT = 200;
+const BASE_FOOD_COUNT = 200;
 const INITIAL_RADIUS = 15;
 const MAX_RADIUS = 120;
-const BORDER_SHRINK_RATE = 0.5;
+const BASE_BORDER_SHRINK = 0.5;
 const MIN_BORDER = 400;
 const BORDER_PENALTY = 10;
-const BOT_COUNT = 6;
-const BOT_MAX_RADIUS = 55;
+const BASE_BOT_COUNT = 6;
+const BASE_BOT_MAX = 55;
 const KILL_FEED_MAX = 6;
 const FINAL_COUNTDOWN = 15;
 
-const BOT_NAMES = ['NEXUS', 'CIPHER', 'PHANTOM', 'VECTOR', 'RAZOR', 'GLITCH', 'PULSE', 'WRAITH'];
+const BOT_NAMES = ['NEXUS', 'CIPHER', 'PHANTOM', 'VECTOR', 'RAZOR', 'GLITCH', 'PULSE', 'WRAITH', 'ECHO', 'NOVA'];
 
 const FOOD_TYPES = [
   { color: '#ff00ff', size: 4, value: 1 },
@@ -32,6 +32,7 @@ const FOOD_TYPES = [
   { color: '#00ff88', size: 12, value: 3 },
 ];
 
+// Game state
 let players = {};
 let connections = {};
 let foods = [];
@@ -41,6 +42,19 @@ let gameActive = false;
 let countdown = -1;
 let countdownTicks = 0;
 let matchOver = false;
+let round = 1;
+let endTimer = null;
+
+// Difficulty scaling per round
+function getDifficulty() {
+  const r = round;
+  return {
+    botCount: Math.min(BASE_BOT_COUNT + Math.floor((r - 1) * 1.5), 12),
+    botMaxRadius: Math.min(BASE_BOT_MAX + (r - 1) * 8, 100),
+    borderShrink: BASE_BORDER_SHRINK + (r - 1) * 0.15,
+    foodCount: Math.max(BASE_FOOD_COUNT - (r - 1) * 15, 100),
+  };
+}
 
 function spawnFood() {
   const type = FOOD_TYPES[Math.floor(Math.random() * FOOD_TYPES.length)];
@@ -56,12 +70,12 @@ function spawnFood() {
 }
 
 function initFoods() {
+  const diff = getDifficulty();
   foods = [];
-  for (let i = 0; i < FOOD_COUNT; i++) {
+  for (let i = 0; i < diff.foodCount; i++) {
     foods.push(spawnFood());
   }
 }
-initFoods();
 
 function createBot() {
   const id = 'bot_' + Math.random().toString(36).substr(2, 9);
@@ -81,22 +95,33 @@ function createBot() {
   };
 }
 
-function resetGame() {
+function resetGame(nextRound) {
+  if (endTimer) { clearTimeout(endTimer); endTimer = null; }
+
+  if (nextRound) {
+    round = nextRound;
+  }
+
+  const diff = getDifficulty();
+
+  // Remove all bots
   for (const id in players) {
     if (players[id].isBot) delete players[id];
   }
-  // Reset real players too
+  // Reset real players
+  const center = MAP_SIZE / 2;
   for (const id in players) {
     const p = players[id];
-    const center = MAP_SIZE / 2;
     p.x = center + (Math.random() - 0.5) * 200;
     p.y = center + (Math.random() - 0.5) * 200;
     p.radius = INITIAL_RADIUS;
     p.score = 0;
   }
-  for (let i = 0; i < BOT_COUNT; i++) {
+  // Spawn bots for this round
+  for (let i = 0; i < diff.botCount; i++) {
     createBot();
   }
+
   borderSize = MAP_SIZE;
   kills = [];
   countdown = -1;
@@ -104,13 +129,23 @@ function resetGame() {
   matchOver = false;
   initFoods();
   gameActive = true;
+
+  // Tell all clients about new round
+  broadcast(JSON.stringify({ type: 'new_round', round }));
 }
 
 function getRealPlayerCount() {
   return Object.values(players).filter((p) => !p.isBot).length;
 }
 
+function broadcast(msg) {
+  wss.clients.forEach((ws) => {
+    if (ws.readyState === 1) ws.send(msg);
+  });
+}
+
 function updateBots() {
+  const diff = getDifficulty();
   const center = MAP_SIZE / 2;
   const half = borderSize / 2;
 
@@ -118,7 +153,7 @@ function updateBots() {
     const bot = players[id];
     if (!bot.isBot) continue;
 
-    if (bot.radius > BOT_MAX_RADIUS) bot.radius = BOT_MAX_RADIUS;
+    if (bot.radius > diff.botMaxRadius) bot.radius = diff.botMaxRadius;
 
     let bestFood = null;
     let bestScore = 0;
@@ -169,7 +204,7 @@ function updateBots() {
   }
 
   let botCount = Object.values(players).filter((p) => p.isBot).length;
-  while (botCount < BOT_COUNT) {
+  while (botCount < diff.botCount) {
     createBot();
     botCount++;
   }
@@ -206,7 +241,7 @@ wss.on('connection', (ws) => {
   const center = MAP_SIZE / 2;
 
   if (getRealPlayerCount() === 0 || matchOver) {
-    resetGame();
+    resetGame(1);
   }
 
   players[id] = {
@@ -225,7 +260,7 @@ wss.on('connection', (ws) => {
 
   connections[id] = ws;
   ws.playerId = id;
-  ws.send(JSON.stringify({ type: 'init', id, mapSize: MAP_SIZE }));
+  ws.send(JSON.stringify({ type: 'init', id, mapSize: MAP_SIZE, round }));
 
   ws.on('message', (data) => {
     try {
@@ -238,7 +273,9 @@ wss.on('connection', (ws) => {
         players[id].name = String(msg.name).slice(0, 16);
       }
       if (msg.type === 'restart') {
-        resetGame();
+        const winner = getWinner();
+        const isPlayerWinner = winner && !winner.isBot && winner.id === id;
+        resetGame(isPlayerWinner ? round + 1 : 1);
       }
     } catch (e) {}
   });
@@ -246,7 +283,6 @@ wss.on('connection', (ws) => {
   ws.on('close', () => {
     delete players[id];
     delete connections[id];
-
     if (getRealPlayerCount() === 0) {
       gameActive = false;
     }
@@ -264,41 +300,63 @@ function addKill(killerName, victimName, killerColor, victimColor) {
   if (kills.length > KILL_FEED_MAX) kills.shift();
 }
 
+function endMatch() {
+  matchOver = true;
+  gameActive = false;
+  const winner = getWinner();
+  const winMsg = JSON.stringify({
+    type: 'match_over',
+    winner: winner ? (winner.name || 'Anon') : 'Nobody',
+    winnerId: winner ? winner.id : null,
+    score: winner ? winner.score : 0,
+    round,
+    isBot: winner ? winner.isBot : false,
+  });
+  broadcast(winMsg);
+}
+
 function gameLoop() {
   if (!gameActive || matchOver) return;
 
+  const diff = getDifficulty();
   const center = MAP_SIZE / 2;
 
   // Shrink border
   if (borderSize > MIN_BORDER) {
-    borderSize -= BORDER_SHRINK_RATE;
+    borderSize -= diff.borderShrink;
     if (borderSize < MIN_BORDER) borderSize = MIN_BORDER;
   }
 
-  // Final countdown when border hits minimum
+  // Start final countdown when border hits minimum
   if (borderSize <= MIN_BORDER && countdown < 0) {
     countdown = FINAL_COUNTDOWN;
     countdownTicks = 0;
   }
 
+  // Tick countdown
   if (countdown >= 0) {
     countdownTicks++;
     if (countdownTicks >= TICK_RATE) {
       countdownTicks = 0;
       countdown--;
     }
-    if (countdown < 0) {
-      // Match over
-      matchOver = true;
-      const winner = getWinner();
-      const winMsg = JSON.stringify({
-        type: 'match_over',
-        winner: winner ? winner.name || 'Anon' : 'Nobody',
-        score: winner ? winner.score : 0,
+    if (countdown < 0 && !matchOver) {
+      // Send one final state, then end match after short delay
+      const finalState = JSON.stringify({
+        type: 'state',
+        players,
+        foods,
+        kills,
+        borderSize,
+        mapSize: MAP_SIZE,
+        countdown: 0,
+        round,
       });
-      wss.clients.forEach((ws) => {
-        if (ws.readyState === 1) ws.send(winMsg);
-      });
+      broadcast(finalState);
+
+      endTimer = setTimeout(() => {
+        endMatch();
+      }, 500);
       return;
     }
   }
@@ -306,18 +364,16 @@ function gameLoop() {
   updateBots();
 
   foods = foods.filter((f) => !isOutsideBorder(f.x, f.y));
-  while (foods.length < FOOD_COUNT) {
+  while (foods.length < diff.foodCount) {
     foods.push(spawnFood());
   }
 
   for (const id in players) {
     const p = players[id];
     const speed = getSpeed(p.radius);
+    const maxR = p.isBot ? diff.botMaxRadius : MAX_RADIUS;
 
-    // Cap radius for everyone
-    if (p.radius > MAX_RADIUS) p.radius = MAX_RADIUS;
-    // Also enforce bot cap
-    if (p.isBot && p.radius > BOT_MAX_RADIUS) p.radius = BOT_MAX_RADIUS;
+    if (p.radius > maxR) p.radius = maxR;
 
     const dx = p.targetX;
     const dy = p.targetY;
@@ -332,7 +388,6 @@ function gameLoop() {
     if (isOutsideBorder(p.x, p.y)) {
       p.x = clampToBorder(p.x, center);
       p.y = clampToBorder(p.y, center);
-
       if (p.borderHit <= 0) {
         p.radius = Math.max(INITIAL_RADIUS, p.radius - BORDER_PENALTY);
         p.borderHit = 30;
@@ -343,7 +398,7 @@ function gameLoop() {
       const f = foods[i];
       const dist = Math.sqrt((p.x - f.x) ** 2 + (p.y - f.y) ** 2);
       if (dist < p.radius + f.radius) {
-        p.radius = Math.min(p.isBot ? BOT_MAX_RADIUS : MAX_RADIUS, p.radius + f.value * 0.5);
+        p.radius = Math.min(maxR, p.radius + f.value * 0.5);
         p.score += Math.round(f.value * 10);
         foods.splice(i, 1);
         foods.push(spawnFood());
@@ -364,7 +419,8 @@ function gameLoop() {
           }));
         }
 
-        p.radius = Math.min(p.isBot ? BOT_MAX_RADIUS : MAX_RADIUS, p.radius + o.radius * 0.5);
+        const pMax = p.isBot ? diff.botMaxRadius : MAX_RADIUS;
+        p.radius = Math.min(pMax, p.radius + o.radius * 0.5);
         p.score += o.score + 50;
 
         o.x = center + (Math.random() - 0.5) * 200;
@@ -383,11 +439,10 @@ function gameLoop() {
     borderSize,
     mapSize: MAP_SIZE,
     countdown,
+    round,
   });
 
-  wss.clients.forEach((ws) => {
-    if (ws.readyState === 1) ws.send(gameState);
-  });
+  broadcast(gameState);
 }
 
 setInterval(gameLoop, 1000 / TICK_RATE);
