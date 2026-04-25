@@ -1,22 +1,17 @@
-const canvas = document.getElementById('gameCanvas');
+const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
+const nameInput = document.getElementById('nameInput');
+const startBtn = document.getElementById('startBtn');
+const startScreen = document.getElementById('startScreen');
+const scoreEl = document.getElementById('score');
 
-// ─── CONFIG ───
-const WORLD_SIZE = 4000;
-const FOOD_COUNT = 300;
-const BOT_COUNT = 15;
-const NEON_COLORS = ['#0ff', '#ff00ff', '#00ff66', '#ff3366', '#ffcc00', '#6633ff', '#ff6600'];
-
-// ─── STATE ───
-let player = null;
-let foods = [];
-let bots = [];
-let camera = { x: 0, y: 0 };
+let ws;
+let myId = null;
+let state = { players: {}, foods: [], borderSize: 3000, mapSize: 3000 };
 let mouse = { x: 0, y: 0 };
-let gameRunning = false;
-let animFrame = null;
+let cam = { x: 0, y: 0 };
+let playing = false;
 
-// ─── RESIZE ───
 function resize() {
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
@@ -24,327 +19,223 @@ function resize() {
 window.addEventListener('resize', resize);
 resize();
 
-// ─── HELPERS ───
-function rand(min, max) { return Math.random() * (max - min) + min; }
-function dist(a, b) { return Math.hypot(a.x - b.x, a.y - b.y); }
-function massToRadius(mass) { return Math.sqrt(mass) * 4; }
+function connect() {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  ws = new WebSocket(`${proto}://${location.host}`);
 
-function randomColor() {
-  return NEON_COLORS[Math.floor(Math.random() * NEON_COLORS.length)];
-}
-
-// ─── FOOD ───
-function spawnFood() {
-  return {
-    x: rand(0, WORLD_SIZE),
-    y: rand(0, WORLD_SIZE),
-    color: randomColor(),
-    mass: 1,
-    pulse: rand(0, Math.PI * 2)
+  ws.onopen = () => console.log('Connected');
+  ws.onmessage = (e) => {
+    const msg = JSON.parse(e.data);
+    if (msg.type === 'init') myId = msg.id;
+    if (msg.type === 'state') state = msg;
   };
+  ws.onclose = () => setTimeout(connect, 2000);
 }
 
-function initFoods() {
-  foods = [];
-  for (let i = 0; i < FOOD_COUNT; i++) foods.push(spawnFood());
-}
-
-// ─── BOTS ───
-function spawnBot() {
-  return {
-    x: rand(200, WORLD_SIZE - 200),
-    y: rand(200, WORLD_SIZE - 200),
-    mass: rand(10, 60),
-    color: randomColor(),
-    name: 'PROG_' + Math.floor(rand(100, 999)),
-    dx: rand(-1, 1),
-    dy: rand(-1, 1),
-    turnTimer: 0
-  };
-}
-
-function initBots() {
-  bots = [];
-  for (let i = 0; i < BOT_COUNT; i++) bots.push(spawnBot());
-}
-
-// ─── PLAYER ───
-function createPlayer(name) {
-  return {
-    x: rand(500, WORLD_SIZE - 500),
-    y: rand(500, WORLD_SIZE - 500),
-    mass: 10,
-    color: '#0ff',
-    name: name || 'ANON'
-  };
-}
-
-// ─── UPDATE ───
-function update() {
-  if (!player) return;
-
-  // Player movement toward mouse
-  const speed = Math.max(1.5, 8 - player.mass * 0.03);
-  const angle = Math.atan2(
-    mouse.y - canvas.height / 2,
-    mouse.x - canvas.width / 2
-  );
-  player.x += Math.cos(angle) * speed;
-  player.y += Math.sin(angle) * speed;
-
-  // Clamp to world
-  player.x = Math.max(0, Math.min(WORLD_SIZE, player.x));
-  player.y = Math.max(0, Math.min(WORLD_SIZE, player.y));
-
-  // Camera
-  camera.x = player.x - canvas.width / 2;
-  camera.y = player.y - canvas.height / 2;
-
-  const playerR = massToRadius(player.mass);
-
-  // Eat food
-  for (let i = foods.length - 1; i >= 0; i--) {
-    if (dist(player, foods[i]) < playerR) {
-      player.mass += foods[i].mass;
-      foods[i] = spawnFood();
+startBtn.addEventListener('click', () => {
+  const name = nameInput.value.trim() || 'Anon';
+  startScreen.style.display = 'none';
+  canvas.style.display = 'block';
+  playing = true;
+  connect();
+  setTimeout(() => {
+    if (ws && ws.readyState === 1) {
+      ws.send(JSON.stringify({ type: 'name', name }));
     }
+  }, 500);
+});
+
+canvas.addEventListener('mousemove', (e) => {
+  mouse.x = e.clientX - canvas.width / 2;
+  mouse.y = e.clientY - canvas.height / 2;
+});
+
+canvas.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  const t = e.touches[0];
+  mouse.x = t.clientX - canvas.width / 2;
+  mouse.y = t.clientY - canvas.height / 2;
+}, { passive: false });
+
+setInterval(() => {
+  if (ws && ws.readyState === 1 && playing) {
+    ws.send(JSON.stringify({ type: 'input', x: mouse.x, y: mouse.y }));
   }
+}, 1000 / 30);
 
-  // Bot AI
-  bots.forEach(bot => {
-    bot.turnTimer -= 1;
-    if (bot.turnTimer <= 0) {
-      bot.dx = rand(-1, 1);
-      bot.dy = rand(-1, 1);
-      bot.turnTimer = rand(60, 180);
-    }
-
-    const botSpeed = Math.max(1, 6 - bot.mass * 0.03);
-    bot.x += bot.dx * botSpeed;
-    bot.y += bot.dy * botSpeed;
-    bot.x = Math.max(0, Math.min(WORLD_SIZE, bot.x));
-    bot.y = Math.max(0, Math.min(WORLD_SIZE, bot.y));
-
-    // Bots eat food
-    const botR = massToRadius(bot.mass);
-    for (let i = foods.length - 1; i >= 0; i--) {
-      if (dist(bot, foods[i]) < botR) {
-        bot.mass += foods[i].mass;
-        foods[i] = spawnFood();
-      }
-    }
-  });
-
-  // Player eats smaller bots
-  for (let i = bots.length - 1; i >= 0; i--) {
-    const bot = bots[i];
-    const botR = massToRadius(bot.mass);
-    if (player.mass > bot.mass * 1.2 && dist(player, bot) < playerR - botR * 0.3) {
-      player.mass += bot.mass * 0.8;
-      bots[i] = spawnBot();
-    }
-  }
-
-  // Bots eat player
-  bots.forEach(bot => {
-    const botR = massToRadius(bot.mass);
-    if (bot.mass > player.mass * 1.2 && dist(player, bot) < botR - playerR * 0.3) {
-      gameOver();
-    }
-  });
-
-  // Slow mass decay
-  if (player.mass > 15) player.mass -= 0.005;
-
-  // Update HUD
-  document.getElementById('massVal').textContent = Math.floor(player.mass);
-  updateLeaderboard();
-}
-
-// ─── DRAW ───
 function drawGrid() {
-  const gridSize = 80;
-  const offsetX = -camera.x % gridSize;
-  const offsetY = -camera.y % gridSize;
-
-  ctx.strokeStyle = 'rgba(0, 255, 255, 0.06)';
+  ctx.strokeStyle = 'rgba(0, 255, 255, 0.07)';
   ctx.lineWidth = 1;
-
-  for (let x = offsetX; x < canvas.width; x += gridSize) {
-    ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, canvas.height);
-    ctx.stroke();
+  const g = 60;
+  const sx = -cam.x % g;
+  const sy = -cam.y % g;
+  for (let x = sx; x < canvas.width; x += g) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
   }
-  for (let y = offsetY; y < canvas.height; y += gridSize) {
-    ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(canvas.width, y);
-    ctx.stroke();
+  for (let y = sy; y < canvas.height; y += g) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
   }
-}
-
-function drawBlob(entity, isPlayer) {
-  const sx = entity.x - camera.x;
-  const sy = entity.y - camera.y;
-  const r = massToRadius(entity.mass);
-
-  // Off-screen check
-  if (sx + r < 0 || sx - r > canvas.width || sy + r < 0 || sy - r > canvas.height) return;
-
-  // Outer glow
-  ctx.save();
-  ctx.shadowColor = entity.color;
-  ctx.shadowBlur = isPlayer ? 40 : 25;
-
-  // Body
-  ctx.beginPath();
-  ctx.arc(sx, sy, r, 0, Math.PI * 2);
-  ctx.fillStyle = entity.color + '33';
-  ctx.fill();
-
-  // Edge ring
-  ctx.beginPath();
-  ctx.arc(sx, sy, r, 0, Math.PI * 2);
-  ctx.strokeStyle = entity.color;
-  ctx.lineWidth = 2;
-  ctx.stroke();
-
-  // Inner core
-  ctx.beginPath();
-  ctx.arc(sx, sy, r * 0.3, 0, Math.PI * 2);
-  ctx.fillStyle = entity.color + '88';
-  ctx.fill();
-
-  ctx.restore();
-
-  // Name
-  ctx.fillStyle = '#fff';
-  ctx.font = `${Math.max(12, r * 0.4)}px 'Orbitron', monospace`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(entity.name, sx, sy);
-}
-
-function drawFood(food, time) {
-  const sx = food.x - camera.x;
-  const sy = food.y - camera.y;
-
-  if (sx < -10 || sx > canvas.width + 10 || sy < -10 || sy > canvas.height + 10) return;
-
-  const pulse = Math.sin(time * 0.003 + food.pulse) * 0.5 + 0.5;
-  const r = 3 + pulse * 2;
-
-  ctx.save();
-  ctx.shadowColor = food.color;
-  ctx.shadowBlur = 8 + pulse * 6;
-  ctx.beginPath();
-  ctx.arc(sx, sy, r, 0, Math.PI * 2);
-  ctx.fillStyle = food.color;
-  ctx.fill();
-  ctx.restore();
 }
 
 function drawBorder() {
-  ctx.strokeStyle = '#ff00ff';
+  const bs = state.borderSize;
+  const ms = state.mapSize;
+  const c = ms / 2;
+  const half = bs / 2;
+  const x = (c - half) - cam.x;
+  const y = (c - half) - cam.y;
+
+  // Red danger zone outside
+  ctx.fillStyle = 'rgba(255, 0, 60, 0.08)';
+  ctx.fillRect(0, 0, canvas.width, Math.max(0, y));
+  ctx.fillRect(0, y + bs, canvas.width, canvas.height - (y + bs));
+  ctx.fillRect(0, y, Math.max(0, x), bs);
+  ctx.fillRect(x + bs, y, canvas.width - (x + bs), bs);
+
+  // Pulsing border line
+  const pulse = 0.5 + 0.5 * Math.sin(Date.now() / 300);
+  ctx.strokeStyle = `rgba(255, 0, 80, ${0.4 + pulse * 0.3})`;
   ctx.lineWidth = 3;
-  ctx.shadowColor = '#ff00ff';
+  ctx.shadowColor = '#ff0050';
   ctx.shadowBlur = 20;
-  ctx.strokeRect(-camera.x, -camera.y, WORLD_SIZE, WORLD_SIZE);
+  ctx.strokeRect(x, y, bs, bs);
   ctx.shadowBlur = 0;
 }
 
-function draw(time) {
-  // Clear
-  ctx.fillStyle = '#0a0a0f';
+function drawFood() {
+  for (const f of state.foods) {
+    const sx = f.x - cam.x;
+    const sy = f.y - cam.y;
+    if (sx < -50 || sx > canvas.width + 50 || sy < -50 || sy > canvas.height + 50) continue;
+
+    ctx.beginPath();
+    ctx.arc(sx, sy, f.radius, 0, Math.PI * 2);
+    ctx.fillStyle = f.color;
+    ctx.shadowColor = f.color;
+    ctx.shadowBlur = f.radius * 3;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+}
+
+function drawPlayers() {
+  for (const id in state.players) {
+    const p = state.players[id];
+    const sx = p.x - cam.x;
+    const sy = p.y - cam.y;
+    if (sx < -200 || sx > canvas.width + 200 || sy < -200 || sy > canvas.height + 200) continue;
+
+    // Glow ring
+    ctx.beginPath();
+    ctx.arc(sx, sy, p.radius + 4, 0, Math.PI * 2);
+    ctx.fillStyle = id === myId ? 'rgba(0, 255, 255, 0.15)' : 'rgba(255, 0, 255, 0.1)';
+    ctx.shadowColor = p.color;
+    ctx.shadowBlur = 25;
+    ctx.fill();
+
+    // Body
+    ctx.beginPath();
+    ctx.arc(sx, sy, p.radius, 0, Math.PI * 2);
+    ctx.fillStyle = p.color;
+    ctx.shadowBlur = 15;
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // Border hit flash — red ring
+    if (p.borderHit > 20) {
+      ctx.beginPath();
+      ctx.arc(sx, sy, p.radius + 8, 0, Math.PI * 2);
+      ctx.strokeStyle = 'rgba(255, 0, 0, 0.6)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    // Name tag
+    if (p.name) {
+      ctx.fillStyle = '#fff';
+      ctx.font = '14px "Orbitron", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(p.name, sx, sy - p.radius - 10);
+    }
+
+    // Score inside body
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.font = '11px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(p.score, sx, sy + 4);
+  }
+}
+
+function drawHUD() {
+  const me = state.players[myId];
+  if (!me) return;
+
+  if (scoreEl) scoreEl.textContent = 'Score: ' + me.score;
+
+  // Border proximity warning — red flash overlay
+  const c = state.mapSize / 2;
+  const half = state.borderSize / 2;
+  const dist = Math.min(
+    me.x - (c - half),
+    (c + half) - me.x,
+    me.y - (c - half),
+    (c + half) - me.y
+  );
+
+  if (dist < 100) {
+    const a = 1 - dist / 100;
+    ctx.fillStyle = `rgba(255, 0, 60, ${a * 0.3})`;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = `rgba(255, 0, 60, ${a})`;
+    ctx.font = '24px "Orbitron", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('⚠ BORDER', canvas.width / 2, 60);
+  }
+
+  // Minimap
+  const mm = 120;
+  const mx = canvas.width - mm - 15;
+  const my = canvas.height - mm - 15;
+  const s = mm / state.mapSize;
+
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+  ctx.fillRect(mx, my, mm, mm);
+  ctx.strokeStyle = 'rgba(0, 255, 255, 0.3)';
+  ctx.strokeRect(mx, my, mm, mm);
+
+  // Border on minimap
+  const bSize = state.borderSize * s;
+  const bOff = (state.mapSize - state.borderSize) / 2 * s;
+  ctx.strokeStyle = 'rgba(255, 0, 80, 0.5)';
+  ctx.strokeRect(mx + bOff, my + bOff, bSize, bSize);
+
+  // Dots
+  for (const id in state.players) {
+    const p = state.players[id];
+    ctx.fillStyle = id === myId ? '#0ff' : '#f0f';
+    ctx.beginPath();
+    ctx.arc(mx + p.x * s, my + p.y * s, 2, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function loop() {
+  ctx.fillStyle = '#0a0a1a';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  const me = state.players[myId];
+  if (me) {
+    cam.x += (me.x - canvas.width / 2 - cam.x) * 0.1;
+    cam.y += (me.y - canvas.height / 2 - cam.y) * 0.1;
+  }
 
   drawGrid();
   drawBorder();
+  drawFood();
+  drawPlayers();
+  drawHUD();
 
-  foods.forEach(f => drawFood(f, time));
-  bots.forEach(b => drawBlob(b, false));
-  if (player) drawBlob(player, true);
-
-  // Crosshair cursor
-  const mx = mouse.x;
-  const my = mouse.y;
-  ctx.strokeStyle = 'rgba(0, 255, 255, 0.4)';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(mx - 12, my); ctx.lineTo(mx + 12, my);
-  ctx.moveTo(mx, my - 12); ctx.lineTo(mx, my + 12);
-  ctx.stroke();
+  requestAnimationFrame(loop);
 }
 
-// ─── LEADERBOARD ───
-function updateLeaderboard() {
-  const all = [...bots.map(b => ({ name: b.name, mass: b.mass }))];
-  if (player) all.push({ name: player.name, mass: player.mass });
-  all.sort((a, b) => b.mass - a.mass);
-
-  const list = document.getElementById('lbList');
-  list.innerHTML = all.slice(0, 8).map((e, i) =>
-    `<li>${i + 1}. ${e.name} — ${Math.floor(e.mass)}</li>`
-  ).join('');
-}
-
-// ─── GAME LOOP ───
-function loop(time) {
-  update();
-  draw(time);
-  animFrame = requestAnimationFrame(loop);
-}
-
-// ─── START / GAME OVER ───
-function startGame() {
-  const name = document.getElementById('nameInput').value.trim().toUpperCase() || 'ANON';
-  player = createPlayer(name);
-  initFoods();
-  initBots();
-  gameRunning = true;
-
-  document.getElementById('startScreen').style.display = 'none';
-  document.getElementById('hud').style.display = 'block';
-
-  if (animFrame) cancelAnimationFrame(animFrame);
-  animFrame = requestAnimationFrame(loop);
-}
-
-function gameOver() {
-  gameRunning = false;
-  player = null;
-  if (animFrame) cancelAnimationFrame(animFrame);
-
-  document.getElementById('hud').style.display = 'none';
-  document.getElementById('startScreen').style.display = 'flex';
-}
-
-// ─── INPUT ───
-canvas.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
-canvas.addEventListener('touchmove', e => {
-  e.preventDefault();
-  mouse.x = e.touches[0].clientX;
-  mouse.y = e.touches[0].clientY;
-}, { passive: false });
-canvas.addEventListener('touchstart', e => {
-  mouse.x = e.touches[0].clientX;
-  mouse.y = e.touches[0].clientY;
-});
-
-document.getElementById('playBtn').addEventListener('click', startGame);
-document.getElementById('nameInput').addEventListener('keydown', e => {
-  if (e.key === 'Enter') startGame();
-});
-
-// Start ambient draw (grid animation before playing)
-function ambientLoop(time) {
-  if (gameRunning) return;
-  ctx.fillStyle = '#0a0a0f';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  camera.x = Math.sin(time * 0.0002) * 200;
-  camera.y = Math.cos(time * 0.0003) * 200;
-  drawGrid();
-  requestAnimationFrame(ambientLoop);
-}
-requestAnimationFrame(ambientLoop);
+loop();
