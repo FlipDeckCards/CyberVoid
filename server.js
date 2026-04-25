@@ -13,9 +13,12 @@ const TICK_RATE = 60;
 const MAP_SIZE = 3000;
 const FOOD_COUNT = 200;
 const INITIAL_RADIUS = 15;
-const BORDER_SHRINK_RATE = 0.15;
+const BORDER_SHRINK_RATE = 0.5;
 const MIN_BORDER = 400;
-const BORDER_PENALTY = 1;
+const BORDER_PENALTY = 10;
+const BOT_COUNT = 6;
+
+const BOT_NAMES = ['NEXUS', 'CIPHER', 'PHANTOM', 'VECTOR', 'RAZOR', 'GLITCH', 'PULSE', 'WRAITH'];
 
 // Food types — color determines size and value
 const FOOD_TYPES = [
@@ -47,8 +50,102 @@ for (let i = 0; i < FOOD_COUNT; i++) {
   foods.push(spawnFood());
 }
 
+// --- BOT SYSTEM ---
+
+function createBot() {
+  const id = 'bot_' + Math.random().toString(36).substr(2, 9);
+  const center = MAP_SIZE / 2;
+  players[id] = {
+    id,
+    x: center + (Math.random() - 0.5) * 400,
+    y: center + (Math.random() - 0.5) * 400,
+    radius: INITIAL_RADIUS,
+    color: `hsl(${Math.floor(Math.random() * 360)}, 100%, 60%)`,
+    targetX: 0,
+    targetY: 0,
+    score: 0,
+    name: BOT_NAMES[Math.floor(Math.random() * BOT_NAMES.length)],
+    borderHit: 0,
+    isBot: true,
+  };
+}
+
+// Spawn initial bots
+for (let i = 0; i < BOT_COUNT; i++) {
+  createBot();
+}
+
+function updateBots() {
+  const center = MAP_SIZE / 2;
+  const half = borderSize / 2;
+
+  for (const id in players) {
+    const bot = players[id];
+    if (!bot.isBot) continue;
+
+    // Find best food — weighted by value / distance (prefers big nearby food)
+    let bestFood = null;
+    let bestScore = 0;
+    for (const f of foods) {
+      const d = Math.sqrt((bot.x - f.x) ** 2 + (bot.y - f.y) ** 2);
+      const score = f.value / (d + 1);
+      if (score > bestScore) {
+        bestScore = score;
+        bestFood = f;
+      }
+    }
+
+    // Check nearby players — flee or chase
+    let flee = null;
+    let chase = null;
+    let fleeDist = Infinity;
+    let chaseDist = Infinity;
+
+    for (const otherId in players) {
+      if (otherId === id) continue;
+      const o = players[otherId];
+      const d = Math.sqrt((bot.x - o.x) ** 2 + (bot.y - o.y) ** 2);
+
+      if (o.radius > bot.radius * 1.2 && d < 250 && d < fleeDist) {
+        flee = o;
+        fleeDist = d;
+      } else if (bot.radius > o.radius * 1.2 && d < 200 && d < chaseDist) {
+        chase = o;
+        chaseDist = d;
+      }
+    }
+
+    // Priority: flee > chase > eat food
+    if (flee) {
+      bot.targetX = bot.x - flee.x;
+      bot.targetY = bot.y - flee.y;
+    } else if (chase) {
+      bot.targetX = chase.x - bot.x;
+      bot.targetY = chase.y - bot.y;
+    } else if (bestFood) {
+      bot.targetX = bestFood.x - bot.x;
+      bot.targetY = bestFood.y - bot.y;
+    }
+
+    // Border avoidance — steer away from edges
+    const margin = 80;
+    if (bot.x < center - half + margin) bot.targetX = Math.abs(bot.targetX) + 3;
+    if (bot.x > center + half - margin) bot.targetX = -Math.abs(bot.targetX) - 3;
+    if (bot.y < center - half + margin) bot.targetY = Math.abs(bot.targetY) + 3;
+    if (bot.y > center + half - margin) bot.targetY = -Math.abs(bot.targetY) - 3;
+  }
+
+  // Maintain bot count — respawn if bots got cleaned up somehow
+  let botCount = Object.values(players).filter((p) => p.isBot).length;
+  while (botCount < BOT_COUNT) {
+    createBot();
+    botCount++;
+  }
+}
+
+// --- END BOT SYSTEM ---
+
 function getSpeed(radius) {
-  // Exponential dampening — stays fast even when big
   const base = 5;
   const speed = base * Math.pow(INITIAL_RADIUS / radius, 0.35);
   return Math.max(speed, 2);
@@ -80,6 +177,7 @@ wss.on('connection', (ws) => {
     score: 0,
     name: '',
     borderHit: 0,
+    isBot: false,
   };
 
   ws.playerId = id;
@@ -112,7 +210,10 @@ function gameLoop() {
     if (borderSize < MIN_BORDER) borderSize = MIN_BORDER;
   }
 
-  // Remove food that ended up outside border
+  // Update bot AI
+  updateBots();
+
+  // Remove food outside border
   foods = foods.filter((f) => !isOutsideBorder(f.x, f.y));
   while (foods.length < FOOD_COUNT) {
     foods.push(spawnFood());
@@ -131,7 +232,7 @@ function gameLoop() {
       p.y += (dy / len) * speed;
     }
 
-    // Border collision — penalty, not death
+    // Border collision — heavy penalty
     if (p.borderHit > 0) p.borderHit--;
 
     if (isOutsideBorder(p.x, p.y)) {
@@ -140,7 +241,7 @@ function gameLoop() {
 
       if (p.borderHit <= 0) {
         p.radius = Math.max(INITIAL_RADIUS, p.radius - BORDER_PENALTY);
-        p.borderHit = 30; // half-second cooldown at 60 ticks
+        p.borderHit = 30;
       }
     }
 
@@ -164,6 +265,8 @@ function gameLoop() {
       if (dist < p.radius - o.radius * 0.5 && p.radius > o.radius * 1.2) {
         p.radius += o.radius * 0.5;
         p.score += o.score + 50;
+
+        // Reset eaten player
         o.x = center + (Math.random() - 0.5) * 200;
         o.y = center + (Math.random() - 0.5) * 200;
         o.radius = INITIAL_RADIUS;
@@ -172,8 +275,8 @@ function gameLoop() {
     }
   }
 
-  // Broadcast
-  const state = JSON.stringify({
+  // Broadcast state
+  const gameState = JSON.stringify({
     type: 'state',
     players,
     foods,
@@ -182,7 +285,7 @@ function gameLoop() {
   });
 
   wss.clients.forEach((ws) => {
-    if (ws.readyState === 1) ws.send(state);
+    if (ws.readyState === 1) ws.send(gameState);
   });
 }
 
