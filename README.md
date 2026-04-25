@@ -1,2 +1,2 @@
-# CyberVoid
-Cyberpunk .io battle game
+# Deadzone
+Deadzone .io battle game
