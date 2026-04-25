@@ -94,14 +94,14 @@ body {
   display: flex;
 }
 
-#deathScreen .death-title {
+.death-title {
   font-size: 2.5rem;
   color: #ff0050;
   text-shadow: 0 0 20px #ff0050, 0 0 60px #ff0050;
   letter-spacing: 4px;
 }
 
-#deathScreen .death-killer {
+.death-killer {
   font-size: 1.2rem;
   color: #f0f;
   text-shadow: 0 0 10px #f0f;
@@ -132,11 +132,11 @@ body {
   position: fixed;
   top: 0; left: 0;
   width: 100%; height: 100%;
-  background: rgba(10, 10, 26, 0.9);
+  background: rgba(10, 10, 26, 0.92);
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 20px;
+  gap: 16px;
   z-index: 200;
 }
 
@@ -144,25 +144,38 @@ body {
   display: flex;
 }
 
-#victoryScreen .victory-title {
+.victory-title {
   font-size: 3rem;
   color: #0ff;
   text-shadow: 0 0 30px #0ff, 0 0 80px #0ff;
   letter-spacing: 6px;
 }
 
-#victoryScreen .victory-winner {
+.victory-round {
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.5);
+  letter-spacing: 3px;
+}
+
+.victory-winner {
   font-size: 1.5rem;
   color: #f0f;
   text-shadow: 0 0 15px #f0f;
   letter-spacing: 3px;
 }
 
-#victoryScreen .victory-score {
+.victory-score {
   font-size: 1.1rem;
   color: #ffff00;
   text-shadow: 0 0 10px #ffff00;
   letter-spacing: 2px;
+}
+
+.victory-next {
+  font-size: 0.9rem;
+  color: rgba(0, 255, 255, 0.7);
+  letter-spacing: 2px;
+  display: none;
 }
 
 #playAgainBtn {
@@ -177,6 +190,7 @@ body {
   text-shadow: 0 0 10px #f0f;
   box-shadow: 0 0 15px rgba(255, 0, 255, 0.3), inset 0 0 15px rgba(255, 0, 255, 0.1);
   transition: all 0.2s;
+  margin-top: 10px;
 }
 
 #playAgainBtn:hover {
