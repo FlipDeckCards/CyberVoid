@@ -39,7 +39,7 @@ Object.entries(imgSources).forEach(([key, src]) => {
 // ── CONSTANTS ──
 const FOV = 60 * Math.PI / 180;
 const NEAR = 0.5;
-const STREET_DEPTH = 220;
+const STREET_DEPTH = 500;
 const LANE_W = 9;
 const LANES = 7;
 const ZOMBIE_H = 6.4;
@@ -74,7 +74,7 @@ function resize() {
   W = canvas.width = window.innerWidth;
   H = canvas.height = window.innerHeight;
   cx = W / 2; cy = H / 2;
-  horizonY = H * 0.48;
+  horizonY = H * 0.42;
 }
 window.addEventListener('resize', resize);
 resize();
@@ -107,10 +107,10 @@ function init() {
 function zombieStats(type, w) {
   const s = 1 + w * 0.08;
   switch (type) {
-    case 'runner':   return { hp:40*s, speed:0.07, points:15, attackDmg:8 };
-    case 'tank':     return { hp:200*s, speed:0.02, points:40, attackDmg:20 };
-    case 'exploder': return { hp:60*s, speed:0.045, points:25, attackDmg:35 };
-    default:         return { hp:80*s, speed:0.035, points:10, attackDmg:12 };
+    case 'runner':   return { hp:40*s, speed:0.14, points:15, attackDmg:8 };
+    case 'tank':     return { hp:200*s, speed:0.04, points:40, attackDmg:20 };
+    case 'exploder': return { hp:60*s, speed:0.09, points:25, attackDmg:35 };
+    default:         return { hp:80*s, speed:0.07, points:10, attackDmg:12 };
   }
 }
 
@@ -126,7 +126,6 @@ function pickZombieType(w) {
 function spawnZombie() {
   var type = pickZombieType(wave);
   var stats = zombieStats(type, wave);
-  // All zombies spawn from far end of street, spread across road width
   var spawns = [
     { x: -LANE_W * 3.0 },
     { x: -LANE_W * 2.0 },
@@ -138,12 +137,12 @@ function spawnZombie() {
   ];
   var sp = spawns[Math.floor(Math.random() * spawns.length)];
   var xJitter = (Math.random() - 0.5) * LANE_W * 0.4;
-  var zJitter = Math.random() * 30;
+  var zJitter = Math.random() * 80;
   zombies.push({
     x: sp.x + xJitter,
     z: STREET_DEPTH * 1.0 + zJitter,
     type: type, hp: stats.hp, maxhp: stats.hp,
-    speed: stats.speed + Math.random() * 0.015,
+    speed: stats.speed + Math.random() * 0.03,
     points: stats.points, attackDmg: stats.attackDmg,
     flash: 0,
     wobble: Math.random() * Math.PI * 2,
@@ -258,6 +257,7 @@ function drawBackground() {
     ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
   }
 }
+
 // ========== RAIN SYSTEM ==========
 var raindrops = [];
 var RAIN_COUNT = 250;
@@ -316,151 +316,138 @@ function drawFog() {
   ctx.restore();
 }
 
-// ========== SPRITE SHEET HELPER ==========
-function getZombieSpriteSheet(type) {
-  switch(type) {
-    case 'runner': return IMG.zombie_runner_sheet;
-    case 'tank': return IMG.zombie_tank_sheet;
-    case 'exploder': return IMG.zombie_exploder_sheet;
-    default: return IMG.zombie_walker_sheet;
-  }
-}
-function getZombieSprite(type) {
-  switch (type) {
-    case 'runner': return IMG.zombie_runner;
-    case 'tank': return IMG.zombie_tank;
-    case 'exploder': return IMG.zombie_exploder;
-    default: return IMG.zombie_walker;
-  }
-}
-
+// ========== ZOMBIE DRAWING ==========
 function drawZombie(z) {
   var foot = proj(z.x, 0, z.z);
   var head = proj(z.x, ZOMBIE_H, z.z);
   var bodyH = foot.y - head.y;
-  var bodyW = bodyH * 0.35;
-  var cx = foot.x;
+  var bodyW = bodyH * 0.45;
+  var zcx = foot.x;
 
   if (bodyH < 2) return;
 
-  // Walking animation from wobble
   var walk = z.wobble;
-  var legSwing = Math.sin(walk) * 0.35;
-  var armSwing = Math.sin(walk + Math.PI) * 0.3;
+  var legSwing = Math.sin(walk) * 0.3;
+  var armSwing = Math.sin(walk + Math.PI) * 0.35;
 
-  // Type-based colors
-  var bodyColor, glowColor;
+  // Dark base colors — silhouettes with subtle type tinting
+  var bodyColor, accentColor, eyeColor;
   if (z.type === 'tank') {
-    bodyColor = '#2a1a3a'; glowColor = '#ff00ff';
+    bodyColor = '#1a0f22'; accentColor = '#4a1a5a'; eyeColor = '#ff00ff';
   } else if (z.type === 'runner') {
-    bodyColor = '#1a2a1a'; glowColor = '#00ff88';
+    bodyColor = '#0f1a0f'; accentColor = '#1a3a1a'; eyeColor = '#00ff66';
   } else if (z.type === 'exploder') {
-    bodyColor = '#3a1a0a'; glowColor = '#ff4400';
+    bodyColor = '#1a0f0a'; accentColor = '#3a1a0a'; eyeColor = '#ff4400';
   } else {
-    bodyColor = '#1a1a2a'; glowColor = '#00ccff';
+    bodyColor = '#0e0e18'; accentColor = '#1a1a30'; eyeColor = '#00aaff';
   }
 
-  var flashCol = z.flash > 0 ? 'rgba(255,100,100,' + z.flash + ')' : null;
-  var headSize = bodyH * 0.15;
-  var torsoTop = head.y + headSize;
+  var flashCol = z.flash > 0 ? 'rgba(255,80,80,' + Math.min(1, z.flash * 8) + ')' : null;
+
+  var headSize = bodyH * 0.16;
+  var torsoTop = head.y + headSize * 0.8;
   var torsoBot = head.y + bodyH * 0.55;
-  var torsoW = bodyW * 0.7;
-  var limbW = Math.max(1, bodyW * 0.15);
+  var torsoW = bodyW * 0.8;
+  var limbW = Math.max(2, bodyW * 0.18);
   var hipY = torsoBot;
   var legLen = foot.y - hipY;
-  var shoulderY = torsoTop + bodyH * 0.05;
-  var armLen = bodyH * 0.35;
+  var shoulderY = torsoTop + bodyH * 0.03;
+  var armLen = bodyH * 0.38;
 
   ctx.save();
-  ctx.shadowColor = glowColor;
-  ctx.shadowBlur = bodyH * 0.12;
+
+  // Ground shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.beginPath();
+  ctx.ellipse(zcx, foot.y + 2, bodyW * 0.6, bodyH * 0.04, 0, 0, Math.PI * 2);
+  ctx.fill();
 
   // ---- LEGS ----
+  ctx.lineCap = 'round';
+
   // Left leg
-  var lkx = cx - torsoW * 0.3 + Math.sin(legSwing) * legLen * 0.3;
+  var lkx = zcx - torsoW * 0.25 + Math.sin(legSwing) * legLen * 0.25;
   var lky = hipY + legLen * 0.5;
-  var lfx = cx - torsoW * 0.3 - Math.sin(legSwing) * legLen * 0.15;
+  var lfx = zcx - torsoW * 0.25 - Math.sin(legSwing) * legLen * 0.12;
   ctx.strokeStyle = flashCol || bodyColor;
   ctx.lineWidth = limbW;
-  ctx.lineCap = 'round';
   ctx.beginPath();
-  ctx.moveTo(cx - torsoW * 0.3, hipY);
+  ctx.moveTo(zcx - torsoW * 0.25, hipY);
   ctx.quadraticCurveTo(lkx, lky, lfx, foot.y);
   ctx.stroke();
-  // Neon accent
-  ctx.strokeStyle = flashCol || glowColor;
-  ctx.lineWidth = Math.max(0.5, limbW * 0.3);
-  ctx.globalAlpha = 0.6;
+  ctx.strokeStyle = flashCol || accentColor;
+  ctx.lineWidth = Math.max(1, limbW * 0.4);
+  ctx.globalAlpha = 0.4;
   ctx.beginPath();
-  ctx.moveTo(cx - torsoW * 0.3, hipY);
-  ctx.quadraticCurveTo(lkx, lky, lfx, foot.y);
+  ctx.moveTo(zcx - torsoW * 0.25, hipY);
+  ctx.quadraticCurveTo(lkx - 1, lky, lfx - 1, foot.y);
   ctx.stroke();
   ctx.globalAlpha = 1;
 
   // Right leg
-  var rkx = cx + torsoW * 0.3 + Math.sin(-legSwing) * legLen * 0.3;
+  var rkx = zcx + torsoW * 0.25 + Math.sin(-legSwing) * legLen * 0.25;
   var rky = hipY + legLen * 0.5;
-  var rfx = cx + torsoW * 0.3 - Math.sin(-legSwing) * legLen * 0.15;
+  var rfx = zcx + torsoW * 0.25 - Math.sin(-legSwing) * legLen * 0.12;
   ctx.strokeStyle = flashCol || bodyColor;
   ctx.lineWidth = limbW;
   ctx.beginPath();
-  ctx.moveTo(cx + torsoW * 0.3, hipY);
+  ctx.moveTo(zcx + torsoW * 0.25, hipY);
   ctx.quadraticCurveTo(rkx, rky, rfx, foot.y);
   ctx.stroke();
-  ctx.strokeStyle = flashCol || glowColor;
-  ctx.lineWidth = Math.max(0.5, limbW * 0.3);
-  ctx.globalAlpha = 0.6;
+  ctx.strokeStyle = flashCol || accentColor;
+  ctx.lineWidth = Math.max(1, limbW * 0.4);
+  ctx.globalAlpha = 0.4;
   ctx.beginPath();
-  ctx.moveTo(cx + torsoW * 0.3, hipY);
-  ctx.quadraticCurveTo(rkx, rky, rfx, foot.y);
+  ctx.moveTo(zcx + torsoW * 0.25, hipY);
+  ctx.quadraticCurveTo(rkx + 1, rky, rfx + 1, foot.y);
   ctx.stroke();
   ctx.globalAlpha = 1;
 
-  // ---- TORSO ----
+  // ---- TORSO (hunched, wider shoulders) ----
   ctx.fillStyle = flashCol || bodyColor;
   ctx.beginPath();
-  ctx.moveTo(cx - torsoW * 0.5, torsoTop);
-  ctx.lineTo(cx + torsoW * 0.5, torsoTop);
-  ctx.lineTo(cx + torsoW * 0.4, torsoBot);
-  ctx.lineTo(cx - torsoW * 0.4, torsoBot);
+  ctx.moveTo(zcx - torsoW * 0.55, torsoTop);
+  ctx.lineTo(zcx + torsoW * 0.55, torsoTop);
+  ctx.lineTo(zcx + torsoW * 0.35, torsoBot);
+  ctx.lineTo(zcx - torsoW * 0.35, torsoBot);
   ctx.closePath();
   ctx.fill();
 
-  // Neon rib lines
-  ctx.strokeStyle = flashCol || glowColor;
-  ctx.lineWidth = Math.max(0.5, bodyH * 0.01);
-  ctx.globalAlpha = 0.5;
-  for (var i = 0; i < 3; i++) {
-    var ribY = torsoTop + (torsoBot - torsoTop) * (0.25 + i * 0.25);
-    ctx.beginPath();
-    ctx.moveTo(cx - torsoW * 0.35, ribY);
-    ctx.lineTo(cx + torsoW * 0.35, ribY);
-    ctx.stroke();
-  }
+  // Subtle accent outline on torso
+  ctx.strokeStyle = flashCol || accentColor;
+  ctx.lineWidth = Math.max(0.5, bodyH * 0.012);
+  ctx.globalAlpha = 0.35;
+  ctx.beginPath();
+  ctx.moveTo(zcx - torsoW * 0.55, torsoTop);
+  ctx.lineTo(zcx + torsoW * 0.55, torsoTop);
+  ctx.lineTo(zcx + torsoW * 0.35, torsoBot);
+  ctx.lineTo(zcx - torsoW * 0.35, torsoBot);
+  ctx.closePath();
+  ctx.stroke();
   ctx.globalAlpha = 1;
 
-  // ---- ARMS ----
+  // ---- ARMS (reaching forward — zombie pose) ----
   // Left arm
-  var lex = cx - torsoW * 0.5 - bodyW * 0.15;
-  var ley = shoulderY + armLen * 0.5;
-  var lhx = cx - torsoW * 0.5 - bodyW * 0.1 + Math.sin(armSwing) * armLen * 0.3;
-  var lhy = shoulderY + armLen + Math.cos(armSwing) * armLen * 0.1;
+  var lex = zcx - torsoW * 0.55 - bodyW * 0.1;
+  var ley = shoulderY + armLen * 0.4;
+  var lhx = zcx - torsoW * 0.3 + Math.sin(armSwing) * armLen * 0.4;
+  var lhy = shoulderY + armLen * 0.7 + Math.cos(armSwing) * armLen * 0.15;
   ctx.strokeStyle = flashCol || bodyColor;
-  ctx.lineWidth = Math.max(1, limbW * 0.8);
+  ctx.lineWidth = Math.max(1.5, limbW * 0.75);
   ctx.beginPath();
-  ctx.moveTo(cx - torsoW * 0.5, shoulderY);
+  ctx.moveTo(zcx - torsoW * 0.55, shoulderY);
   ctx.quadraticCurveTo(lex, ley, lhx, lhy);
   ctx.stroke();
 
   // Right arm
-  var rex = cx + torsoW * 0.5 + bodyW * 0.15;
-  var rey = shoulderY + armLen * 0.5;
-  var rhx = cx + torsoW * 0.5 + bodyW * 0.1 + Math.sin(-armSwing) * armLen * 0.3;
-  var rhy = shoulderY + armLen + Math.cos(-armSwing) * armLen * 0.1;
+  var rex = zcx + torsoW * 0.55 + bodyW * 0.1;
+  var rey = shoulderY + armLen * 0.4;
+  var rhx = zcx + torsoW * 0.3 + Math.sin(-armSwing) * armLen * 0.4;
+  var rhy = shoulderY + armLen * 0.7 + Math.cos(-armSwing) * armLen * 0.15;
   ctx.strokeStyle = flashCol || bodyColor;
-  ctx.lineWidth = Math.max(1, limbW * 0.8);
+  ctx.lineWidth = Math.max(1.5, limbW * 0.75);
   ctx.beginPath();
-  ctx.moveTo(cx + torsoW * 0.5, shoulderY);
+  ctx.moveTo(zcx + torsoW * 0.55, shoulderY);
   ctx.quadraticCurveTo(rex, rey, rhx, rhy);
   ctx.stroke();
 
@@ -468,32 +455,32 @@ function drawZombie(z) {
   var headCY = head.y + headSize * 0.5;
   ctx.fillStyle = flashCol || bodyColor;
   ctx.beginPath();
-  ctx.ellipse(cx, headCY, headSize * 0.5, headSize * 0.6, 0, 0, Math.PI * 2);
+  ctx.ellipse(zcx, headCY, headSize * 0.55, headSize * 0.6, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Glowing eyes
-  ctx.shadowColor = glowColor;
-  ctx.shadowBlur = headSize * 0.5;
-  ctx.fillStyle = flashCol || glowColor;
-  var eyeGap = headSize * 0.22;
-  var eyeR = Math.max(1, headSize * 0.12);
+  // Glowing eyes — the main identifier
+  ctx.shadowColor = eyeColor;
+  ctx.shadowBlur = headSize * 0.8;
+  ctx.fillStyle = flashCol || eyeColor;
+  var eyeGap = headSize * 0.2;
+  var eyeR = Math.max(1.5, headSize * 0.14);
   ctx.beginPath();
-  ctx.arc(cx - eyeGap, headCY - headSize * 0.05, eyeR, 0, Math.PI * 2);
+  ctx.arc(zcx - eyeGap, headCY - headSize * 0.05, eyeR, 0, Math.PI * 2);
   ctx.fill();
   ctx.beginPath();
-  ctx.arc(cx + eyeGap, headCY - headSize * 0.05, eyeR, 0, Math.PI * 2);
+  ctx.arc(zcx + eyeGap, headCY - headSize * 0.05, eyeR, 0, Math.PI * 2);
   ctx.fill();
+  ctx.shadowBlur = 0;
 
-  // ---- HEALTH BAR ----
+  // ---- HEALTH BAR (only when damaged) ----
   if (z.hp < z.maxhp) {
-    ctx.shadowBlur = 0;
-    var barW = bodyW * 0.8;
+    var barW = bodyW * 0.9;
     var barH = Math.max(2, bodyH * 0.03);
-    var barY = head.y - barH - 4;
-    ctx.fillStyle = 'rgba(0,0,0,0.7)';
-    ctx.fillRect(cx - barW/2, barY, barW, barH);
+    var barY = head.y - barH - 5;
+    ctx.fillStyle = 'rgba(0,0,0,0.8)';
+    ctx.fillRect(zcx - barW/2, barY, barW, barH);
     ctx.fillStyle = z.hp/z.maxhp > 0.5 ? '#0f0' : z.hp/z.maxhp > 0.25 ? '#ff0' : '#f00';
-    ctx.fillRect(cx - barW/2, barY, barW * (z.hp/z.maxhp), barH);
+    ctx.fillRect(zcx - barW/2, barY, barW * (z.hp/z.maxhp), barH);
   }
 
   ctx.restore();
@@ -518,6 +505,7 @@ function drawPowerup(pu) {
   ctx.fillText(labels[pu.type]||'?', p.x, p.y);
   ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
 }
+
 function drawGun() {
   var w = WEAPONS[curWeapon];
   var bobX = Math.sin(gunBob) * 8;
@@ -531,25 +519,27 @@ function drawGun() {
   else if (curWeapon === 'rifle') gunImg = IMG.gun_rifle;
   else gunImg = IMG.gun_rocket;
 
+  // Calculate gun dimensions for muzzle flash positioning
+  var gunW = W * 0.55;
+  var gunAspect = (gunImg && gunImg.complete && gunImg.naturalWidth > 0)
+    ? (gunImg.naturalHeight / gunImg.naturalWidth) : 0.5;
+  var gunH = gunW * gunAspect;
+  var gunX = cx - gunW / 2 + bobX;
+  var gunY = H - gunH + 40 + bobY + kickY;
+
   if (gunImg && gunImg.complete && gunImg.naturalWidth > 0) {
     ctx.save();
-    var gunW = W * 0.55;
-    var gunH = gunW * (gunImg.naturalHeight / gunImg.naturalWidth);
-    var gunX = cx - gunW / 2 + bobX;
-    var gunY = H - gunH + 40 + bobY + kickY;
-
     ctx.translate(gunX + gunW / 2, gunY + gunH / 2);
     ctx.rotate(-kickRot);
     ctx.translate(-(gunX + gunW / 2), -(gunY + gunH / 2));
-
     ctx.drawImage(gunImg, gunX, gunY, gunW, gunH);
     ctx.restore();
   }
 
-  // Muzzle flash
+  // Muzzle flash — positioned at gun barrel tip
   if (muzzleFlash > 0) {
     var mfX = cx + bobX;
-    var mfY = H * 0.25 + kickY;
+    var mfY = gunY + gunH * 0.08;
     var mfSize = 25 + (curWeapon === 'rocket' ? 55 : curWeapon === 'shotgun' ? 45 : curWeapon === 'rifle' ? 20 : 15);
     ctx.globalAlpha = muzzleFlash;
     ctx.fillStyle = '#fff';
@@ -566,6 +556,7 @@ function drawGun() {
     ctx.globalAlpha = 1;
   }
 }
+
 function drawHUD() {
   const w = WEAPONS[curWeapon];
   const pad = 20;
