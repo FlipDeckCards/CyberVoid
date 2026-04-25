@@ -170,4 +170,13 @@ body {
   box-shadow: 0 0 30px rgba(0, 255, 255, 0.5), inset 0 0 20px rgba(0, 255, 255, 0.2);
 }
 
-canvas { display: block; cursor: none; }
+#game {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  display: block;
+  cursor: none;
+  z-index: 1;
+}
