@@ -116,21 +116,33 @@ function pickZombieType(w) {
 function spawnZombie() {
   var type = pickZombieType(wave);
   var stats = zombieStats(type, wave);
-  var side = Math.random();
-  var xPos;
-  if (side < 0.3) {
-    xPos = -LANE_W * 2 - Math.random() * LANE_W * 2;
-  } else if (side > 0.7) {
-    xPos = LANE_W * 2 + Math.random() * LANE_W * 2;
-  } else {
-    xPos = (Math.random() - 0.5) * LANE_W * LANES;
-  }
+  // Spawn locations: left doors, right doors, alleys, end of street
+  var spawns = [
+    { x: -LANE_W * 3.0, z: STREET_DEPTH * 0.4 },  // far left building door
+    { x: -LANE_W * 2.0, z: STREET_DEPTH * 0.6 },  // left alley
+    { x: -LANE_W * 1.0, z: STREET_DEPTH * 0.85 }, // left side of street
+    { x: 0,             z: STREET_DEPTH * 1.0 },   // end of street center
+    { x: LANE_W * 0.5,  z: STREET_DEPTH * 0.95 },  // slightly right of center
+    { x: LANE_W * 1.0,  z: STREET_DEPTH * 0.85 },  // right side of street
+    { x: LANE_W * 2.0,  z: STREET_DEPTH * 0.6 },   // right alley
+    { x: LANE_W * 3.0,  z: STREET_DEPTH * 0.4 },   // far right building door
+  ];
+  var sp = spawns[Math.floor(Math.random() * spawns.length)];
+  // Add slight randomness so they don't stack
+  var xJitter = (Math.random() - 0.5) * LANE_W * 0.4;
+  var zJitter = Math.random() * 20;
   zombies.push({
-    x: xPos, z: STREET_DEPTH + Math.random() * 80,
-    type: type, hp: stats.hp, maxHp: stats.hp, speed: stats.speed + (Math.random() * 0.01),
+    x: sp.x + xJitter,
+    z: sp.z + zJitter,
+    type: type, hp: stats.hp, maxHp: stats.hp,
+    speed: stats.speed + Math.random() * 0.015,
     points: stats.points, attackDmg: stats.attackDmg,
-    flash: 0, wobble: Math.random() * Math.PI * 2,
-    attackCooldown: 0, sway: (Math.random() - 0.5) * 0.04
+    flash: 0,
+    wobble: Math.random() * Math.PI * 2,
+    animPhase: Math.random() * Math.PI * 2,
+    attackCooldown: 0,
+    sway: (Math.random() - 0.5) * 0.02,
+    spawnX: sp.x + xJitter
   });
 }
 
@@ -254,44 +266,122 @@ function drawZombie(z) {
   const screenH = p.y - topP.y;
   const screenW = screenH * 0.6;
   if (p.x < -screenW || p.x > W+screenW || screenH < 2) return;
-  const sprite = getZombieSprite(z.type);
-  const bob = Math.sin(z.wobble) * screenH * 0.02;
+  const sc = screenH / 60;
+  const bob = Math.sin(z.wobble) * screenW * 0.02;
+  var sx = p.x;
+  var sy = p.y;
 
   // Shadow
   ctx.fillStyle = 'rgba(0,0,0,0.5)';
   ctx.beginPath();
-  ctx.ellipse(p.x, p.y+4, screenW*0.5, screenW*0.12, 0, 0, Math.PI*2);
+  ctx.ellipse(sx, sy+4, screenW*0.5, screenH*0.12, 0, 0, Math.PI*2);
   ctx.fill();
 
-  // Sprite or fallback
-  if (sprite && sprite.complete) {
-    ctx.save();
-    if (z.flash > 0) { ctx.globalAlpha = 0.7; ctx.filter = 'brightness(3)'; }
-    ctx.drawImage(sprite, p.x-screenW/2, topP.y+bob, screenW, screenH);
-    ctx.filter = 'none'; ctx.globalAlpha = 1;
-    ctx.restore();
-  } else {
-    ctx.fillStyle = z.flash > 0 ? '#fff' : '#1a3a1a';
-    ctx.fillRect(p.x-screenW/2, topP.y+bob, screenW, screenH);
+  // Animate limbs
+  if (!z.animPhase) z.animPhase = Math.random() * Math.PI * 2;
+  z.animPhase += 0.15 * (z.speed * 800 + 3);
+  var legSwing = Math.sin(z.animPhase) * 0.5;
+  var armSwing = Math.sin(z.animPhase + Math.PI) * 0.4;
+  var bodyBounce = Math.abs(Math.sin(z.animPhase * 2)) * 2 * sc;
+  var lean = Math.sin(z.animPhase * 0.5) * 0.05;
+
+  ctx.save();
+  ctx.translate(sx, sy - bodyBounce);
+  ctx.rotate(lean);
+
+  var h = 60 * sc;
+  var zombieGreen = z.flash > 0 ? '#fff' : (z.type === 'tank' ? '#3a6644' : z.type === 'fast' ? '#77bb44' : '#4a8844');
+  var darkGreen = z.flash > 0 ? '#ddd' : (z.type === 'tank' ? '#2a4a33' : z.type === 'fast' ? '#559922' : '#336633');
+  var skinTone = z.flash > 0 ? '#eee' : '#7a9968';
+
+  // LEGS
+  ctx.fillStyle = darkGreen;
+  ctx.save();
+  ctx.translate(-8 * sc, 0);
+  ctx.rotate(legSwing);
+  ctx.fillRect(-4 * sc, 0, 8 * sc, h * 0.45);
+  ctx.fillStyle = '#222';
+  ctx.fillRect(-5 * sc, h * 0.42, 10 * sc, 5 * sc);
+  ctx.restore();
+  ctx.fillStyle = darkGreen;
+  ctx.save();
+  ctx.translate(8 * sc, 0);
+  ctx.rotate(-legSwing);
+  ctx.fillRect(-4 * sc, 0, 8 * sc, h * 0.45);
+  ctx.fillStyle = '#222';
+  ctx.fillRect(-5 * sc, h * 0.42, 10 * sc, 5 * sc);
+  ctx.restore();
+
+  // TORSO
+  ctx.fillStyle = zombieGreen;
+  var torsoW = (z.type === 'tank' ? 28 : 18) * sc;
+  var torsoH = h * 0.4;
+  ctx.fillRect(-torsoW / 2, -torsoH, torsoW, torsoH);
+  ctx.fillStyle = darkGreen;
+  ctx.fillRect(-torsoW / 2 + 2 * sc, -torsoH + 4 * sc, torsoW - 4 * sc, 3 * sc);
+  ctx.strokeStyle = darkGreen;
+  ctx.lineWidth = sc;
+  for (var r = 0; r < 3; r++) {
+    ctx.beginPath();
+    ctx.moveTo(-torsoW / 3, -torsoH + 10 * sc + r * 6 * sc);
+    ctx.lineTo(torsoW / 3, -torsoH + 12 * sc + r * 6 * sc);
+    ctx.stroke();
   }
 
-  // Health bar
-  if (z.hp < z.maxHp) {
-    const bw = screenW*0.8, barY = topP.y+bob-10;
-    ctx.fillStyle = 'rgba(0,0,0,0.7)';
-    ctx.fillRect(p.x-bw/2-1, barY-1, bw+2, 7);
-    ctx.fillStyle = '#f00';
-    ctx.fillRect(p.x-bw/2, barY, bw*(z.hp/z.maxHp), 5);
-  }
+  // ARMS
+  ctx.fillStyle = skinTone;
+  ctx.save();
+  ctx.translate(-torsoW / 2, -torsoH + 5 * sc);
+  ctx.rotate(armSwing + 0.8);
+  ctx.fillRect(-4 * sc, 0, 7 * sc, h * 0.35);
+  ctx.fillStyle = darkGreen;
+  ctx.fillRect(-5 * sc, h * 0.33, 9 * sc, 5 * sc);
+  ctx.restore();
+  ctx.fillStyle = skinTone;
+  ctx.save();
+  ctx.translate(torsoW / 2, -torsoH + 5 * sc);
+  ctx.rotate(-armSwing + 0.8);
+  ctx.fillRect(-3 * sc, 0, 7 * sc, h * 0.35);
+  ctx.fillStyle = darkGreen;
+  ctx.fillRect(-4 * sc, h * 0.33, 9 * sc, 5 * sc);
+  ctx.restore();
 
-  // Glowing eyes
-  const eyeY = topP.y + screenH*0.15 + bob;
-  const eyeR = Math.max(2, screenW*0.04);
-  ctx.fillStyle = '#f00'; ctx.shadowColor = '#f00'; ctx.shadowBlur = eyeR*4;
+  // HEAD
+  var headR = (z.type === 'tank' ? 14 : 10) * sc;
+  ctx.fillStyle = skinTone;
   ctx.beginPath();
-  ctx.arc(p.x-screenW*0.1, eyeY, eyeR, 0, Math.PI*2);
-  ctx.arc(p.x+screenW*0.1, eyeY, eyeR, 0, Math.PI*2);
-  ctx.fill(); ctx.shadowBlur = 0;
+  ctx.arc(0, -torsoH - headR + 2 * sc, headR, 0, Math.PI * 2);
+  ctx.fill();
+  // Glowing eyes
+  ctx.fillStyle = '#ff2200';
+  ctx.shadowColor = '#ff0000';
+  ctx.shadowBlur = 8 * sc;
+  ctx.beginPath();
+  ctx.arc(-4 * sc, -torsoH - headR + 2 * sc, 2 * sc, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(4 * sc, -torsoH - headR + 2 * sc, 2 * sc, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  // Mouth
+  ctx.strokeStyle = '#220000';
+  ctx.lineWidth = 1.5 * sc;
+  ctx.beginPath();
+  ctx.arc(0, -torsoH - headR + 6 * sc, 4 * sc, 0, Math.PI);
+  ctx.stroke();
+
+  // HP bar
+  if (z.hp < z.maxHp) {
+    var barW = torsoW + 10 * sc;
+    var barH = 4 * sc;
+    var barY = -torsoH - headR * 2 - 6 * sc;
+    ctx.fillStyle = '#400';
+    ctx.fillRect(-barW / 2, barY, barW, barH);
+    ctx.fillStyle = '#f00';
+    ctx.fillRect(-barW / 2, barY, barW * (z.hp / z.maxHp), barH);
+  }
+
+  ctx.restore();
 }
 
 function drawPowerup(pu) {
@@ -323,100 +413,175 @@ function drawGun() {
   ctx.save();
   ctx.translate(baseX, baseY);
 
-  // Arms
-  var armGrad = ctx.createLinearGradient(-140, -90, -90, 10);
-  armGrad.addColorStop(0, '#222');
-  armGrad.addColorStop(0.5, '#333');
-  armGrad.addColorStop(1, '#1a1a1a');
-  ctx.fillStyle = armGrad;
+  // Left arm
+  var skinBase = '#c49a6c';
+  var skinShade = '#a67c52';
+  var sleeve = '#1a1a2a';
+  ctx.fillStyle = sleeve;
   ctx.beginPath();
-  ctx.moveTo(-130, 10);
-  ctx.quadraticCurveTo(-140, -50, -100, -85);
-  ctx.lineTo(-60, -85);
-  ctx.quadraticCurveTo(-50, -50, -55, 10);
+  ctx.moveTo(-220, 120);
+  ctx.quadraticCurveTo(-180, 20, -80, -60);
+  ctx.lineTo(-50, -50);
+  ctx.quadraticCurveTo(-150, 30, -170, 120);
+  ctx.closePath();
   ctx.fill();
-  ctx.fillStyle = armGrad;
+  // Left hand
+  ctx.fillStyle = skinBase;
   ctx.beginPath();
-  ctx.moveTo(130, 10);
-  ctx.quadraticCurveTo(140, -50, 100, -85);
-  ctx.lineTo(60, -85);
-  ctx.quadraticCurveTo(50, -50, 55, 10);
+  ctx.moveTo(-80, -60);
+  ctx.quadraticCurveTo(-60, -80, -30, -80);
+  ctx.lineTo(-20, -65);
+  ctx.quadraticCurveTo(-55, -55, -65, -45);
+  ctx.closePath();
+  ctx.fill();
+  // Left fingers
+  ctx.fillStyle = skinShade;
+  for (var i = 0; i < 4; i++) {
+    ctx.beginPath();
+    ctx.ellipse(-30 + i * 8, -90 + i * 2, 5, 12, 0.3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // Left thumb
+  ctx.fillStyle = skinBase;
+  ctx.beginPath();
+  ctx.ellipse(-38, -68, 6, 14, -0.5, 0, Math.PI * 2);
   ctx.fill();
 
-  // Gloves
-  ctx.fillStyle = '#111';
+  // Right arm
+  ctx.fillStyle = sleeve;
   ctx.beginPath();
-  ctx.moveTo(-95, -90);
-  ctx.lineTo(-55, -90);
-  ctx.lineTo(-45, -70);
-  ctx.lineTo(-105, -70);
+  ctx.moveTo(220, 120);
+  ctx.quadraticCurveTo(180, 20, 80, -60);
+  ctx.lineTo(50, -50);
+  ctx.quadraticCurveTo(150, 30, 170, 120);
+  ctx.closePath();
   ctx.fill();
+  // Right hand
+  ctx.fillStyle = skinBase;
   ctx.beginPath();
-  ctx.moveTo(95, -90);
-  ctx.lineTo(55, -90);
-  ctx.lineTo(45, -70);
-  ctx.lineTo(105, -70);
+  ctx.moveTo(80, -60);
+  ctx.quadraticCurveTo(60, -80, 30, -80);
+  ctx.lineTo(20, -65);
+  ctx.quadraticCurveTo(55, -55, 65, -45);
+  ctx.closePath();
   ctx.fill();
-
-  // Fingers gripping gun
-  ctx.fillStyle = '#1a1a1a';
-  [-30, -20, -10, 0].forEach(function(x) {
-    ctx.fillRect(x - 5, -105, 8, 20);
-  });
-  [10, 20, 30].forEach(function(x) {
-    ctx.fillRect(x - 3, -105, 8, 20);
-  });
-
-  // Gun body
-  var gGrad = ctx.createLinearGradient(-20, -200, 20, -80);
-  gGrad.addColorStop(0, '#2a2a3a');
-  gGrad.addColorStop(0.3, '#4a4a5a');
-  gGrad.addColorStop(0.7, '#3a3a4a');
-  gGrad.addColorStop(1, '#1a1a2a');
-  ctx.fillStyle = gGrad;
-
-  if (curWeapon === 'pistol') {
-    ctx.fillRect(-14, -160, 28, 80);
-    ctx.fillRect(-10, -185, 20, 30);
-    ctx.fillRect(-7, -195, 14, 15);
-  } else if (curWeapon === 'shotgun') {
-    ctx.fillRect(-11, -170, 22, 90);
-    ctx.fillRect(-8, -230, 16, 70);
-    ctx.fillRect(-14, -150, 28, 10);
-  } else if (curWeapon === 'rifle') {
-    ctx.fillRect(-9, -170, 18, 90);
-    ctx.fillRect(-6, -250, 12, 90);
-    ctx.fillRect(-16, -155, 32, 8);
-    ctx.fillRect(-4, -265, 8, 20);
-  } else {
-    ctx.fillRect(-16, -170, 32, 90);
-    ctx.fillRect(-12, -230, 24, 70);
-    ctx.fillRect(-20, -140, 40, 12);
+  // Right trigger finger
+  ctx.fillStyle = skinShade;
+  ctx.beginPath();
+  ctx.ellipse(10, -100, 4, 11, -0.1, 0, Math.PI * 2);
+  ctx.fill();
+  // Right fingers
+  for (var i = 0; i < 3; i++) {
+    ctx.beginPath();
+    ctx.ellipse(25 + i * 8, -88 + i * 2, 5, 12, -0.3, 0, Math.PI * 2);
+    ctx.fill();
   }
 
-  // Neon accent line
-  ctx.shadowColor = w.col;
-  ctx.shadowBlur = 12;
-  ctx.strokeStyle = w.col;
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(-12, -150);
-  ctx.lineTo(-12, -100);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(12, -150);
-  ctx.lineTo(12, -100);
-  ctx.stroke();
-  ctx.shadowBlur = 0;
+  // === WEAPON ===
+  var barrelTop, barrelW;
+  if (curWeapon === 'pistol') {
+    barrelTop = -180; barrelW = 12;
+    // Slide
+    ctx.fillStyle = '#2a2a2a';
+    ctx.fillRect(-barrelW, -170, barrelW * 2, 90);
+    // Barrel
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(-8, barrelTop, 16, 30);
+    // Grip
+    ctx.fillStyle = '#3a2a1a';
+    ctx.fillRect(-10, -80, 20, 40);
+    // Sight
+    ctx.fillStyle = '#444';
+    ctx.fillRect(-3, barrelTop - 4, 6, 6);
+  } else if (curWeapon === 'shotgun') {
+    barrelTop = -230; barrelW = 10;
+    // Double barrel
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(-barrelW, barrelTop, 9, 150);
+    ctx.fillRect(barrelW - 9, barrelTop, 9, 150);
+    // Foregrip wood
+    ctx.fillStyle = '#5a3a1a';
+    ctx.fillRect(-14, -130, 28, 30);
+    // Receiver
+    ctx.fillStyle = '#2a2a2a';
+    ctx.fillRect(-12, -100, 24, 30);
+    // Stock hint
+    ctx.fillStyle = '#4a2a0a';
+    ctx.fillRect(-8, -70, 16, 35);
+    // Pump
+    ctx.fillStyle = '#666';
+    ctx.fillRect(-16, -125, 32, 8);
+  } else if (curWeapon === 'rifle') {
+    barrelTop = -260; barrelW = 7;
+    // Long barrel
+    ctx.fillStyle = '#1a1a1a';
+    ctx.fillRect(-barrelW, barrelTop, barrelW * 2, 180);
+    // Handguard
+    ctx.fillStyle = '#2a2a2a';
+    ctx.fillRect(-10, -180, 20, 50);
+    // Rail on top
+    ctx.fillStyle = '#444';
+    ctx.fillRect(-4, -200, 8, 80);
+    // Receiver
+    ctx.fillStyle = '#333';
+    ctx.fillRect(-12, -130, 24, 40);
+    // Magazine
+    ctx.fillStyle = '#222';
+    ctx.fillRect(-6, -100, 12, 30);
+    // Scope
+    ctx.fillStyle = '#555';
+    ctx.fillRect(-5, -220, 10, 30);
+    ctx.fillStyle = '#88ccff';
+    ctx.globalAlpha = 0.4;
+    ctx.beginPath();
+    ctx.arc(0, -235, 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    // Muzzle brake
+    ctx.fillStyle = '#555';
+    ctx.fillRect(-9, barrelTop - 5, 18, 8);
+  } else {
+    barrelTop = -230; barrelW = 16;
+    // Tube
+    ctx.fillStyle = '#2a2a2a';
+    ctx.fillRect(-barrelW, barrelTop, barrelW * 2, 150);
+    // Front opening
+    ctx.fillStyle = '#111';
+    ctx.beginPath();
+    ctx.arc(0, barrelTop, barrelW - 2, 0, Math.PI * 2);
+    ctx.fill();
+    // Inner glow
+    ctx.fillStyle = '#ff4400';
+    ctx.globalAlpha = 0.3 + Math.sin(Date.now() * 0.005) * 0.15;
+    ctx.beginPath();
+    ctx.arc(0, barrelTop, barrelW - 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+    // Grip section
+    ctx.fillStyle = '#3a3a3a';
+    ctx.fillRect(-20, -100, 40, 30);
+    // Hazard stripes
+    ctx.fillStyle = '#cc8800';
+    for (var s = 0; s < 3; s++) {
+      ctx.fillRect(-18, -95 + s * 10, 36, 3);
+    }
+  }
 
-  // Barrel tip glow
-  ctx.fillStyle = w.col;
+  // Neon accent lines
   ctx.shadowColor = w.col;
-  ctx.shadowBlur = 8;
+  ctx.shadowBlur = 10;
+  ctx.strokeStyle = w.col;
+  ctx.lineWidth = 1.5;
+  ctx.globalAlpha = 0.7;
   ctx.beginPath();
-  var tipY = curWeapon === 'rifle' ? -265 : curWeapon === 'shotgun' ? -230 : curWeapon === 'rocket' ? -230 : -195;
-  ctx.arc(0, tipY, 3, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.moveTo(-barrelW - 1, -130);
+  ctx.lineTo(-barrelW - 1, -80);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(barrelW + 1, -130);
+  ctx.lineTo(barrelW + 1, -80);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
   ctx.shadowBlur = 0;
 
   ctx.restore();
@@ -424,7 +589,7 @@ function drawGun() {
   // Muzzle flash
   if (muzzleFlash > 0) {
     var mfX = baseX;
-    var mfY = baseY + tipY + 5;
+    var mfY = baseY + barrelTop - 10;
     var mfSize = 25 + (curWeapon === 'rocket' ? 55 : curWeapon === 'shotgun' ? 45 : curWeapon === 'rifle' ? 20 : 15);
     ctx.globalAlpha = muzzleFlash;
     ctx.fillStyle = '#fff';
@@ -555,7 +720,11 @@ function update(dt) {
   zombies.forEach(z => {
     z.z -= z.speed*dt*60;
     z.wobble += dt*(z.type==='runner'?12:6);
-    z.x += Math.sin(z.wobble * 0.3) * 0.05 + z.sway;
+    var targetX = (z.spawnX || 0) * 0.3;
+    var driftRate = 0.001;
+    if (z.x < targetX - 0.5) z.x += driftRate;
+    else if (z.x > targetX + 0.5) z.x -= driftRate;
+    z.x += Math.sin(z.wobble * 0.5) * 0.03 + z.sway;
     if (z.flash > 0) z.flash -= dt;
 
     if (z.z <= ATTACK_RANGE) {
