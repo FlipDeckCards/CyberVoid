@@ -9,16 +9,19 @@ const respawnBtn = document.getElementById('respawnBtn');
 const victoryScreen = document.getElementById('victoryScreen');
 const winnerNameEl = document.getElementById('winnerName');
 const winnerScoreEl = document.getElementById('winnerScore');
+const victoryRoundEl = document.getElementById('victoryRound');
+const victoryNextEl = document.getElementById('victoryNext');
 const playAgainBtn = document.getElementById('playAgainBtn');
 const scoreEl = document.getElementById('score');
 
 let ws;
 let myId = null;
 let myName = 'Anon';
-let state = { players: {}, foods: [], kills: [], borderSize: 3000, mapSize: 3000, countdown: -1 };
+let state = { players: {}, foods: [], kills: [], borderSize: 3000, mapSize: 3000, countdown: -1, round: 1 };
 let mouse = { x: 0, y: 0 };
 let cam = { x: 0, y: 0 };
 let playing = false;
+let currentRound = 1;
 
 function resize() {
   canvas.width = window.innerWidth;
@@ -42,10 +45,21 @@ function connect() {
 
   ws.onmessage = (e) => {
     const msg = JSON.parse(e.data);
-    if (msg.type === 'init') myId = msg.id;
-    if (msg.type === 'state') state = msg;
+    if (msg.type === 'init') {
+      myId = msg.id;
+      if (msg.round) currentRound = msg.round;
+    }
+    if (msg.type === 'state') {
+      state = msg;
+      if (msg.round) currentRound = msg.round;
+    }
     if (msg.type === 'death') showDeath(msg.killer);
-    if (msg.type === 'match_over') showVictory(msg.winner, msg.score);
+    if (msg.type === 'match_over') showVictory(msg);
+    if (msg.type === 'new_round') {
+      currentRound = msg.round;
+      hideVictory();
+      hideDeath();
+    }
   };
 
   ws.onclose = () => setTimeout(connect, 2000);
@@ -60,10 +74,30 @@ function hideDeath() {
   deathScreen.classList.remove('show');
 }
 
-function showVictory(winner, score) {
+function showVictory(data) {
   hideDeath();
-  winnerNameEl.textContent = winner;
-  winnerScoreEl.textContent = `Score: ${score}`;
+  const iWon = data.winnerId === myId;
+  const playerWon = !data.isBot;
+
+  if (iWon) {
+    document.querySelector('.victory-title').textContent = 'VICTORY';
+    document.querySelector('.victory-title').style.color = '#0ff';
+    document.querySelector('.victory-title').style.textShadow = '0 0 30px #0ff, 0 0 80px #0ff';
+    victoryNextEl.textContent = `Next: Round ${currentRound + 1} (harder)`;
+    victoryNextEl.style.display = 'block';
+    playAgainBtn.textContent = 'NEXT ROUND';
+  } else {
+    document.querySelector('.victory-title').textContent = 'DEFEATED';
+    document.querySelector('.victory-title').style.color = '#ff0050';
+    document.querySelector('.victory-title').style.textShadow = '0 0 30px #ff0050, 0 0 80px #ff0050';
+    victoryNextEl.textContent = 'Back to Round 1';
+    victoryNextEl.style.display = 'block';
+    playAgainBtn.textContent = 'TRY AGAIN';
+  }
+
+  winnerNameEl.textContent = data.winner;
+  winnerScoreEl.textContent = `Score: ${data.score}`;
+  victoryRoundEl.textContent = `Round ${currentRound}`;
   victoryScreen.classList.add('show');
 }
 
@@ -243,11 +277,32 @@ function drawKillFeed() {
   }
 }
 
+function drawRound() {
+  // Top-left round badge
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+  ctx.beginPath();
+  ctx.roundRect(15, 15, 130, 36, 6);
+  ctx.fill();
+
+  ctx.strokeStyle = 'rgba(0, 255, 255, 0.4)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.roundRect(15, 15, 130, 36, 6);
+  ctx.stroke();
+
+  ctx.fillStyle = '#0ff';
+  ctx.font = '16px "Orbitron", monospace';
+  ctx.textAlign = 'center';
+  ctx.shadowColor = '#0ff';
+  ctx.shadowBlur = 10;
+  ctx.fillText(`ROUND ${currentRound}`, 80, 39);
+  ctx.shadowBlur = 0;
+}
+
 function drawCountdown() {
   const cd = state.countdown;
   if (cd < 0) return;
 
-  // Big centered countdown
   ctx.fillStyle = cd <= 5 ? 'rgba(255, 0, 60, 0.9)' : 'rgba(0, 255, 255, 0.9)';
   ctx.font = '72px "Orbitron", monospace';
   ctx.textAlign = 'center';
@@ -286,6 +341,7 @@ function drawHUD() {
     ctx.fillText('⚠ BORDER', canvas.width / 2, 60);
   }
 
+  // Minimap
   const mm = 120;
   const mx = canvas.width - mm - 15;
   const my = canvas.height - mm - 15;
@@ -325,6 +381,7 @@ function loop() {
   drawFood();
   drawPlayers();
   drawKillFeed();
+  drawRound();
   drawCountdown();
   drawHUD();
 
