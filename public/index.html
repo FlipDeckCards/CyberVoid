@@ -2,32 +2,30 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>CyberVoid</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+  <title>DEADZONE</title>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/css/style.css" />
 </head>
 <body>
   <div id="startScreen">
-    <h1 class="title">CYBER<span class="accent">VOID</span></h1>
+    <h1 class="title">DEAD<span class="accent">ZONE</span></h1>
+    <p class="subtitle">SURVIVE THE HORDE</p>
+    <div id="leaderboardBox">
+      <h2 class="lb-title">TOP OPERATORS</h2>
+      <div id="leaderboardList"></div>
+    </div>
     <input type="text" id="nameInput" placeholder="Enter callsign..." maxlength="16" />
     <button id="startBtn">JACK IN</button>
   </div>
-  <div id="deathScreen">
-    <div class="death-title">CONSUMED</div>
-    <div class="death-killer" id="killerName"></div>
-    <button id="respawnBtn">RESPAWN</button>
-  </div>
-  <div id="victoryScreen">
-    <div class="victory-title">MATCH OVER</div>
-    <div class="victory-round" id="victoryRound"></div>
-    <div class="victory-winner" id="winnerName"></div>
-    <div class="victory-score" id="winnerScore"></div>
-    <div class="victory-next" id="victoryNext"></div>
-    <button id="playAgainBtn">PLAY AGAIN</button>
+  <div id="gameOverScreen">
+    <div class="go-title">TERMINATED</div>
+    <div class="go-wave" id="goWave"></div>
+    <div class="go-score" id="goScore"></div>
+    <div class="go-rank" id="goRank"></div>
+    <button id="restartBtn">DEPLOY AGAIN</button>
   </div>
   <canvas id="game" style="display:none;"></canvas>
-  <div id="score"></div>
   <script src="/js/game.js"></script>
 </body>
 </html>
