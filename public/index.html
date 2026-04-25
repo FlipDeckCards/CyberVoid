@@ -13,6 +13,17 @@
     <input type="text" id="nameInput" placeholder="Enter callsign..." maxlength="16" />
     <button id="startBtn">JACK IN</button>
   </div>
+  <div id="deathScreen">
+    <div class="death-title">CONSUMED</div>
+    <div class="death-killer" id="killerName"></div>
+    <button id="respawnBtn">RESPAWN</button>
+  </div>
+  <div id="victoryScreen">
+    <div class="victory-title">MATCH OVER</div>
+    <div class="victory-winner" id="winnerName"></div>
+    <div class="victory-score" id="winnerScore"></div>
+    <button id="playAgainBtn">PLAY AGAIN</button>
+  </div>
   <canvas id="game" style="display:none;"></canvas>
   <div id="score"></div>
   <script src="/js/game.js"></script>
