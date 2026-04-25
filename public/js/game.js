@@ -29,7 +29,8 @@ let W, H, cx, cy, horizonY;
 let state = 'waiting'; // waiting | playing | dead
 let score, wave, kills, killGoal, health, armor;
 let curWeapon, weaponAmmo, lastShot, gunRecoil, muzzleFlash, gunBob;
-let zombies, particles, powerups, dmgFlash, screenShake;
+let zombies = [], particles = [], powerups = [];
+let dmgFlash = 0, screenShake = 0;
 let spawnTimer, spawnInterval, spawnBudget;
 let mouse = {x:0, y:0};
 let mouseDown = false;
