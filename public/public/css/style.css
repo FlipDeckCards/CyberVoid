@@ -1,0 +1,141 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap');
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: #0a0a0f;
+  overflow: hidden;
+  font-family: 'Share Tech Mono', monospace;
+  cursor: none;
+}
+
+canvas {
+  display: block;
+  position: fixed;
+  top: 0;
+  left: 0;
+}
+
+/* HUD */
+#hud {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  pointer-events: none;
+  z-index: 10;
+}
+
+#score {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  color: #0ff;
+  font-family: 'Orbitron', monospace;
+  font-size: 18px;
+  text-shadow: 0 0 10px #0ff, 0 0 20px #0ff;
+}
+
+#leaderboard {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  background: rgba(10, 10, 20, 0.85);
+  border: 1px solid #0ff;
+  box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
+  padding: 15px;
+  min-width: 180px;
+}
+
+.lb-title {
+  color: #0ff;
+  font-family: 'Orbitron', monospace;
+  font-size: 13px;
+  margin-bottom: 10px;
+  text-shadow: 0 0 8px #0ff;
+}
+
+#lbList {
+  list-style: none;
+  padding: 0;
+}
+
+#lbList li {
+  color: #c0c0c0;
+  font-size: 12px;
+  padding: 3px 0;
+  border-bottom: 1px solid rgba(0, 255, 255, 0.1);
+}
+
+#lbList li:first-child {
+  color: #ff00ff;
+  text-shadow: 0 0 6px #ff00ff;
+}
+
+/* Start Screen */
+#startScreen {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  background: radial-gradient(ellipse at center, #0a0a1a 0%, #000 70%);
+}
+
+#startScreen h1 {
+  font-family: 'Orbitron', monospace;
+  font-size: 64px;
+  color: #0ff;
+  text-shadow: 0 0 20px #0ff, 0 0 40px #0ff, 0 0 80px #00aaff;
+  margin-bottom: 40px;
+  letter-spacing: 8px;
+}
+
+.accent {
+  color: #ff00ff;
+  text-shadow: 0 0 20px #ff00ff, 0 0 40px #ff00ff, 0 0 80px #aa00ff;
+}
+
+#nameInput {
+  background: rgba(0, 255, 255, 0.05);
+  border: 1px solid #0ff;
+  color: #0ff;
+  font-family: 'Share Tech Mono', monospace;
+  font-size: 18px;
+  padding: 12px 24px;
+  text-align: center;
+  outline: none;
+  margin-bottom: 20px;
+  width: 280px;
+  letter-spacing: 2px;
+}
+
+#nameInput::placeholder {
+  color: rgba(0, 255, 255, 0.3);
+}
+
+#nameInput:focus {
+  box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
+}
+
+#playBtn {
+  background: transparent;
+  border: 2px solid #ff00ff;
+  color: #ff00ff;
+  font-family: 'Orbitron', monospace;
+  font-size: 20px;
+  padding: 14px 48px;
+  cursor: pointer;
+  letter-spacing: 4px;
+  text-shadow: 0 0 10px #ff00ff;
+  transition: all 0.3s;
+}
+
+#playBtn:hover {
+  background: rgba(255, 0, 255, 0.15);
+  box-shadow: 0 0 30px rgba(255, 0, 255, 0.4);
+}
