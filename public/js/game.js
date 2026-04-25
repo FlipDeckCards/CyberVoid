@@ -238,8 +238,8 @@ function fire() {
 
 // === POWERUPS ===
 function tryDropPowerup(x, y) {
-  if (Math.random() > 0.15) return;
-  const types = ['health', 'health', 'shotgun', 'rifle', 'rocket', 'nuke', 'shield'];
+  if (Math.random() > 0.40) return;
+const types = ['health', 'shotgun', 'shotgun', 'rifle', 'rifle', 'rocket', 'nuke', 'shield'];
   powerups.push({
     x, y, type: types[Math.floor(Math.random() * types.length)],
     radius: 14, alive: true, life: 480, bob: Math.random() * Math.PI * 2,
@@ -428,10 +428,10 @@ function drawPlayer() {
   }
 
   // Gun barrel line
-  const angle = Math.atan2(mouse.y - (p.y - 40), mouse.x - p.x);
-  ctx.beginPath();
-  ctx.moveTo(p.x, p.y - 40);
-  ctx.lineTo(p.x + Math.cos(angle) * 45, p.y - 40 + Math.sin(angle) * 45);
+  const angle = Math.atan2(mouse.y - (p.y - 70), mouse.x - p.x);
+ctx.beginPath();
+ctx.moveTo(p.x, p.y - 70);
+ctx.lineTo(p.x + Math.cos(angle) * 45, p.y - 70 + Math.sin(angle) * 45);
   ctx.strokeStyle = '#0ff';
   ctx.lineWidth = 3;
   ctx.shadowColor = '#0ff';
@@ -442,7 +442,7 @@ function drawPlayer() {
   // Player sprite with glow
   ctx.shadowColor = '#0ff';
   ctx.shadowBlur = 20;
-  drawSprite(IMG.player, p.x, p.y, 130, flipX);
+  drawSprite(IMG.player, p.x, p.y, 225, flipX);
   ctx.shadowBlur = 0;
 }
 
@@ -451,7 +451,7 @@ function drawZombies() {
     if (!z.alive) continue;
 
     const scale = getDepthScale(z.y);
-    const h = (z.radius * 6) * scale;
+    const h = (z.radius * 18) * scale;
     const flipX = z.x > player.x;
     const bob = Math.sin(Date.now() / 200 + z.x) * 3 * scale;
 
