@@ -6,12 +6,16 @@ const startScreen = document.getElementById('startScreen');
 const deathScreen = document.getElementById('deathScreen');
 const killerNameEl = document.getElementById('killerName');
 const respawnBtn = document.getElementById('respawnBtn');
+const victoryScreen = document.getElementById('victoryScreen');
+const winnerNameEl = document.getElementById('winnerName');
+const winnerScoreEl = document.getElementById('winnerScore');
+const playAgainBtn = document.getElementById('playAgainBtn');
 const scoreEl = document.getElementById('score');
 
 let ws;
 let myId = null;
 let myName = 'Anon';
-let state = { players: {}, foods: [], kills: [], borderSize: 3000, mapSize: 3000 };
+let state = { players: {}, foods: [], kills: [], borderSize: 3000, mapSize: 3000, countdown: -1 };
 let mouse = { x: 0, y: 0 };
 let cam = { x: 0, y: 0 };
 let playing = false;
@@ -41,6 +45,7 @@ function connect() {
     if (msg.type === 'init') myId = msg.id;
     if (msg.type === 'state') state = msg;
     if (msg.type === 'death') showDeath(msg.killer);
+    if (msg.type === 'match_over') showVictory(msg.winner, msg.score);
   };
 
   ws.onclose = () => setTimeout(connect, 2000);
@@ -55,6 +60,17 @@ function hideDeath() {
   deathScreen.classList.remove('show');
 }
 
+function showVictory(winner, score) {
+  hideDeath();
+  winnerNameEl.textContent = winner;
+  winnerScoreEl.textContent = `Score: ${score}`;
+  victoryScreen.classList.add('show');
+}
+
+function hideVictory() {
+  victoryScreen.classList.remove('show');
+}
+
 startBtn.addEventListener('click', () => {
   myName = nameInput.value.trim() || 'Anon';
   startScreen.style.display = 'none';
@@ -65,7 +81,13 @@ startBtn.addEventListener('click', () => {
 
 respawnBtn.addEventListener('click', () => {
   hideDeath();
-  // Server already respawned our blob — just keep playing
+});
+
+playAgainBtn.addEventListener('click', () => {
+  hideVictory();
+  if (ws && ws.readyState === 1) {
+    ws.send(JSON.stringify({ type: 'restart' }));
+  }
 });
 
 canvas.addEventListener('mousemove', (e) => {
@@ -221,6 +243,24 @@ function drawKillFeed() {
   }
 }
 
+function drawCountdown() {
+  const cd = state.countdown;
+  if (cd < 0) return;
+
+  // Big centered countdown
+  ctx.fillStyle = cd <= 5 ? 'rgba(255, 0, 60, 0.9)' : 'rgba(0, 255, 255, 0.9)';
+  ctx.font = '72px "Orbitron", monospace';
+  ctx.textAlign = 'center';
+  ctx.shadowColor = cd <= 5 ? '#ff0050' : '#0ff';
+  ctx.shadowBlur = 40;
+  ctx.fillText(cd, canvas.width / 2, canvas.height / 2 - 60);
+
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+  ctx.font = '18px "Orbitron", monospace';
+  ctx.fillText('FINAL ROUND', canvas.width / 2, canvas.height / 2 - 110);
+  ctx.shadowBlur = 0;
+}
+
 function drawHUD() {
   const me = state.players[myId];
   if (!me) return;
@@ -285,6 +325,7 @@ function loop() {
   drawFood();
   drawPlayers();
   drawKillFeed();
+  drawCountdown();
   drawHUD();
 
   requestAnimationFrame(loop);
