@@ -17,7 +17,16 @@ const imgSources = {
   zombie_walker: '/assets/zombie_walker.png',
   zombie_runner: '/assets/zombie_runner.png',
   zombie_exploder: '/assets/zombie_exploder.png',
-  zombie_tank: '/assets/zombie_tank.png'
+  zombie_tank: '/assets/zombie_tank.png',
+  gun_pistol: '/assets/pistol.png',
+  gun_shotgun: '/assets/shotgun.png',
+  gun_rifle: '/assets/rifle.png',
+  gun_rocket: '/assets/rocket.png',
+  zombie_walker_sheet: '/assets/zombie_walker_sheet.png',
+  zombie_runner_sheet: '/assets/zombie_runner_sheet.png',
+  zombie_tank_sheet: '/assets/zombie_tank_sheet.png',
+  zombie_exploder_sheet: '/assets/zombie_exploder_sheet.png',
+  fog: '/assets/fog.png'
 };
 let imagesLoaded = 0;
 const totalImages = Object.keys(imgSources).length;
@@ -89,6 +98,7 @@ function init() {
   spawnTimer = 0; spawnInterval = 1800; spawnBudget = 0;
   spawnBudget = killGoal;
   state = 'playing';
+  initRain();
 }
 
 // ═══════════════════════════════════════
@@ -250,7 +260,73 @@ function drawBackground() {
     ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
   }
 }
+// ========== RAIN SYSTEM ==========
+var raindrops = [];
+var RAIN_COUNT = 250;
+var fogOffset = 0;
 
+function initRain() {
+  raindrops = [];
+  for (var i = 0; i < RAIN_COUNT; i++) {
+    raindrops.push({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      speed: 10 + Math.random() * 14,
+      len: 12 + Math.random() * 22,
+      opacity: 0.08 + Math.random() * 0.25
+    });
+  }
+}
+
+function updateRain() {
+  for (var i = 0; i < raindrops.length; i++) {
+    var r = raindrops[i];
+    r.y += r.speed;
+    r.x += r.speed * 0.25;
+    if (r.y > H) { r.y = -r.len; r.x = Math.random() * W; }
+    if (r.x > W) r.x = -10;
+  }
+}
+
+function drawRain() {
+  ctx.lineWidth = 1.5;
+  for (var i = 0; i < raindrops.length; i++) {
+    var r = raindrops[i];
+    ctx.globalAlpha = r.opacity;
+    ctx.strokeStyle = 'rgba(180,200,230,0.6)';
+    ctx.beginPath();
+    ctx.moveTo(r.x, r.y);
+    ctx.lineTo(r.x + r.len * 0.25, r.y + r.len);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawFog() {
+  if (!IMG.fog || !IMG.fog.complete) return;
+  fogOffset += 0.3;
+  if (fogOffset > W) fogOffset = 0;
+  ctx.save();
+  ctx.globalAlpha = 0.25;
+  ctx.globalCompositeOperation = 'screen';
+  var fogY = H * 0.55;
+  var fogH = H * 0.45;
+  ctx.drawImage(IMG.fog, -fogOffset, fogY, W * 1.5, fogH);
+  ctx.drawImage(IMG.fog, W * 1.5 - fogOffset, fogY, W * 1.5, fogH);
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+// ========== SPRITE SHEET HELPER ==========
+function getZombieSpriteSheet(type) {
+  switch(type) {
+    case 'runner': return IMG.zombie_runner_sheet;
+    case 'tank': return IMG.zombie_tank_sheet;
+    case 'exploder': return IMG.zombie_exploder_sheet;
+    default: return IMG.zombie_walker_sheet;
+  }
+}
 function getZombieSprite(type) {
   switch (type) {
     case 'runner': return IMG.zombie_runner;
@@ -267,121 +343,77 @@ function drawZombie(z) {
   const screenW = screenH * 0.6;
   if (p.x < -screenW || p.x > W+screenW || screenH < 2) return;
   const sc = screenH / 60;
-  const bob = Math.sin(z.wobble) * screenW * 0.02;
-  var sx = p.x;
-  var sy = p.y;
+
+  if (!z.animPhase) z.animPhase = Math.random() * Math.PI * 2;
+  z.animPhase += 0.12 * (z.speed * 600 + 2);
+  var bounce = Math.abs(Math.sin(z.animPhase)) * 5 * sc;
+  var lean = Math.sin(z.animPhase * 0.7) * 0.06;
+  var squashX = 1 + Math.sin(z.animPhase * 2) * 0.04;
+  var stretchY = 1 - Math.sin(z.animPhase * 2) * 0.03;
+
+  var FRAMES = 6;
+  var frameIndex = Math.floor(z.animPhase * 1.5) % FRAMES;
 
   // Shadow
   ctx.fillStyle = 'rgba(0,0,0,0.5)';
   ctx.beginPath();
-  ctx.ellipse(sx, sy+4, screenW*0.5, screenH*0.12, 0, 0, Math.PI*2);
+  ctx.ellipse(p.x, p.y + 4, screenW * 0.5, screenH * 0.12, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Animate limbs
-  if (!z.animPhase) z.animPhase = Math.random() * Math.PI * 2;
-  z.animPhase += 0.15 * (z.speed * 800 + 3);
-  var legSwing = Math.sin(z.animPhase) * 0.5;
-  var armSwing = Math.sin(z.animPhase + Math.PI) * 0.4;
-  var bodyBounce = Math.abs(Math.sin(z.animPhase * 2)) * 2 * sc;
-  var lean = Math.sin(z.animPhase * 0.5) * 0.05;
+  var sheet = getZombieSpriteSheet(z.type);
+  var single = getZombieSprite(z.type);
 
   ctx.save();
-  ctx.translate(sx, sy - bodyBounce);
+  ctx.translate(p.x, p.y - bounce);
   ctx.rotate(lean);
+  ctx.scale(squashX, stretchY);
 
-  var h = 60 * sc;
-  var zombieGreen = z.flash > 0 ? '#fff' : (z.type === 'tank' ? '#3a6644' : z.type === 'fast' ? '#77bb44' : '#4a8844');
-  var darkGreen = z.flash > 0 ? '#ddd' : (z.type === 'tank' ? '#2a4a33' : z.type === 'fast' ? '#559922' : '#336633');
-  var skinTone = z.flash > 0 ? '#eee' : '#7a9968';
-
-  // LEGS
-  ctx.fillStyle = darkGreen;
-  ctx.save();
-  ctx.translate(-8 * sc, 0);
-  ctx.rotate(legSwing);
-  ctx.fillRect(-4 * sc, 0, 8 * sc, h * 0.45);
-  ctx.fillStyle = '#222';
-  ctx.fillRect(-5 * sc, h * 0.42, 10 * sc, 5 * sc);
-  ctx.restore();
-  ctx.fillStyle = darkGreen;
-  ctx.save();
-  ctx.translate(8 * sc, 0);
-  ctx.rotate(-legSwing);
-  ctx.fillRect(-4 * sc, 0, 8 * sc, h * 0.45);
-  ctx.fillStyle = '#222';
-  ctx.fillRect(-5 * sc, h * 0.42, 10 * sc, 5 * sc);
-  ctx.restore();
-
-  // TORSO
-  ctx.fillStyle = zombieGreen;
-  var torsoW = (z.type === 'tank' ? 28 : 18) * sc;
-  var torsoH = h * 0.4;
-  ctx.fillRect(-torsoW / 2, -torsoH, torsoW, torsoH);
-  ctx.fillStyle = darkGreen;
-  ctx.fillRect(-torsoW / 2 + 2 * sc, -torsoH + 4 * sc, torsoW - 4 * sc, 3 * sc);
-  ctx.strokeStyle = darkGreen;
-  ctx.lineWidth = sc;
-  for (var r = 0; r < 3; r++) {
-    ctx.beginPath();
-    ctx.moveTo(-torsoW / 3, -torsoH + 10 * sc + r * 6 * sc);
-    ctx.lineTo(torsoW / 3, -torsoH + 12 * sc + r * 6 * sc);
-    ctx.stroke();
+  if (sheet && sheet.complete && sheet.naturalWidth > 0) {
+    var frameW = sheet.naturalWidth / FRAMES;
+    var frameH = sheet.naturalHeight;
+    var sx = frameIndex * frameW;
+    if (z.flash > 0) { ctx.globalAlpha = 0.7; ctx.filter = 'brightness(3)'; }
+    ctx.drawImage(sheet, sx, 0, frameW, frameH, -screenW / 2, -screenH, screenW, screenH);
+    ctx.filter = 'none'; ctx.globalAlpha = 1;
+  } else if (single && single.complete) {
+    if (z.flash > 0) { ctx.globalAlpha = 0.7; ctx.filter = 'brightness(3)'; }
+    ctx.drawImage(single, -screenW / 2, -screenH, screenW, screenH);
+    ctx.filter = 'none'; ctx.globalAlpha = 1;
+  } else {
+    ctx.fillStyle = z.flash > 0 ? '#fff' : '#1a1a2a';
+    ctx.fillRect(-screenW / 2, -screenH, screenW, screenH);
   }
 
-  // ARMS
-  ctx.fillStyle = skinTone;
-  ctx.save();
-  ctx.translate(-torsoW / 2, -torsoH + 5 * sc);
-  ctx.rotate(armSwing + 0.8);
-  ctx.fillRect(-4 * sc, 0, 7 * sc, h * 0.35);
-  ctx.fillStyle = darkGreen;
-  ctx.fillRect(-5 * sc, h * 0.33, 9 * sc, 5 * sc);
-  ctx.restore();
-  ctx.fillStyle = skinTone;
-  ctx.save();
-  ctx.translate(torsoW / 2, -torsoH + 5 * sc);
-  ctx.rotate(-armSwing + 0.8);
-  ctx.fillRect(-3 * sc, 0, 7 * sc, h * 0.35);
-  ctx.fillStyle = darkGreen;
-  ctx.fillRect(-4 * sc, h * 0.33, 9 * sc, 5 * sc);
-  ctx.restore();
-
-  // HEAD
-  var headR = (z.type === 'tank' ? 14 : 10) * sc;
-  ctx.fillStyle = skinTone;
-  ctx.beginPath();
-  ctx.arc(0, -torsoH - headR + 2 * sc, headR, 0, Math.PI * 2);
-  ctx.fill();
   // Glowing eyes
-  ctx.fillStyle = '#ff2200';
-  ctx.shadowColor = '#ff0000';
-  ctx.shadowBlur = 8 * sc;
+  var eyeY = -screenH * 0.82;
+  var eyeSize = Math.max(1.5, sc * 2.5);
+  var eyeCol = z.type === 'runner' ? '#ffaa00' : z.type === 'tank' ? '#00ff66' : z.type === 'exploder' ? '#ff4400' : '#ff2200';
+  ctx.fillStyle = eyeCol;
+  ctx.shadowColor = eyeCol;
+  ctx.shadowBlur = eyeSize * 5;
   ctx.beginPath();
-  ctx.arc(-4 * sc, -torsoH - headR + 2 * sc, 2 * sc, 0, Math.PI * 2);
+  ctx.arc(-screenW * 0.1, eyeY, eyeSize, 0, Math.PI * 2);
   ctx.fill();
   ctx.beginPath();
-  ctx.arc(4 * sc, -torsoH - headR + 2 * sc, 2 * sc, 0, Math.PI * 2);
+  ctx.arc(screenW * 0.1, eyeY, eyeSize, 0, Math.PI * 2);
   ctx.fill();
   ctx.shadowBlur = 0;
-  // Mouth
-  ctx.strokeStyle = '#220000';
-  ctx.lineWidth = 1.5 * sc;
-  ctx.beginPath();
-  ctx.arc(0, -torsoH - headR + 6 * sc, 4 * sc, 0, Math.PI);
-  ctx.stroke();
+
+  ctx.restore();
 
   // HP bar
   if (z.hp < z.maxHp) {
-    var barW = torsoW + 10 * sc;
-    var barH = 4 * sc;
-    var barY = -torsoH - headR * 2 - 6 * sc;
-    ctx.fillStyle = '#400';
-    ctx.fillRect(-barW / 2, barY, barW, barH);
-    ctx.fillStyle = '#f00';
-    ctx.fillRect(-barW / 2, barY, barW * (z.hp / z.maxHp), barH);
+    var barW = screenW + 10 * sc;
+    var barH = Math.max(3, 4 * sc);
+    var barY = topP.y - bounce - 10 * sc;
+    ctx.fillStyle = 'rgba(64,0,0,0.7)';
+    ctx.fillRect(p.x - barW / 2, barY, barW, barH);
+    ctx.fillStyle = '#ff0033';
+    ctx.shadowColor = '#ff0000';
+    ctx.shadowBlur = 6;
+    ctx.fillRect(p.x - barW / 2, barY, barW * (z.hp / z.maxHp), barH);
+    ctx.shadowBlur = 0;
   }
-
-  ctx.restore();
 }
 
 function drawPowerup(pu) {
@@ -405,191 +437,36 @@ function drawPowerup(pu) {
 }
 function drawGun() {
   var w = WEAPONS[curWeapon];
-  var bobX = Math.sin(gunBob) * 6;
-  var bobY = Math.abs(Math.cos(gunBob)) * 4;
-  var kickY = gunRecoil * 18;
-  var baseX = cx + bobX;
-  var baseY = H + bobY - kickY;
-  ctx.save();
-  ctx.translate(baseX, baseY);
+  var bobX = Math.sin(gunBob) * 8;
+  var bobY = Math.abs(Math.cos(gunBob)) * 5;
+  var kickY = gunRecoil * 35;
+  var kickRot = gunRecoil * 0.06;
 
-  // Left arm
-  var skinBase = '#c49a6c';
-  var skinShade = '#a67c52';
-  var sleeve = '#1a1a2a';
-  ctx.fillStyle = sleeve;
-  ctx.beginPath();
-  ctx.moveTo(-220, 120);
-  ctx.quadraticCurveTo(-180, 20, -80, -60);
-  ctx.lineTo(-50, -50);
-  ctx.quadraticCurveTo(-150, 30, -170, 120);
-  ctx.closePath();
-  ctx.fill();
-  // Left hand
-  ctx.fillStyle = skinBase;
-  ctx.beginPath();
-  ctx.moveTo(-80, -60);
-  ctx.quadraticCurveTo(-60, -80, -30, -80);
-  ctx.lineTo(-20, -65);
-  ctx.quadraticCurveTo(-55, -55, -65, -45);
-  ctx.closePath();
-  ctx.fill();
-  // Left fingers
-  ctx.fillStyle = skinShade;
-  for (var i = 0; i < 4; i++) {
-    ctx.beginPath();
-    ctx.ellipse(-30 + i * 8, -90 + i * 2, 5, 12, 0.3, 0, Math.PI * 2);
-    ctx.fill();
+  var gunImg;
+  if (curWeapon === 'pistol') gunImg = IMG.gun_pistol;
+  else if (curWeapon === 'shotgun') gunImg = IMG.gun_shotgun;
+  else if (curWeapon === 'rifle') gunImg = IMG.gun_rifle;
+  else gunImg = IMG.gun_rocket;
+
+  if (gunImg && gunImg.complete && gunImg.naturalWidth > 0) {
+    ctx.save();
+    var gunW = W * 0.55;
+    var gunH = gunW * (gunImg.naturalHeight / gunImg.naturalWidth);
+    var gunX = cx - gunW / 2 + bobX;
+    var gunY = H - gunH + 40 + bobY + kickY;
+
+    ctx.translate(gunX + gunW / 2, gunY + gunH / 2);
+    ctx.rotate(-kickRot);
+    ctx.translate(-(gunX + gunW / 2), -(gunY + gunH / 2));
+
+    ctx.drawImage(gunImg, gunX, gunY, gunW, gunH);
+    ctx.restore();
   }
-  // Left thumb
-  ctx.fillStyle = skinBase;
-  ctx.beginPath();
-  ctx.ellipse(-38, -68, 6, 14, -0.5, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Right arm
-  ctx.fillStyle = sleeve;
-  ctx.beginPath();
-  ctx.moveTo(220, 120);
-  ctx.quadraticCurveTo(180, 20, 80, -60);
-  ctx.lineTo(50, -50);
-  ctx.quadraticCurveTo(150, 30, 170, 120);
-  ctx.closePath();
-  ctx.fill();
-  // Right hand
-  ctx.fillStyle = skinBase;
-  ctx.beginPath();
-  ctx.moveTo(80, -60);
-  ctx.quadraticCurveTo(60, -80, 30, -80);
-  ctx.lineTo(20, -65);
-  ctx.quadraticCurveTo(55, -55, 65, -45);
-  ctx.closePath();
-  ctx.fill();
-  // Right trigger finger
-  ctx.fillStyle = skinShade;
-  ctx.beginPath();
-  ctx.ellipse(10, -100, 4, 11, -0.1, 0, Math.PI * 2);
-  ctx.fill();
-  // Right fingers
-  for (var i = 0; i < 3; i++) {
-    ctx.beginPath();
-    ctx.ellipse(25 + i * 8, -88 + i * 2, 5, 12, -0.3, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  // === WEAPON ===
-  var barrelTop, barrelW;
-  if (curWeapon === 'pistol') {
-    barrelTop = -180; barrelW = 12;
-    // Slide
-    ctx.fillStyle = '#2a2a2a';
-    ctx.fillRect(-barrelW, -170, barrelW * 2, 90);
-    // Barrel
-    ctx.fillStyle = '#1a1a1a';
-    ctx.fillRect(-8, barrelTop, 16, 30);
-    // Grip
-    ctx.fillStyle = '#3a2a1a';
-    ctx.fillRect(-10, -80, 20, 40);
-    // Sight
-    ctx.fillStyle = '#444';
-    ctx.fillRect(-3, barrelTop - 4, 6, 6);
-  } else if (curWeapon === 'shotgun') {
-    barrelTop = -230; barrelW = 10;
-    // Double barrel
-    ctx.fillStyle = '#1a1a1a';
-    ctx.fillRect(-barrelW, barrelTop, 9, 150);
-    ctx.fillRect(barrelW - 9, barrelTop, 9, 150);
-    // Foregrip wood
-    ctx.fillStyle = '#5a3a1a';
-    ctx.fillRect(-14, -130, 28, 30);
-    // Receiver
-    ctx.fillStyle = '#2a2a2a';
-    ctx.fillRect(-12, -100, 24, 30);
-    // Stock hint
-    ctx.fillStyle = '#4a2a0a';
-    ctx.fillRect(-8, -70, 16, 35);
-    // Pump
-    ctx.fillStyle = '#666';
-    ctx.fillRect(-16, -125, 32, 8);
-  } else if (curWeapon === 'rifle') {
-    barrelTop = -260; barrelW = 7;
-    // Long barrel
-    ctx.fillStyle = '#1a1a1a';
-    ctx.fillRect(-barrelW, barrelTop, barrelW * 2, 180);
-    // Handguard
-    ctx.fillStyle = '#2a2a2a';
-    ctx.fillRect(-10, -180, 20, 50);
-    // Rail on top
-    ctx.fillStyle = '#444';
-    ctx.fillRect(-4, -200, 8, 80);
-    // Receiver
-    ctx.fillStyle = '#333';
-    ctx.fillRect(-12, -130, 24, 40);
-    // Magazine
-    ctx.fillStyle = '#222';
-    ctx.fillRect(-6, -100, 12, 30);
-    // Scope
-    ctx.fillStyle = '#555';
-    ctx.fillRect(-5, -220, 10, 30);
-    ctx.fillStyle = '#88ccff';
-    ctx.globalAlpha = 0.4;
-    ctx.beginPath();
-    ctx.arc(0, -235, 6, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.globalAlpha = 1;
-    // Muzzle brake
-    ctx.fillStyle = '#555';
-    ctx.fillRect(-9, barrelTop - 5, 18, 8);
-  } else {
-    barrelTop = -230; barrelW = 16;
-    // Tube
-    ctx.fillStyle = '#2a2a2a';
-    ctx.fillRect(-barrelW, barrelTop, barrelW * 2, 150);
-    // Front opening
-    ctx.fillStyle = '#111';
-    ctx.beginPath();
-    ctx.arc(0, barrelTop, barrelW - 2, 0, Math.PI * 2);
-    ctx.fill();
-    // Inner glow
-    ctx.fillStyle = '#ff4400';
-    ctx.globalAlpha = 0.3 + Math.sin(Date.now() * 0.005) * 0.15;
-    ctx.beginPath();
-    ctx.arc(0, barrelTop, barrelW - 6, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.globalAlpha = 1;
-    // Grip section
-    ctx.fillStyle = '#3a3a3a';
-    ctx.fillRect(-20, -100, 40, 30);
-    // Hazard stripes
-    ctx.fillStyle = '#cc8800';
-    for (var s = 0; s < 3; s++) {
-      ctx.fillRect(-18, -95 + s * 10, 36, 3);
-    }
-  }
-
-  // Neon accent lines
-  ctx.shadowColor = w.col;
-  ctx.shadowBlur = 10;
-  ctx.strokeStyle = w.col;
-  ctx.lineWidth = 1.5;
-  ctx.globalAlpha = 0.7;
-  ctx.beginPath();
-  ctx.moveTo(-barrelW - 1, -130);
-  ctx.lineTo(-barrelW - 1, -80);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(barrelW + 1, -130);
-  ctx.lineTo(barrelW + 1, -80);
-  ctx.stroke();
-  ctx.globalAlpha = 1;
-  ctx.shadowBlur = 0;
-
-  ctx.restore();
 
   // Muzzle flash
   if (muzzleFlash > 0) {
-    var mfX = baseX;
-    var mfY = baseY + barrelTop - 10;
+    var mfX = cx + bobX;
+    var mfY = H * 0.25 + kickY;
     var mfSize = 25 + (curWeapon === 'rocket' ? 55 : curWeapon === 'shotgun' ? 45 : curWeapon === 'rifle' ? 20 : 15);
     ctx.globalAlpha = muzzleFlash;
     ctx.fillStyle = '#fff';
@@ -692,7 +569,7 @@ function drawParticles() {
 // ═══════════════════════════════════════
 function update(dt) {
   if (state !== 'playing') return;
-
+  updateRain();
   gunRecoil *= 0.85; muzzleFlash *= 0.8;
   dmgFlash *= 0.92; screenShake *= 0.9;
   if (screenShake < 0.01) screenShake = 0;
@@ -806,6 +683,8 @@ function draw(timestamp) {
     zombies.sort((a,b) => b.z-a.z);
     zombies.forEach(drawZombie);
     drawParticles();
+    drawFog();
+    drawRain();
     drawGun();
     if (dmgFlash > 0) {
       ctx.fillStyle = 'rgba(255,0,0,'+dmgFlash*0.4+')';
