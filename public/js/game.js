@@ -462,6 +462,19 @@ function update() {
         break;
       }
     }
+    // Shoot powerups to trigger them
+    if (b.alive) {
+      for (const p of powerups) {
+        if (!p.alive) continue;
+        const pd = Math.sqrt((b.x - p.x) ** 2 + (b.y - p.y) ** 2);
+        if (pd < b.radius + p.radius + 4) {
+          collectPowerup(p);
+          p.alive = false;
+          b.alive = false;
+          break;
+        }
+      }
+    }
   }
 
   for (const p of powerups) {
