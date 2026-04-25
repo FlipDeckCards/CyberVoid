@@ -304,7 +304,78 @@ function drawPowerup(pu) {
   ctx.fillText(labels[pu.type]||'?', p.x, p.y);
   ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
 }
-
+function drawGun() {
+  var w = WEAPONS[curWeapon];
+  var bobX = Math.sin(gunBob) * 6;
+  var bobY = Math.abs(Math.cos(gunBob)) * 4;
+  var kickY = gunRecoil * 18;
+  var baseX = cx + bobX;
+  var baseY = H + bobY - kickY;
+  ctx.save();
+  ctx.translate(baseX, baseY);
+  ctx.fillStyle = '#1a1a1a';
+  ctx.fillRect(-140, -90, 50, 100);
+  ctx.fillStyle = '#2a2a2a';
+  ctx.fillRect(-135, -95, 40, 30);
+  ctx.fillStyle = '#1a1a1a';
+  ctx.fillRect(90, -90, 50, 100);
+  ctx.fillStyle = '#2a2a2a';
+  ctx.fillRect(95, -95, 40, 30);
+  var gunCol = '#3a3a4a';
+  if (curWeapon === 'shotgun') gunCol = '#4a3a2a';
+  if (curWeapon === 'rifle') gunCol = '#2a3a2a';
+  if (curWeapon === 'rocket') gunCol = '#4a2a2a';
+  ctx.fillStyle = gunCol;
+  if (curWeapon === 'pistol') {
+    ctx.fillRect(-15, -120, 30, 80);
+    ctx.fillRect(-10, -140, 20, 30);
+    ctx.fillStyle = '#222';
+    ctx.fillRect(-8, -155, 16, 20);
+  } else if (curWeapon === 'shotgun') {
+    ctx.fillRect(-12, -130, 24, 90);
+    ctx.fillRect(-8, -180, 16, 60);
+    ctx.fillStyle = '#222';
+    ctx.fillRect(-6, -190, 12, 15);
+    ctx.fillStyle = '#555';
+    ctx.fillRect(-18, -110, 36, 10);
+  } else if (curWeapon === 'rifle') {
+    ctx.fillRect(-10, -130, 20, 90);
+    ctx.fillRect(-7, -200, 14, 80);
+    ctx.fillStyle = '#222';
+    ctx.fillRect(-5, -210, 10, 15);
+    ctx.fillStyle = '#555';
+    ctx.fillRect(-20, -120, 40, 8);
+    ctx.fillRect(-3, -220, 6, 15);
+  } else if (curWeapon === 'rocket') {
+    ctx.fillRect(-18, -130, 36, 90);
+    ctx.fillRect(-14, -190, 28, 70);
+    ctx.fillStyle = '#222';
+    ctx.fillRect(-16, -195, 32, 10);
+    ctx.fillStyle = '#555';
+    ctx.fillRect(-22, -100, 44, 10);
+  }
+  ctx.fillStyle = 'rgba(255,255,255,0.05)';
+  ctx.fillRect(-12, -120, 8, 60);
+  ctx.restore();
+  if (muzzleFlash > 0) {
+    var mfX = baseX;
+    var mfY = baseY - 180;
+    var mfSize = 30 + (curWeapon === 'rocket' ? 50 : curWeapon === 'shotgun' ? 40 : 15);
+    ctx.globalAlpha = muzzleFlash;
+    ctx.fillStyle = '#fff';
+    ctx.shadowColor = w.col;
+    ctx.shadowBlur = 60;
+    ctx.beginPath();
+    ctx.arc(mfX, mfY, mfSize * muzzleFlash, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = w.col;
+    ctx.beginPath();
+    ctx.arc(mfX, mfY, mfSize * muzzleFlash * 0.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1;
+  }
+}
 function drawHUD() {
   const w = WEAPONS[curWeapon];
   const pad = 20;
