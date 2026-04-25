@@ -26,12 +26,13 @@ const WEAPON_ORDER = ['pistol','shotgun','rifle','rocket'];
 
 // ── STATE ──
 let W, H, cx, cy, horizonY;
-let state = 'waiting'; // waiting | playing | dead
-let score, wave, kills, killGoal, health, armor;
-let curWeapon, weaponAmmo, lastShot, gunRecoil, muzzleFlash, gunBob;
+let state = 'waiting';
+let score = 0, wave = 1, kills = 0, killGoal = 8, health = 100, armor = 0;
+let curWeapon = 'pistol', weaponAmmo = { pistol:Infinity, shotgun:0, rifle:0, rocket:0 };
+let lastShot = 0, gunRecoil = 0, muzzleFlash = 0, gunBob = 0;
 let zombies = [], particles = [], powerups = [];
 let dmgFlash = 0, screenShake = 0;
-let spawnTimer, spawnInterval, spawnBudget;
+let spawnTimer = 0, spawnInterval = 1800, spawnBudget = 0;
 let mouse = {x:0, y:0};
 let mouseDown = false;
 let lastTime = 0;
