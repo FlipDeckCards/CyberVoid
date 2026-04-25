@@ -65,7 +65,7 @@ function resize() {
   W = canvas.width = window.innerWidth;
   H = canvas.height = window.innerHeight;
   cx = W / 2; cy = H / 2;
-  horizonY = H * 0.38;
+  horizonY = H * 0.48;
 }
 window.addEventListener('resize', resize);
 resize();
@@ -303,36 +303,6 @@ function drawPowerup(pu) {
   const labels = {health:'+',armor:'A',shotgun:'SG',rifle:'RF',rocket:'RL',nuke:'☢'};
   ctx.fillText(labels[pu.type]||'?', p.x, p.y);
   ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
-}
-
-function drawGun() {
-  const w = WEAPONS[curWeapon];
-  const bobX = Math.sin(gunBob)*4;
-  const bobY = Math.abs(Math.cos(gunBob))*3;
-  const kickY = gunRecoil*12;
-
-  if (IMG.player && IMG.player.complete) {
-    const spriteH = H*0.5;
-    const spriteW = spriteH * (IMG.player.width/IMG.player.height);
-    ctx.drawImage(IMG.player, cx-spriteW/2+bobX, H-spriteH+kickY+bobY+20, spriteW, spriteH);
-  } else {
-    ctx.save(); ctx.translate(cx+bobX, H-kickY+bobY);
-    ctx.fillStyle = '#1a1a2e';
-    ctx.fillRect(-130,-80,55,90); ctx.fillRect(65,-80,55,90);
-    ctx.fillStyle = '#2a2a3a'; ctx.fillRect(-18,-130,36,100);
-    ctx.restore();
-  }
-
-  if (muzzleFlash > 0) {
-    const mfX = cx+bobX, mfY = H*0.42;
-    const mfSize = 40+(curWeapon==='rocket'?60:curWeapon==='shotgun'?45:15);
-    ctx.globalAlpha = muzzleFlash;
-    ctx.fillStyle = '#fff'; ctx.shadowColor = w.col; ctx.shadowBlur = 60;
-    ctx.beginPath(); ctx.arc(mfX,mfY,mfSize*muzzleFlash,0,Math.PI*2); ctx.fill();
-    ctx.fillStyle = w.col;
-    ctx.beginPath(); ctx.arc(mfX,mfY,mfSize*muzzleFlash*0.5,0,Math.PI*2); ctx.fill();
-    ctx.shadowBlur = 0; ctx.globalAlpha = 1;
-  }
 }
 
 function drawHUD() {
