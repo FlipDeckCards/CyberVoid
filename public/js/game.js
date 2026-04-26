@@ -238,7 +238,6 @@ function spawnEnemy() {
   var xJitter = (Math.random() - 0.5) * LANE_W * 0.5;
   var zJitter = Math.random() * 12;
 
-  // Flying height + size per type
   var hoverBase;
   var sizeScale;
   switch (type) {
@@ -296,6 +295,7 @@ function maybeDropPowerup(x, z) {
 }
 
 function collectPowerup(pu) {
+  SFX.powerup();
   switch (pu.type) {
     case 'health': health = Math.min(100, health+35); break;
     case 'armor': armor = Math.min(100, armor+30); break;
@@ -322,14 +322,12 @@ function checkHit(aimX, aimY, screenCX, screenCY, projSize) {
   var cornerRadius = projSize * 0.25;
   var cornerOffset = projSize * 0.45;
 
-  // Center hit — critical damage (check first)
   var dx = aimX - screenCX;
   var dy = aimY - screenCY;
   if (Math.sqrt(dx * dx + dy * dy) < centerRadius) {
     return { hit: true, critical: true, multiplier: 1.0 };
   }
 
-  // 4 corner hits — 1/3 damage
   var corners = [
     { cx: screenCX - cornerOffset, cy: screenCY - cornerOffset },
     { cx: screenCX + cornerOffset, cy: screenCY - cornerOffset },
@@ -400,6 +398,7 @@ function shoot() {
   if (weaponAmmo[curWeapon] !== Infinity) weaponAmmo[curWeapon]--;
   gunRecoil = 1;
   muzzleFlash = 1;
+  SFX[curWeapon]();
 
   for (let p = 0; p < w.pellets; p++) {
     const aimX = mouse.x + (Math.random()-0.5) * w.spread * W;
@@ -412,7 +411,6 @@ function shoot() {
       const tp = proj(e.x, hoverY + scaledH, e.z);
       const sh = bp.y - tp.y;
 
-      // 5-point domino hitbox check
       var screenCX = bp.x;
       var screenCY = (tp.y + bp.y) / 2;
       var result = checkHit(aimX, aimY, screenCX, screenCY, sh);
@@ -424,6 +422,7 @@ function shoot() {
         e.flashColor = result.critical ? '#ff0' : '#f80';
         spawnSparks(e.x, hoverY + scaledH*0.5, e.z);
         spawnDamageNumber(screenCX, screenCY, Math.round(dmg), result.critical);
+        if (result.critical) SFX.hitCritical(); else SFX.hitCorner();
         if (w.explosive) {
           screenShake = 0.6;
           enemies.forEach(oe => {
@@ -526,7 +525,6 @@ function drawEnemy(e) {
   var img = IMG[e.type];
   var glowCol = ENEMY_GLOW[e.type] || '#0ff';
 
-  // Shadow on ground (faint — they're flying)
   var ground = proj(e.x, 0, e.z);
   ctx.fillStyle = 'rgba(0,0,0,0.15)';
   ctx.beginPath();
@@ -539,7 +537,6 @@ function drawEnemy(e) {
   var drawX = ecx - drawW / 2;
   var drawY = head.y;
 
-  // Clamp to screen
   if (drawY < 0) {
     drawH = Math.max(2, drawH + drawY);
     drawW = drawH * aspect;
@@ -550,7 +547,6 @@ function drawEnemy(e) {
   ctx.save();
 
   if (img && img.complete && img.naturalWidth > 0) {
-    // Hit flash — color-coded glow (yellow = crit, orange = corner)
     if (e.flash > 0) {
       var flashIntensity = e.flashColor === '#ff0' ? 18 : 10;
       ctx.filter = 'brightness(' + (1 + e.flash * flashIntensity) + ')';
@@ -571,7 +567,6 @@ function drawEnemy(e) {
 
   ctx.restore();
 
-  // Health bar
   if (e.hp < e.maxhp) {
     var barW = bodyW * 0.9;
     var barH = Math.max(2, bodyH * 0.03);
@@ -583,7 +578,6 @@ function drawEnemy(e) {
     ctx.fillRect(ecx - barW / 2, barY, barW * (e.hp / e.maxhp), barH);
   }
 
-  // Type label
   if (bodyH > 30) {
     ctx.globalAlpha = Math.min(1, (bodyH - 30) / 60);
     ctx.fillStyle = glowCol;
@@ -693,7 +687,6 @@ function drawHUD() {
   ctx.fillText('SCORE: '+score+'   KILLS: '+kills+'/'+killGoal,cx,48);
   ctx.textAlign = 'left';
 
-  // Weapon inventory (touch-friendly on mobile)
   var isMobile = W < 800;
   var invW = isMobile ? 56 : 42;
   var invH = isMobile ? 38 : 26;
@@ -761,7 +754,9 @@ function update(dt) {
   }
 
   if (kills >= killGoal && enemies.length === 0) {
-    wave++; kills = 0;
+    wave++;
+    SFX.waveComplete();
+    kills = 0;
     killGoal = Math.floor(8+wave*3);
     spawnBudget = killGoal;
     spawnInterval = Math.max(400, 1800-wave*100);
@@ -773,12 +768,10 @@ function update(dt) {
   enemies.forEach(e => {
     e.z -= e.speed * dt * 60;
 
-    // Hover bob animation
     var bobSpeed = e.type === 'phantom' ? 5 : e.type === 'scorch' ? 7 : e.type === 'titan' ? 2.5 : 3.5;
     e.hoverPhase += dt * bobSpeed;
 
     e.wobble += dt * (e.type === 'phantom' ? 12 : 6);
-    // Swoop down as they get close — keeps them on screen
     if (e.z < 40) {
       var swoopFactor = 1 - ((40 - e.z) / 40);
       var minHover = 2.0;
@@ -790,7 +783,6 @@ function update(dt) {
     if (e.x < spreadTarget - 0.1) e.x += driftSpeed;
     else if (e.x > spreadTarget + 0.1) e.x -= driftSpeed;
 
-    // Lateral sway
     e.x += Math.sin(e.wobble * 0.5) * 0.015;
 
     if (e.flash > 0) e.flash -= dt;
@@ -801,6 +793,7 @@ function update(dt) {
         let dmg = e.attackDmg;
         if (armor > 0) { const ab = Math.min(armor,dmg*0.6); armor -= ab; dmg -= ab; }
         health -= dmg; dmgFlash = 1; screenShake = 0.4; e.attackCooldown = 1;
+        SFX.playerHit();
         if (e.type === 'scorch') {
           e.hp = 0;
           const p = proj(e.x, e.hoverBase, e.z);
@@ -817,8 +810,8 @@ function update(dt) {
   enemies = enemies.filter(e => {
     if (e.hp <= 0) {
       score += e.points; kills++;
+      SFX.enemyDeath();
       const p = proj(e.x, e.hoverBase, e.z);
-      // Sparks + type-colored explosion
       spawnParticle(p.x, p.y, '#fff', 8);
       spawnParticle(p.x, p.y, ENEMY_GLOW[e.type] || '#0ff', 10);
       spawnParticle(p.x, p.y, '#ff0', 5);
@@ -848,6 +841,7 @@ function update(dt) {
 
   if (health <= 0) {
     health = 0; state = 'dead';
+    SFX.gameOver();
     canvas.style.cursor = 'default';
     document.getElementById('goScore').textContent = 'SCORE: '+score;
     document.getElementById('goWave').textContent = 'WAVE: '+wave;
@@ -896,7 +890,6 @@ function draw(timestamp) {
 //  INPUT (Mouse + Touch)
 // ═══════════════════════════════════════
 
-// -- Mouse --
 canvas.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
 canvas.addEventListener('mousedown', () => {
   if (state !== 'playing') return;
@@ -907,7 +900,6 @@ canvas.addEventListener('mouseup', () => { mouseDown = false; });
 canvas.addEventListener('mouseleave', () => { mouseDown = false; });
 canvas.addEventListener('contextmenu', e => e.preventDefault());
 
-// -- Touch --
 var touchShootId = null;
 
 canvas.addEventListener('touchstart', e => {
@@ -915,13 +907,11 @@ canvas.addEventListener('touchstart', e => {
   if (state !== 'playing') return;
   for (var i = 0; i < e.changedTouches.length; i++) {
     var t = e.changedTouches[i];
-    // Check if touch is on weapon switch buttons
     var wpnHit = hitTestWeaponButton(t.clientX, t.clientY);
     if (wpnHit) {
       if (weaponAmmo[wpnHit] > 0 || weaponAmmo[wpnHit] === Infinity) curWeapon = wpnHit;
       return;
     }
-    // Otherwise it's a shoot touch
     mouse.x = t.clientX;
     mouse.y = t.clientY;
     touchShootId = t.identifier;
@@ -956,7 +946,6 @@ canvas.addEventListener('touchcancel', e => {
   touchShootId = null;
 });
 
-// -- Keyboard (desktop) --
 document.addEventListener('keydown', e => {
   if (state !== 'playing') return;
   var num = parseInt(e.key);
@@ -966,7 +955,6 @@ document.addEventListener('keydown', e => {
   }
 });
 
-// -- Weapon button hit test (for touch) --
 var weaponBtnRects = [];
 
 function hitTestWeaponButton(tx, ty) {
@@ -998,6 +986,7 @@ startBtn.addEventListener('click', async () => {
   }
 
   callsignError.textContent = '';
+  SFX.resume();
   playerName = name.toUpperCase();
   startScreen.style.display = 'none';
   canvas.style.cursor = 'none';
@@ -1005,6 +994,7 @@ startBtn.addEventListener('click', async () => {
 });
 
 restartBtn.addEventListener('click', () => {
+  SFX.resume();
   gameOverScreen.style.display = 'none';
   canvas.style.cursor = 'none';
   init();
@@ -1021,8 +1011,6 @@ mainMenuBtn.addEventListener('click', () => {
   title.textContent = '▼ TOP OPERATORS';
 });
 
-// ── LOAD LEADERBOARD ON PAGE LOAD ──
 fetchLeaderboard();
 
-// ── START RENDER LOOP ──
 requestAnimationFrame(draw);
