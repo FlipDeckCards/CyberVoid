@@ -6,16 +6,88 @@
   <title>DEADZONE</title>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/css/style.css" />
+  <style>
+    #leaderboardBox {
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    #leaderboardList {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.4s ease;
+    }
+    #leaderboardList.open {
+      max-height: 400px;
+    }
+    .lb-header, .lb-entry {
+      display: flex;
+      justify-content: space-between;
+      padding: 6px 12px;
+      font-family: 'Orbitron', monospace;
+      font-size: 11px;
+    }
+    .lb-header {
+      border-bottom: 1px solid rgba(0, 255, 255, 0.3);
+      color: #888;
+      font-size: 9px;
+      letter-spacing: 1px;
+    }
+    .lb-entry {
+      border-bottom: 1px solid rgba(0, 255, 255, 0.08);
+    }
+    .lb-entry:nth-child(2) .lb-rank { color: #ffd700; }
+    .lb-entry:nth-child(3) .lb-rank { color: #c0c0c0; }
+    .lb-entry:nth-child(4) .lb-rank { color: #cd7f32; }
+    .lb-rank { color: #0ff; width: 30px; }
+    .lb-name { color: #fff; flex: 1; text-align: left; padding-left: 8px; }
+    .lb-score { color: #0f0; width: 70px; text-align: right; }
+    .lb-wave { color: #f0f; width: 50px; text-align: right; }
+    .lb-kills { color: #f80; width: 50px; text-align: right; }
+    .lb-empty {
+      color: #666;
+      font-family: 'Orbitron', monospace;
+      font-size: 11px;
+      padding: 15px;
+      text-align: center;
+    }
+    #callsignError {
+      color: #ff4444;
+      font-family: 'Orbitron', monospace;
+      font-size: 11px;
+      height: 18px;
+      margin-top: 4px;
+      text-shadow: 0 0 10px #f00;
+    }
+    #mainMenuBtn {
+      font-family: 'Orbitron', monospace;
+      font-weight: 700;
+      font-size: 1.1rem;
+      padding: 14px 48px;
+      background: transparent;
+      color: #f0f;
+      border: 2px solid #f0f;
+      cursor: pointer;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      margin-top: 10px;
+      transition: all 0.3s ease;
+    }
+    #mainMenuBtn:hover {
+      background: rgba(255, 0, 255, 0.15);
+      box-shadow: 0 0 20px rgba(255, 0, 255, 0.4);
+    }
+  </style>
 </head>
 <body>
   <div id="startScreen">
     <h1 class="title">DEAD<span class="accent">ZONE</span></h1>
     <p class="subtitle">SURVIVE THE HORDE</p>
     <div id="leaderboardBox">
-      <h2 class="lb-title">TOP OPERATORS</h2>
+      <h2 class="lb-title">▶ TOP OPERATORS</h2>
       <div id="leaderboardList"></div>
     </div>
     <input type="text" id="nameInput" placeholder="Enter callsign..." maxlength="16" />
+    <div id="callsignError"></div>
     <button id="startBtn">JACK IN</button>
   </div>
   <div id="gameOverScreen" style="display:none;">
@@ -24,6 +96,7 @@
     <div class="go-score" id="goScore"></div>
     <div class="go-rank" id="goRank"></div>
     <button id="restartBtn">DEPLOY AGAIN</button>
+    <button id="mainMenuBtn">MAIN MENU</button>
   </div>
   <canvas id="game"></canvas>
   <script src="/js/game.js"></script>
