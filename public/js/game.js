@@ -39,12 +39,12 @@ Object.entries(imgSources).forEach(([key, src]) => {
 // ── CONSTANTS ──
 const FOV = 60 * Math.PI / 180;
 const NEAR = 0.5;
-const STREET_DEPTH = 100;
-const LANE_W = 3;
+const STREET_DEPTH = 120;
+const LANE_W = 1.0;
 const LANES = 7;
 const ZOMBIE_H = 6.4;
 const ATTACK_RANGE = 4;
-const CAM_H = 12;
+const CAM_H = 10;
 const GROUND_CLAMP = 0.50;
 
 // ── WEAPONS ──
@@ -76,7 +76,7 @@ function resize() {
   W = canvas.width = window.innerWidth;
   H = canvas.height = window.innerHeight;
   cx = W / 2; cy = H / 2;
-  horizonY = H * 0.36;
+  horizonY = H * 0.44;
   roadVPx = W * 0.30;
 }
 window.addEventListener('resize', resize);
@@ -656,21 +656,22 @@ function update(dt) {
     spawnBudget = killGoal-kills; spawnTimer = 200;
   }
 
-  // Update zombies — horde behavior: tight at spawn, fan out as they approach
+  // Update zombies — tight horde at spawn, perspective handles visual fan-out
+  // They drift from 30% of lane position at spawn to 100% near player
   zombies.forEach(z => {
     z.z -= z.speed * dt * 60;
     z.wobble += dt * (z.type === 'runner' ? 12 : 6);
 
-    // Fan-out: progress 0 at spawn → 1 at player
+    // progress: 0 at spawn, 1 at player
     var progress = Math.max(0, 1 - (z.z / STREET_DEPTH));
-    // At spawn they're tight (1x), near player they spread to 3.5x their lane position
-    var spreadTarget = z.spawnX * (1 + progress * 2.5);
-    var driftSpeed = 0.02 * dt * 60;
-    if (z.x < spreadTarget - 0.2) z.x += driftSpeed;
-    else if (z.x > spreadTarget + 0.2) z.x -= driftSpeed;
+    // Start at 30% of lane pos (tight cluster), grow to 100% (perspective does the rest)
+    var spreadTarget = z.spawnX * (0.3 + progress * 0.7);
+    var driftSpeed = 0.03 * dt * 60;
+    if (z.x < spreadTarget - 0.1) z.x += driftSpeed;
+    else if (z.x > spreadTarget + 0.1) z.x -= driftSpeed;
 
-    // Subtle wobble only — no random sway
-    z.x += Math.sin(z.wobble * 0.5) * 0.015;
+    // Subtle wobble only
+    z.x += Math.sin(z.wobble * 0.5) * 0.01;
 
     if (z.flash > 0) z.flash -= dt;
 
