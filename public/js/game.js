@@ -49,12 +49,12 @@ const GROUND_CLAMP = 0.50;
 
 // ── WEAPONS ──
 const WEAPONS = {
-  pistol:  { name:'PISTOL',  dmg:30,  rate:320,  spread:0,    pellets:1, auto:false, col:'#0f0',  recoil:6 },
-  shotgun: { name:'SHOTGUN', dmg:35,  rate:700,  spread:0.13, pellets:6, auto:false, col:'#f80',  recoil:14 },
-  rifle:   { name:'RIFLE',   dmg:14,  rate:90,   spread:0.03, pellets:1, auto:true,  col:'#0ff',  recoil:3 },
-  rocket:  { name:'ROCKET',  dmg:120, rate:1100, spread:0,    pellets:1, auto:false, col:'#f44',  recoil:20, explosive:true }
+  pistol:  { name:'PISTOL',  dmg:20,  rate:320,  spread:0,    pellets:1, auto:false, col:'#0f0',  recoil:6 },
+  shotgun: { name:'SHOTGUN', dmg:45,  rate:700,  spread:0.13, pellets:6, auto:false, col:'#f80',  recoil:14 },
+  rifle:   { name:'RIFLE',   dmg:35,  rate:90,   spread:0.03, pellets:1, auto:true,  col:'#0ff',  recoil:3 },
+  rocket:  { name:'ROCKET',  dmg:170, rate:1100, spread:0,    pellets:1, auto:false, col:'#f44',  recoil:20, explosive:true }
 };
-const WEAPON_ORDER = ['pistol','shotgun','rifle','rocket'];
+const WEAPON_ORDER = ['pistol','rifle','shotgun','rocket'];
 
 // ── STATE ──
 let W, H, cx, cy, horizonY, roadVPx;
@@ -76,8 +76,8 @@ function resize() {
   W = canvas.width = window.innerWidth;
   H = canvas.height = window.innerHeight;
   cx = W / 2; cy = H / 2;
-  horizonY = H * 0.60;
-  roadVPx = W * 0.30;
+  horizonY = H * 0.55;
+  roadVPx = W * 0.35;
 }
 window.addEventListener('resize', resize);
 resize();
