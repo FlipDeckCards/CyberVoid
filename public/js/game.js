@@ -796,13 +796,15 @@ startBtn.addEventListener('click', async () => {
   startScreen.style.display = 'none';
   canvas.style.cursor = 'none';
   init();
-});
+    Object.values(VID).forEach(function(v) { v.play().catch(function(){}); });
+  });
 
 restartBtn.addEventListener('click', () => {
   gameOverScreen.style.display = 'none';
   canvas.style.cursor = 'none';
   init();
-});
+   Object.values(VID).forEach(function(v) { v.play().catch(function(){}); });
+  });
 
 mainMenuBtn.addEventListener('click', () => {
   gameOverScreen.style.display = 'none';
