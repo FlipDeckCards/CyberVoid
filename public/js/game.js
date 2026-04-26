@@ -987,6 +987,7 @@ startBtn.addEventListener('click', async () => {
 
   callsignError.textContent = '';
   SFX.resume();
+  GameSound.gameStart();
   playerName = name.toUpperCase();
   startScreen.style.display = 'none';
   canvas.style.cursor = 'none';
@@ -995,6 +996,7 @@ startBtn.addEventListener('click', async () => {
 
 restartBtn.addEventListener('click', () => {
   SFX.resume();
+  GameSound.gameStart();
   gameOverScreen.style.display = 'none';
   canvas.style.cursor = 'none';
   init();
