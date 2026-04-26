@@ -86,6 +86,9 @@ let mouseDown = false;
 let lastTime = 0;
 let scoreSubmitted = false;
 
+// ── DAMAGE NUMBERS ──
+var damageNumbers = [];
+
 // ── RESIZE ──
 function resize() {
   W = canvas.width = window.innerWidth;
@@ -187,6 +190,7 @@ function init() {
   weaponAmmo = { pistol:Infinity, shotgun:0, rifle:0, rocket:0 };
   lastShot = 0; gunRecoil = 0; muzzleFlash = 0; gunBob = 0;
   enemies = []; particles = []; powerups = [];
+  damageNumbers = [];
   dmgFlash = 0; screenShake = 0;
   spawnTimer = 0; spawnInterval = 1800; spawnBudget = 0;
   spawnBudget = killGoal;
@@ -251,6 +255,7 @@ function spawnEnemy() {
     speed: stats.speed + Math.random() * 0.008,
     points: stats.points, attackDmg: stats.attackDmg,
     flash: 0,
+    flashColor: '#fff',
     wobble: Math.random() * Math.PI * 2,
     hoverBase: hoverBase,
     hoverPhase: Math.random() * Math.PI * 2,
@@ -310,6 +315,80 @@ function collectPowerup(pu) {
 }
 
 // ═══════════════════════════════════════
+//  5-POINT DOMINO HITBOX
+// ═══════════════════════════════════════
+function checkHit(aimX, aimY, screenCX, screenCY, projSize) {
+  var centerRadius = projSize * 0.35;
+  var cornerRadius = projSize * 0.25;
+  var cornerOffset = projSize * 0.45;
+
+  // Center hit — critical damage (check first)
+  var dx = aimX - screenCX;
+  var dy = aimY - screenCY;
+  if (Math.sqrt(dx * dx + dy * dy) < centerRadius) {
+    return { hit: true, critical: true, multiplier: 1.0 };
+  }
+
+  // 4 corner hits — 1/3 damage
+  var corners = [
+    { cx: screenCX - cornerOffset, cy: screenCY - cornerOffset },
+    { cx: screenCX + cornerOffset, cy: screenCY - cornerOffset },
+    { cx: screenCX - cornerOffset, cy: screenCY + cornerOffset },
+    { cx: screenCX + cornerOffset, cy: screenCY + cornerOffset }
+  ];
+
+  for (var i = 0; i < corners.length; i++) {
+    dx = aimX - corners[i].cx;
+    dy = aimY - corners[i].cy;
+    if (Math.sqrt(dx * dx + dy * dy) < cornerRadius) {
+      return { hit: true, critical: false, multiplier: 0.333 };
+    }
+  }
+
+  return { hit: false, critical: false, multiplier: 0 };
+}
+
+// ═══════════════════════════════════════
+//  FLOATING DAMAGE NUMBERS
+// ═══════════════════════════════════════
+function spawnDamageNumber(x, y, amount, critical) {
+  damageNumbers.push({
+    x: x + (Math.random() - 0.5) * 20,
+    y: y,
+    amount: amount,
+    critical: critical,
+    life: 0.8,
+    vy: -80
+  });
+}
+
+function updateDamageNumbers(dt) {
+  for (var i = damageNumbers.length - 1; i >= 0; i--) {
+    var d = damageNumbers[i];
+    d.y += d.vy * dt;
+    d.life -= dt;
+    if (d.life <= 0) damageNumbers.splice(i, 1);
+  }
+}
+
+function drawDamageNumbers() {
+  for (var i = 0; i < damageNumbers.length; i++) {
+    var d = damageNumbers[i];
+    var alpha = Math.max(d.life / 0.8, 0);
+    ctx.globalAlpha = alpha;
+    ctx.font = d.critical ? 'bold 22px Orbitron' : '16px Orbitron';
+    ctx.fillStyle = d.critical ? '#ff0' : '#f80';
+    ctx.shadowColor = d.critical ? '#ff0' : '#f80';
+    ctx.shadowBlur = d.critical ? 12 : 6;
+    ctx.textAlign = 'center';
+    ctx.fillText(d.amount, d.x, d.y);
+  }
+  ctx.globalAlpha = 1;
+  ctx.shadowBlur = 0;
+  ctx.textAlign = 'left';
+}
+
+// ═══════════════════════════════════════
 //  SHOOTING
 // ═══════════════════════════════════════
 function shoot() {
@@ -332,19 +411,25 @@ function shoot() {
       const bp = proj(e.x, hoverY, e.z);
       const tp = proj(e.x, hoverY + scaledH, e.z);
       const sh = bp.y - tp.y;
-      const sw = sh * 0.6;
-      if (aimX > bp.x-sw/2 && aimX < bp.x+sw/2 && aimY > tp.y && aimY < bp.y) {
-        let dmg = w.dmg;
-        if (aimY < tp.y + sh*0.3) dmg *= 2; // headshot
+
+      // 5-point domino hitbox check
+      var screenCX = bp.x;
+      var screenCY = (tp.y + bp.y) / 2;
+      var result = checkHit(aimX, aimY, screenCX, screenCY, sh);
+
+      if (result.hit) {
+        var dmg = w.dmg * result.multiplier;
         e.hp -= dmg;
         e.flash = 0.15;
+        e.flashColor = result.critical ? '#ff0' : '#f80';
         spawnSparks(e.x, hoverY + scaledH*0.5, e.z);
+        spawnDamageNumber(screenCX, screenCY, Math.round(dmg), result.critical);
         if (w.explosive) {
           screenShake = 0.6;
           enemies.forEach(oe => {
             if (oe === e) return;
             const dist = Math.sqrt((oe.x-e.x)**2 + (oe.z-e.z)**2);
-            if (dist < 12) { oe.hp -= w.dmg*(1-dist/12); oe.flash = 0.1; }
+            if (dist < 12) { oe.hp -= w.dmg*(1-dist/12); oe.flash = 0.1; oe.flashColor = '#f44'; }
           });
         }
         break;
@@ -465,12 +550,16 @@ function drawEnemy(e) {
   ctx.save();
 
   if (img && img.complete && img.naturalWidth > 0) {
-    // Hit flash — brighten the sprite itself, no overlay box
+    // Hit flash — color-coded glow (yellow = crit, orange = corner)
     if (e.flash > 0) {
-      ctx.filter = 'brightness(' + (1 + e.flash * 15) + ') saturate(0)';
+      var flashIntensity = e.flashColor === '#ff0' ? 18 : 10;
+      ctx.filter = 'brightness(' + (1 + e.flash * flashIntensity) + ')';
+      ctx.shadowColor = e.flashColor || '#fff';
+      ctx.shadowBlur = e.flash * 40;
     }
     ctx.drawImage(img, drawX, drawY, drawW, drawH);
     ctx.filter = 'none';
+    ctx.shadowBlur = 0;
   } else {
     ctx.fillStyle = glowCol;
     ctx.globalAlpha = 0.6;
@@ -659,6 +748,7 @@ function drawParticles() {
 function update(dt) {
   if (state !== 'playing') return;
   updateRain();
+  updateDamageNumbers(dt);
   gunRecoil *= 0.85; muzzleFlash *= 0.8;
   dmgFlash *= 0.92; screenShake *= 0.9;
   if (screenShake < 0.01) screenShake = 0;
@@ -688,7 +778,7 @@ function update(dt) {
     e.hoverPhase += dt * bobSpeed;
 
     e.wobble += dt * (e.type === 'phantom' ? 12 : 6);
-// Swoop down as they get close — keeps them on screen
+    // Swoop down as they get close — keeps them on screen
     if (e.z < 40) {
       var swoopFactor = 1 - ((40 - e.z) / 40);
       var minHover = 2.0;
@@ -787,6 +877,7 @@ function draw(timestamp) {
     enemies.sort((a,b) => b.z-a.z);
     enemies.forEach(drawEnemy);
     drawParticles();
+    drawDamageNumbers();
     drawFog();
     drawRain();
     drawGun();
