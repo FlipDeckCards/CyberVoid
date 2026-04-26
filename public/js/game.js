@@ -238,10 +238,10 @@ function spawnEnemy() {
   var hoverBase;
   var sizeScale;
   switch (type) {
-    case 'phantom':  hoverBase = 13.0 + Math.random() * 4.0; sizeScale = 1.0;  break;
+    case 'phantom':  hoverBase = 17.0 + Math.random() * 5.0; sizeScale = 1.0;  break;
     case 'titan':    hoverBase = 1.0 + Math.random() * 1.0; sizeScale = 4/3;  break;
     case 'scorch':   hoverBase = 0.2 + Math.random() * 0.6; sizeScale = 2/3;  break;
-    default:         hoverBase = 7.0 + Math.random() * 3.0; sizeScale = 3/4;  break;
+    default:         hoverBase = 10.0 + Math.random() * 4.0; sizeScale = 3/4;  break;
   }
 
   enemies.push({
