@@ -78,7 +78,7 @@ const STREET_DEPTH = 120;
 const LANE_W = 1.0;
 const LANES = 7;
 const ZOMBIE_H = 6.4;
-const ATTACK_RANGE = 4;
+const ATTACK_RANGE = 8;
 const CAM_H = 10;
 const GROUND_CLAMP = 0.50;
 
@@ -469,7 +469,7 @@ function drawZombie(z) {
   var drawX = zcx - drawW / 2;
   var drawY = head.y;
 
-  // Clamp to screen so close zombies don't fly above viewport
+  // Clamp to screen so close zombies stay visible
   if (drawY < 0) {
     drawH = Math.max(2, drawH + drawY);
     drawW = drawH * aspect;
@@ -480,13 +480,15 @@ function drawZombie(z) {
   ctx.save();
 
   if (vid.readyState >= 2) {
+    // Draw TWICE with screen blend — doubles intensity, kills black BG
     ctx.globalCompositeOperation = 'screen';
-    ctx.filter = 'brightness(2.5) contrast(1.5)';
+    ctx.filter = 'brightness(2) contrast(1.8)';
+    ctx.drawImage(vid, drawX, drawY, drawW, drawH);
     ctx.drawImage(vid, drawX, drawY, drawW, drawH);
     ctx.filter = 'none';
     ctx.globalCompositeOperation = 'source-over';
 
-    // Hit flash — redraw video white-hot instead of a solid rectangle
+    // Hit flash — white-hot sprite flash, no rectangle
     if (z.flash > 0) {
       ctx.globalCompositeOperation = 'screen';
       ctx.globalAlpha = Math.min(0.8, z.flash * 6);
@@ -497,7 +499,6 @@ function drawZombie(z) {
       ctx.globalCompositeOperation = 'source-over';
     }
   }
-  // No fallback colored block — just invisible until video loads
 
   ctx.restore();
 
