@@ -512,12 +512,21 @@ function drawGun() {
   var kickY = gunRecoil * 35;
   var kickRot = gunRecoil * 0.06;
 
+  // Per-weapon orientation: rot in radians, flipX mirrors horizontally
+  var gunConfig = {
+    pistol:  { rot: 0,    flipX: false },
+    shotgun: { rot: 0,    flipX: false },
+    rifle:   { rot: 0,    flipX: false },
+    rocket:  { rot: 0,    flipX: false }
+  };
+
   var gunImg;
   if (curWeapon === 'pistol') gunImg = IMG.gun_pistol;
   else if (curWeapon === 'shotgun') gunImg = IMG.gun_shotgun;
   else if (curWeapon === 'rifle') gunImg = IMG.gun_rifle;
   else gunImg = IMG.gun_rocket;
 
+  var cfg = gunConfig[curWeapon];
   var gunW = W * 0.55;
   var gunAspect = (gunImg && gunImg.complete && gunImg.naturalWidth > 0)
     ? (gunImg.naturalHeight / gunImg.naturalWidth) : 0.5;
@@ -528,7 +537,8 @@ function drawGun() {
   if (gunImg && gunImg.complete && gunImg.naturalWidth > 0) {
     ctx.save();
     ctx.translate(gunX + gunW / 2, gunY + gunH / 2);
-    ctx.rotate(-kickRot);
+    ctx.rotate(-kickRot + cfg.rot);
+    if (cfg.flipX) ctx.scale(-1, 1);
     ctx.translate(-(gunX + gunW / 2), -(gunY + gunH / 2));
     ctx.drawImage(gunImg, gunX, gunY, gunW, gunH);
     ctx.restore();
