@@ -156,49 +156,94 @@ var SFX = (function() {
     sub.stop(t + 0.45);
   }
 
-  // ── HIT: Critical (metallic clang) ──
+ // ── HIT: Critical (metal-on-metal clang) ──
   function hitCritical() {
     if (!audioCtx) return;
     var t = now();
-    // Primary metallic strike
-    var osc = audioCtx.createOscillator();
-    var gain = audioCtx.createGain();
-    osc.type = 'square';
-    osc.frequency.setValueAtTime(3400, t);
-    osc.frequency.exponentialRampToValueAtTime(1200, t + 0.15);
-    gain.gain.setValueAtTime(0.25, t);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
-    osc.connect(gain);
-    gain.connect(masterGain);
-    osc.start(t);
-    osc.stop(t + 0.18);
 
-    // Metallic resonance layer
-    var osc2 = audioCtx.createOscillator();
-    var gain2 = audioCtx.createGain();
-    osc2.type = 'triangle';
-    osc2.frequency.setValueAtTime(4800, t);
-    osc2.frequency.exponentialRampToValueAtTime(2000, t + 0.12);
-    gain2.gain.setValueAtTime(0.15, t);
-    gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
-    osc2.connect(gain2);
-    gain2.connect(masterGain);
-    osc2.start(t);
-    osc2.stop(t + 0.2);
+    // Inharmonic metallic partials (this is what makes it sound like metal)
+    var freqs = [1740, 2890, 3760, 4230, 5410];
+    var amps  = [0.18, 0.14, 0.10, 0.08, 0.05];
+    var decays = [0.25, 0.20, 0.15, 0.12, 0.10];
+    for (var i = 0; i < freqs.length; i++) {
+      var osc = audioCtx.createOscillator();
+      var g = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freqs[i], t);
+      // Slight pitch drop simulates vibration damping
+      osc.frequency.exponentialRampToValueAtTime(freqs[i] * 0.92, t + decays[i]);
+      g.gain.setValueAtTime(amps[i], t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + decays[i]);
+      osc.connect(g);
+      g.connect(masterGain);
+      osc.start(t);
+      osc.stop(t + decays[i] + 0.01);
+    }
 
-    // Short noise burst (impact texture)
-    var bufSize = audioCtx.sampleRate * 0.03;
+    // Sharp impact transient (the initial "tick" of contact)
+    var bufSize = audioCtx.sampleRate * 0.008;
     var buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
     var data = buf.getChannelData(0);
     for (var i = 0; i < bufSize; i++) {
-      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufSize, 6);
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufSize, 12);
     }
     var noise = audioCtx.createBufferSource();
     noise.buffer = buf;
+    // Bandpass to keep it metallic, not hissy
+    var bp = audioCtx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = 4000;
+    bp.Q.value = 2;
     var nGain = audioCtx.createGain();
-    nGain.gain.setValueAtTime(0.3, t);
-    nGain.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
-    noise.connect(nGain);
+    nGain.gain.setValueAtTime(0.45, t);
+    nGain.gain.exponentialRampToValueAtTime(0.001, t + 0.015);
+    noise.connect(bp);
+    bp.connect(nGain);
+    nGain.connect(masterGain);
+    noise.start(t);
+  }
+
+  // ── HIT: Corner (duller metal thud) ──
+  function hitCorner() {
+    if (!audioCtx) return;
+    var t = now();
+
+    // Fewer partials, lower frequencies = duller impact
+    var freqs = [820, 1370, 1960, 2680];
+    var amps  = [0.15, 0.10, 0.07, 0.04];
+    var decays = [0.12, 0.10, 0.08, 0.06];
+    for (var i = 0; i < freqs.length; i++) {
+      var osc = audioCtx.createOscillator();
+      var g = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freqs[i], t);
+      osc.frequency.exponentialRampToValueAtTime(freqs[i] * 0.88, t + decays[i]);
+      g.gain.setValueAtTime(amps[i], t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + decays[i]);
+      osc.connect(g);
+      g.connect(masterGain);
+      osc.start(t);
+      osc.stop(t + decays[i] + 0.01);
+    }
+
+    // Thicker impact transient
+    var bufSize = audioCtx.sampleRate * 0.012;
+    var buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+    var data = buf.getChannelData(0);
+    for (var i = 0; i < bufSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufSize, 10);
+    }
+    var noise = audioCtx.createBufferSource();
+    noise.buffer = buf;
+    var bp = audioCtx.createBiquadFilter();
+    bp.type = 'bandpass';
+    bp.frequency.value = 2000;
+    bp.Q.value = 1.5;
+    var nGain = audioCtx.createGain();
+    nGain.gain.setValueAtTime(0.35, t);
+    nGain.gain.exponentialRampToValueAtTime(0.001, t + 0.02);
+    noise.connect(bp);
+    bp.connect(nGain);
     nGain.connect(masterGain);
     noise.start(t);
   }
