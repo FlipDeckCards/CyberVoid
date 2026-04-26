@@ -295,7 +295,7 @@ function maybeDropPowerup(x, z) {
 }
 
 function collectPowerup(pu) {
-  SFX.powerup();
+  GameSound.powerup();
   switch (pu.type) {
     case 'health': health = Math.min(100, health+35); break;
     case 'armor': armor = Math.min(100, armor+30); break;
@@ -398,7 +398,7 @@ function shoot() {
   if (weaponAmmo[curWeapon] !== Infinity) weaponAmmo[curWeapon]--;
   gunRecoil = 1;
   muzzleFlash = 1;
-  SFX[curWeapon]();
+  GameSound[curWeapon]();
 
   for (let p = 0; p < w.pellets; p++) {
     const aimX = mouse.x + (Math.random()-0.5) * w.spread * W;
@@ -422,7 +422,7 @@ function shoot() {
         e.flashColor = result.critical ? '#ff0' : '#f80';
         spawnSparks(e.x, hoverY + scaledH*0.5, e.z);
         spawnDamageNumber(screenCX, screenCY, Math.round(dmg), result.critical);
-        if (result.critical) SFX.hitCritical(); else SFX.hitCorner();
+        if (result.critical) GameSound.hitCritical(); else GameSound.hitCorner();
         if (w.explosive) {
           screenShake = 0.6;
           enemies.forEach(oe => {
@@ -755,7 +755,7 @@ function update(dt) {
 
   if (kills >= killGoal && enemies.length === 0) {
     wave++;
-    SFX.waveComplete();
+    GameSound.waveComplete();
     kills = 0;
     killGoal = Math.floor(8+wave*3);
     spawnBudget = killGoal;
@@ -793,7 +793,6 @@ function update(dt) {
         let dmg = e.attackDmg;
         if (armor > 0) { const ab = Math.min(armor,dmg*0.6); armor -= ab; dmg -= ab; }
         health -= dmg; dmgFlash = 1; screenShake = 0.4; e.attackCooldown = 1;
-        SFX.playerHit();
         if (e.type === 'scorch') {
           e.hp = 0;
           const p = proj(e.x, e.hoverBase, e.z);
@@ -810,7 +809,7 @@ function update(dt) {
   enemies = enemies.filter(e => {
     if (e.hp <= 0) {
       score += e.points; kills++;
-      SFX.enemyDeath();
+      GameSound.enemyDeath();
       const p = proj(e.x, e.hoverBase, e.z);
       spawnParticle(p.x, p.y, '#fff', 8);
       spawnParticle(p.x, p.y, ENEMY_GLOW[e.type] || '#0ff', 10);
@@ -841,7 +840,8 @@ function update(dt) {
 
   if (health <= 0) {
     health = 0; state = 'dead';
-    SFX.gameOver();
+    GameSound.gameOver();
+    GameSound.musicStop();
     canvas.style.cursor = 'default';
     document.getElementById('goScore').textContent = 'SCORE: '+score;
     document.getElementById('goWave').textContent = 'WAVE: '+wave;
@@ -986,8 +986,8 @@ startBtn.addEventListener('click', async () => {
   }
 
   callsignError.textContent = '';
-  SFX.resume();
   GameSound.gameStart();
+  GameSound.musicStart();
   playerName = name.toUpperCase();
   startScreen.style.display = 'none';
   canvas.style.cursor = 'none';
@@ -995,8 +995,8 @@ startBtn.addEventListener('click', async () => {
 });
 
 restartBtn.addEventListener('click', () => {
-  SFX.resume();
   GameSound.gameStart();
+  GameSound.musicStart();
   gameOverScreen.style.display = 'none';
   canvas.style.cursor = 'none';
   init();
