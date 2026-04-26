@@ -76,7 +76,7 @@ function resize() {
   W = canvas.width = window.innerWidth;
   H = canvas.height = window.innerHeight;
   cx = W / 2; cy = H / 2;
-  horizonY = H * 0.44;
+  horizonY = H * 0.60;
   roadVPx = W * 0.30;
 }
 window.addEventListener('resize', resize);
@@ -716,6 +716,7 @@ function update(dt) {
 
   powerups.forEach(pu => {
     pu.life -= dt;
+    pu.z -= dt * 10;  // drift toward player
     if (pu.z <= ATTACK_RANGE+2) { collectPowerup(pu); pu.life = 0; }
   });
   powerups = powerups.filter(pu => pu.life>0);
