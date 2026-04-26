@@ -39,13 +39,13 @@ Object.entries(imgSources).forEach(([key, src]) => {
 // ── CONSTANTS ──
 const FOV = 60 * Math.PI / 180;
 const NEAR = 0.5;
-const STREET_DEPTH = 80;
-const LANE_W = 9;
+const STREET_DEPTH = 55;
+const LANE_W = 3;
 const LANES = 7;
 const ZOMBIE_H = 6.4;
 const ATTACK_RANGE = 4;
-const CAM_H = 18;
-const GROUND_CLAMP = 0.55;
+const CAM_H = 12;
+const GROUND_CLAMP = 0.50;
 
 // ── WEAPONS ──
 const WEAPONS = {
@@ -76,8 +76,8 @@ function resize() {
   W = canvas.width = window.innerWidth;
   H = canvas.height = window.innerHeight;
   cx = W / 2; cy = H / 2;
-  horizonY = H * 0.28;
-  roadVPx = W * 0.35;
+  horizonY = H * 0.36;
+  roadVPx = W * 0.30;
 }
 window.addEventListener('resize', resize);
 resize();
@@ -111,10 +111,10 @@ function init() {
 function zombieStats(type, w) {
   const s = 1 + w * 0.08;
   switch (type) {
-    case 'runner':   return { hp:40*s, speed:0.025, points:15, attackDmg:8 };
-    case 'tank':     return { hp:200*s, speed:0.008, points:40, attackDmg:20 };
-    case 'exploder': return { hp:60*s, speed:0.016, points:25, attackDmg:35 };
-    default:         return { hp:80*s, speed:0.013, points:10, attackDmg:12 };
+    case 'runner':   return { hp:40*s, speed:0.06, points:15, attackDmg:8 };
+    case 'tank':     return { hp:200*s, speed:0.015, points:40, attackDmg:20 };
+    case 'exploder': return { hp:60*s, speed:0.04, points:25, attackDmg:35 };
+    default:         return { hp:80*s, speed:0.03, points:10, attackDmg:12 };
   }
 }
 
@@ -130,6 +130,7 @@ function pickZombieType(w) {
 function spawnZombie() {
   var type = pickZombieType(wave);
   var stats = zombieStats(type, wave);
+  // Tight horde spawn — all clustered on the road
   var spawns = [
     { x: -LANE_W * 3.0 },
     { x: -LANE_W * 2.0 },
@@ -140,19 +141,18 @@ function spawnZombie() {
     { x: LANE_W * 3.0 }
   ];
   var sp = spawns[Math.floor(Math.random() * spawns.length)];
-  var xJitter = (Math.random() - 0.5) * LANE_W * 0.4;
-  var zJitter = Math.random() * 15;
+  var xJitter = (Math.random() - 0.5) * LANE_W * 0.5;
+  var zJitter = Math.random() * 12;
   zombies.push({
     x: sp.x + xJitter,
     z: STREET_DEPTH + zJitter,
     type: type, hp: stats.hp, maxhp: stats.hp,
-    speed: stats.speed + Math.random() * 0.005,
+    speed: stats.speed + Math.random() * 0.008,
     points: stats.points, attackDmg: stats.attackDmg,
     flash: 0,
     wobble: Math.random() * Math.PI * 2,
     animPhase: Math.random() * Math.PI * 2,
     attackCooldown: 0,
-    sway: (Math.random() - 0.5) * 0.02,
     spawnX: sp.x + xJitter
   });
 }
@@ -656,14 +656,22 @@ function update(dt) {
     spawnBudget = killGoal-kills; spawnTimer = 200;
   }
 
+  // Update zombies — horde behavior: tight at spawn, fan out as they approach
   zombies.forEach(z => {
-    z.z -= z.speed*dt*60;
-    z.wobble += dt*(z.type==='runner'?12:6);
-    var targetX = (z.spawnX || 0) * 0.3;
-    var driftRate = 0.001;
-    if (z.x < targetX - 0.5) z.x += driftRate;
-    else if (z.x > targetX + 0.5) z.x -= driftRate;
-    z.x += Math.sin(z.wobble * 0.5) * 0.03 + z.sway;
+    z.z -= z.speed * dt * 60;
+    z.wobble += dt * (z.type === 'runner' ? 12 : 6);
+
+    // Fan-out: progress 0 at spawn → 1 at player
+    var progress = Math.max(0, 1 - (z.z / STREET_DEPTH));
+    // At spawn they're tight (1x), near player they spread to 3.5x their lane position
+    var spreadTarget = z.spawnX * (1 + progress * 2.5);
+    var driftSpeed = 0.02 * dt * 60;
+    if (z.x < spreadTarget - 0.2) z.x += driftSpeed;
+    else if (z.x > spreadTarget + 0.2) z.x -= driftSpeed;
+
+    // Subtle wobble only — no random sway
+    z.x += Math.sin(z.wobble * 0.5) * 0.015;
+
     if (z.flash > 0) z.flash -= dt;
 
     if (z.z <= ATTACK_RANGE) {
