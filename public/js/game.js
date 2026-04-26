@@ -53,12 +53,12 @@ const ATTACK_RANGE = 22;
 const CAM_H = 10;
 const GROUND_CLAMP = 0.50;
 
-// ── WEAPONS ──
+// ── WEAPONS (buffed ~1.5-1.7x) ──
 const WEAPONS = {
   pistol:  { name:'PISTOL',  dmg:34,  rate:320,  spread:0,    pellets:1, auto:false, col:'#0f0',  recoil:6 },
-  shotgun: { name:'SHOTGUN', dmg:70,  rate:600,  spread:0.13, pellets:6, auto:false, col:'#f80',  recoil:14 },
+  shotgun: { name:'SHOTGUN', dmg:70,  rate:700,  spread:0.13, pellets:6, auto:false, col:'#f80',  recoil:14 },
   rifle:   { name:'RIFLE',   dmg:55,  rate:90,   spread:0.03, pellets:1, auto:true,  col:'#0ff',  recoil:3 },
-  rocket:  { name:'ROCKET',  dmg:260, rate:800, spread:0,    pellets:1, auto:false, col:'#f44',  recoil:20, explosive:true }
+  rocket:  { name:'ROCKET',  dmg:260, rate:1100, spread:0,    pellets:1, auto:false, col:'#f44',  recoil:20, explosive:true }
 };
 const WEAPON_ORDER = ['pistol','rifle','shotgun','rocket'];
 
@@ -589,6 +589,47 @@ function drawEnemy(e) {
   }
 }
 
+// ========== HITBOX DEBUG OVERLAY ==========
+// Remove drawHitboxDebug calls from draw() when done tuning
+function drawHitboxDebug(e) {
+  var hoverY = e.hoverBase + Math.sin(e.hoverPhase) * 0.8;
+  var scaledH = ENEMY_H * (e.sizeScale || 1);
+  var bp = proj(e.x, hoverY, e.z);
+  var tp = proj(e.x, hoverY + scaledH, e.z);
+  var sh = bp.y - tp.y;
+  var screenCX = bp.x;
+  var screenCY = (tp.y + bp.y) / 2;
+
+  var centerRadius = sh * 0.12;
+  var cornerRadius = sh * 0.22;
+  var cornerOffset = sh * 0.45;
+
+  ctx.globalAlpha = 0.4;
+
+  // Center (critical) — yellow
+  ctx.strokeStyle = '#ff0';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.arc(screenCX, screenCY, centerRadius, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // 4 Corners — red
+  ctx.strokeStyle = '#f00';
+  var corners = [
+    [screenCX - cornerOffset, screenCY - cornerOffset],
+    [screenCX + cornerOffset, screenCY - cornerOffset],
+    [screenCX - cornerOffset, screenCY + cornerOffset],
+    [screenCX + cornerOffset, screenCY + cornerOffset]
+  ];
+  for (var i = 0; i < corners.length; i++) {
+    ctx.beginPath();
+    ctx.arc(corners[i][0], corners[i][1], cornerRadius, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  ctx.globalAlpha = 1;
+}
+
 function drawPowerup(pu) {
   const p = proj(pu.x, 1.5+Math.sin(Date.now()*0.004)*0.5, pu.z);
   const sz = Math.max(4, p.s * 0.83);
@@ -869,7 +910,10 @@ function draw(timestamp) {
     powerups.sort((a,b) => b.z-a.z);
     powerups.forEach(drawPowerup);
     enemies.sort((a,b) => b.z-a.z);
-    enemies.forEach(drawEnemy);
+    enemies.forEach(e => {
+      drawEnemy(e);
+      drawHitboxDebug(e);  // ← REMOVE THIS LINE when done tuning
+    });
     drawParticles();
     drawDamageNumbers();
     drawFog();
