@@ -8,6 +8,17 @@ const startScreen = document.getElementById('startScreen');
 const gameOverScreen = document.getElementById('gameOverScreen');
 const startBtn = document.getElementById('startBtn');
 const restartBtn = document.getElementById('restartBtn');
+const mainMenuBtn = document.getElementById('mainMenuBtn');
+const leaderboardBox = document.getElementById('leaderboardBox');
+const leaderboardList = document.getElementById('leaderboardList');
+const callsignError = document.getElementById('callsignError');
+
+// ── SESSION TOKEN (for callsign ownership) ──
+let sessionToken = localStorage.getItem('dz_session');
+if (!sessionToken) {
+  sessionToken = 'dz_' + Math.random().toString(36).substr(2, 12) + Date.now().toString(36);
+  localStorage.setItem('dz_session', sessionToken);
+}
 
 // ── IMAGE LOADING ──
 const IMG = {};
@@ -70,6 +81,7 @@ let spawnTimer = 0, spawnInterval = 1800, spawnBudget = 0;
 let mouse = { x:0, y:0 };
 let mouseDown = false;
 let lastTime = 0;
+let scoreSubmitted = false;
 
 // ── RESIZE ──
 function resize() {
@@ -90,6 +102,83 @@ function proj(wx, wy, wz) {
   return { x: roadVPx + wx * s, y: horizonY + groundOffset - wy * s, s };
 }
 
+// ═══════════════════════════════════════
+//  LEADERBOARD
+// ═══════════════════════════════════════
+async function fetchLeaderboard() {
+  try {
+    const res = await fetch('/api/leaderboard');
+    const data = await res.json();
+    renderLeaderboard(data);
+  } catch (e) {
+    leaderboardList.innerHTML = '<div class="lb-empty">SIGNAL LOST</div>';
+  }
+}
+
+function renderLeaderboard(entries) {
+  if (!entries.length) {
+    leaderboardList.innerHTML = '<div class="lb-empty">NO OPERATORS YET — BE THE FIRST</div>';
+    return;
+  }
+  let html = '<div class="lb-header"><span class="lb-rank"></span><span class="lb-name">CALLSIGN</span><span class="lb-score">SCORE</span><span class="lb-wave">WAVE</span><span class="lb-kills">KILLS</span></div>';
+  html += entries.map((e, i) => `
+    <div class="lb-entry">
+      <span class="lb-rank">#${i + 1}</span>
+      <span class="lb-name">${e.callsign}</span>
+      <span class="lb-score">${e.score}</span>
+      <span class="lb-wave">W${e.wave}</span>
+      <span class="lb-kills">${e.kills}</span>
+    </div>
+  `).join('');
+  leaderboardList.innerHTML = html;
+}
+
+async function submitScore() {
+  if (scoreSubmitted) return;
+  scoreSubmitted = true;
+  try {
+    await fetch('/api/score', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        callsign: playerName,
+        score,
+        wave,
+        kills,
+        token: sessionToken
+      })
+    });
+  } catch (e) {
+    // Silent fail — don't block death screen
+  }
+}
+
+async function checkCallsign(name) {
+  try {
+    const res = await fetch('/api/check-callsign', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ callsign: name, token: sessionToken })
+    });
+    const data = await res.json();
+    return data.available;
+  } catch (e) {
+    return true; // Allow on network error so game isn't blocked
+  }
+}
+
+// Toggle leaderboard open/close
+leaderboardBox.addEventListener('click', () => {
+  leaderboardList.classList.toggle('open');
+  const title = leaderboardBox.querySelector('.lb-title');
+  if (leaderboardList.classList.contains('open')) {
+    title.textContent = '▼ TOP OPERATORS';
+    fetchLeaderboard();
+  } else {
+    title.textContent = '▶ TOP OPERATORS';
+  }
+});
+
 // ── INIT GAME ──
 function init() {
   score = 0; wave = 1; kills = 0; killGoal = 8;
@@ -101,6 +190,7 @@ function init() {
   dmgFlash = 0; screenShake = 0;
   spawnTimer = 0; spawnInterval = 1800; spawnBudget = 0;
   spawnBudget = killGoal;
+  scoreSubmitted = false;
   state = 'playing';
   initRain();
 }
@@ -110,7 +200,7 @@ function init() {
 // ═══════════════════════════════════════
 function zombieStats(type, w) {
   const s = 1 + w * 0.08;
-  const spd = 1 + w * 0.12;  // speed scales 12% per wave
+  const spd = 1 + w * 0.12;
   switch (type) {
     case 'runner':   return { hp:40*s, speed:0.16 * spd, points:15, attackDmg:8 };
     case 'tank':     return { hp:200*s, speed:0.05 * spd, points:40, attackDmg:20 };
@@ -131,7 +221,6 @@ function pickZombieType(w) {
 function spawnZombie() {
   var type = pickZombieType(wave);
   var stats = zombieStats(type, wave);
-  // Tight horde spawn — all clustered on the road
   var spawns = [
     { x: -LANE_W * 3.0 },
     { x: -LANE_W * 2.0 },
@@ -512,12 +601,11 @@ function drawGun() {
   var kickY = gunRecoil * 35;
   var kickRot = gunRecoil * 0.06;
 
-  // Per-weapon orientation: rot in radians, flipX mirrors horizontally
   var gunConfig = {
     pistol:  { rot: 0,    flipX: false },
-    shotgun: { rot: 0.35,    flipX: false },
-    rifle:   { rot: 0.45,    flipX: false },
-    rocket:  { rot: 0.45,    flipX: false }
+    shotgun: { rot: 0.35, flipX: false },
+    rifle:   { rot: 0.45, flipX: false },
+    rocket:  { rot: 0.45, flipX: false }
   };
 
   var gunImg;
@@ -544,6 +632,7 @@ function drawGun() {
     ctx.restore();
   }
 }
+
 function drawHUD() {
   const w = WEAPONS[curWeapon];
   const pad = 20;
@@ -647,21 +736,16 @@ function update(dt) {
     spawnBudget = killGoal-kills; spawnTimer = 200;
   }
 
-  // Update zombies — tight horde at spawn, perspective handles visual fan-out
-  // They drift from 30% of lane position at spawn to 100% near player
   zombies.forEach(z => {
     z.z -= z.speed * dt * 60;
     z.wobble += dt * (z.type === 'runner' ? 12 : 6);
 
-    // progress: 0 at spawn, 1 at player
     var progress = Math.max(0, 1 - (z.z / STREET_DEPTH));
-    // Start at 45% of lane pos (tight cluster), grow to 100% (perspective does the rest)
     var spreadTarget = z.spawnX * (0.3 + progress * 0.7);
     var driftSpeed = 0.03 * dt * 60;
     if (z.x < spreadTarget - 0.1) z.x += driftSpeed;
     else if (z.x > spreadTarget + 0.1) z.x -= driftSpeed;
 
-    // Subtle wobble only
     z.x += Math.sin(z.wobble * 0.5) * 0.01;
 
     if (z.flash > 0) z.flash -= dt;
@@ -707,7 +791,7 @@ function update(dt) {
 
   powerups.forEach(pu => {
     pu.life -= dt;
-    pu.z -= dt * 10;  // drift toward player
+    pu.z -= dt * 10;
     if (pu.z <= ATTACK_RANGE+2) { collectPowerup(pu); pu.life = 0; }
   });
   powerups = powerups.filter(pu => pu.life>0);
@@ -719,6 +803,7 @@ function update(dt) {
     document.getElementById('goWave').textContent = 'WAVE: '+wave;
     document.getElementById('goRank').textContent = 'KILLS: '+kills;
     gameOverScreen.style.display = 'flex';
+    submitScore();
   }
 }
 
@@ -782,9 +867,24 @@ document.addEventListener('keydown', e => {
 // ═══════════════════════════════════════
 //  HTML BUTTON WIRING
 // ═══════════════════════════════════════
-startBtn.addEventListener('click', () => {
+startBtn.addEventListener('click', async () => {
   const nameInput = document.getElementById('nameInput');
-  playerName = (nameInput && nameInput.value.trim()) || 'OPERATOR';
+  const name = (nameInput && nameInput.value.trim()) || '';
+
+  if (!name) {
+    callsignError.textContent = 'ENTER A CALLSIGN, OPERATOR';
+    return;
+  }
+
+  // Check callsign availability
+  const available = await checkCallsign(name);
+  if (!available) {
+    callsignError.textContent = 'CALLSIGN TAKEN — CHOOSE ANOTHER';
+    return;
+  }
+
+  callsignError.textContent = '';
+  playerName = name.toUpperCase();
   startScreen.style.display = 'none';
   canvas.style.cursor = 'none';
   init();
@@ -795,6 +895,20 @@ restartBtn.addEventListener('click', () => {
   canvas.style.cursor = 'none';
   init();
 });
+
+mainMenuBtn.addEventListener('click', () => {
+  gameOverScreen.style.display = 'none';
+  state = 'waiting';
+  startScreen.style.display = 'flex';
+  canvas.style.cursor = 'default';
+  fetchLeaderboard();
+  leaderboardList.classList.add('open');
+  const title = leaderboardBox.querySelector('.lb-title');
+  title.textContent = '▼ TOP OPERATORS';
+});
+
+// ── LOAD LEADERBOARD ON PAGE LOAD ──
+fetchLeaderboard();
 
 // ── START RENDER LOOP ──
 requestAnimationFrame(draw);
