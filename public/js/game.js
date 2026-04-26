@@ -576,7 +576,7 @@ function drawZombie(z) {
 
 function drawPowerup(pu) {
   const p = proj(pu.x, 1.5+Math.sin(Date.now()*0.004)*0.5, pu.z);
-  const sz = Math.max(10, p.s*2.5);
+  const sz = Math.max(4, p.s * 0.83);
   const cols = {health:'#0f0',armor:'#07f',shotgun:'#f80',rifle:'#0ff',rocket:'#f44',nuke:'#ff0'};
   const col = cols[pu.type]||'#fff';
   ctx.shadowColor = col; ctx.shadowBlur = 20;
