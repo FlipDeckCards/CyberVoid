@@ -455,7 +455,6 @@ function drawZombie(z) {
 
   if (bodyH < 2) return;
 
-  // Pick video by type AND per-zombie index (staggered copies)
   var vid = VID[z.type][z.vidIndex || 0];
 
   // Shadow
@@ -470,6 +469,14 @@ function drawZombie(z) {
   var drawX = zcx - drawW / 2;
   var drawY = head.y;
 
+  // Clamp to screen so close zombies don't fly above viewport
+  if (drawY < 0) {
+    drawH = Math.max(2, drawH + drawY);
+    drawW = drawH * aspect;
+    drawX = zcx - drawW / 2;
+    drawY = 0;
+  }
+
   ctx.save();
 
   if (vid.readyState >= 2) {
@@ -478,21 +485,19 @@ function drawZombie(z) {
     ctx.drawImage(vid, drawX, drawY, drawW, drawH);
     ctx.filter = 'none';
     ctx.globalCompositeOperation = 'source-over';
-  } else {
-    var col = z.type === 'tank' ? '#ff00ff' : z.type === 'runner' ? '#00ff66' : z.type === 'exploder' ? '#ff4400' : '#00aaff';
-    ctx.fillStyle = col;
-    ctx.globalAlpha = 0.5;
-    ctx.fillRect(drawX, drawY, drawW, drawH);
-    ctx.globalAlpha = 1;
-  }
 
-  // Hit flash
-  if (z.flash > 0) {
-    ctx.globalAlpha = Math.min(1, z.flash * 8);
-    ctx.fillStyle = '#f00';
-    ctx.fillRect(drawX, drawY, drawW, drawH);
-    ctx.globalAlpha = 1;
+    // Hit flash — redraw video white-hot instead of a solid rectangle
+    if (z.flash > 0) {
+      ctx.globalCompositeOperation = 'screen';
+      ctx.globalAlpha = Math.min(0.8, z.flash * 6);
+      ctx.filter = 'brightness(8) saturate(0)';
+      ctx.drawImage(vid, drawX, drawY, drawW, drawH);
+      ctx.filter = 'none';
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = 'source-over';
+    }
   }
+  // No fallback colored block — just invisible until video loads
 
   ctx.restore();
 
@@ -501,13 +506,13 @@ function drawZombie(z) {
     var barW = bodyW * 0.9;
     var barH = Math.max(2, bodyH * 0.03);
     var barY = head.y - barH - 5;
+    if (barY < 0) barY = drawY + 2;
     ctx.fillStyle = 'rgba(0,0,0,0.8)';
     ctx.fillRect(zcx - barW / 2, barY, barW, barH);
     ctx.fillStyle = z.hp / z.maxhp > 0.5 ? '#0f0' : z.hp / z.maxhp > 0.25 ? '#ff0' : '#f00';
     ctx.fillRect(zcx - barW / 2, barY, barW * (z.hp / z.maxhp), barH);
   }
 }
-
 function drawPowerup(pu) {
   const p = proj(pu.x, 1.5+Math.sin(Date.now()*0.004)*0.5, pu.z);
   const sz = Math.max(4, p.s * 0.83);
