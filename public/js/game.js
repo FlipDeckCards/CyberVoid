@@ -237,10 +237,10 @@ function spawnEnemy() {
   // Flying height — each type hovers at a different base altitude
   var hoverBase;
   switch (type) {
-    case 'phantom':  hoverBase = 7.0 + Math.random() * 3.0; sizeScale = 1.0;  break;
+    case 'phantom':  hoverBase = 9.0 + Math.random() * 3.0; sizeScale = 1.0;  break;
       case 'titan':    hoverBase = 1.0 + Math.random() * 1.0; sizeScale = 4/3;  break;
       case 'scorch':   hoverBase = 0.2 + Math.random() * 0.6; sizeScale = 2/3;  break;
-      default:         hoverBase = 1.8 + Math.random() * 1.5; sizeScale = 3/4;  break;
+      default:         hoverBase = 3.0 + Math.random() * 2.0; sizeScale = 3/4;  break;
   }
 
   enemies.push({
