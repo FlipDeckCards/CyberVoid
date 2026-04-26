@@ -46,7 +46,12 @@ Object.entries(imgSources).forEach(([key, src]) => {
   IMG[key].onload = () => imagesLoaded++;
   IMG[key].src = src;
 });
-
+var VID = {
+  walker: document.getElementById('vid_walker'),
+  runner: document.getElementById('vid_runner'),
+  tank: document.getElementById('vid_tank'),
+  exploder: document.getElementById('vid_exploder')
+};
 // ── CONSTANTS ──
 const FOV = 60 * Math.PI / 180;
 const NEAR = 0.5;
