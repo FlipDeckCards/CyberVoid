@@ -534,8 +534,16 @@ function drawGun() {
   }
 
   if (muzzleFlash > 0) {
-    var mfX = cx + bobX;
-    var mfY = gunY + gunH * 0.08;
+    // Per-weapon barrel tip offsets (fraction of gunW from left, fraction of gunH from top)
+    var barrelTip = {
+      pistol:  { bx: 0.50, by: 0.05 },
+      shotgun: { bx: 0.50, by: 0.02 },
+      rifle:   { bx: 0.50, by: 0.00 },
+      rocket:  { bx: 0.50, by: 0.02 }
+    };
+    var tip = barrelTip[curWeapon];
+    var mfX = gunX + gunW * tip.bx;
+    var mfY = gunY + gunH * tip.by;
     var mfSize = 25 + (curWeapon === 'rocket' ? 55 : curWeapon === 'shotgun' ? 45 : curWeapon === 'rifle' ? 20 : 15);
     ctx.globalAlpha = muzzleFlash;
     ctx.fillStyle = '#fff';
