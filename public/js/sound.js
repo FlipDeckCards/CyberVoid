@@ -22,6 +22,11 @@
     gameStart:    new Audio('/game_on.mp3')
   };
 
+  // ── Background Music ──
+   var music = new Audio('/i_dont_like_monday.mp3');
+   music.loop = true;
+   music.volume = 0.25;
+   
   // Set initial volume on all sounds
   Object.keys(sounds).forEach(function (key) {
     sounds[key].volume = volume;
@@ -49,6 +54,11 @@
     gameOver:     function () { play('gameOver'); },
     gameStart:    function () { play('gameStart'); },
 
+   musicStart:  function () { if (!muted) music.play().catch(function () {}); },
+   musicStop:   function () { music.pause(); music.currentTime = 0; },
+   musicPause:  function () { music.pause(); },
+   setMusicVol: function (v) { music.volume = Math.max(0, Math.min(1, v)); },
+     
     setVolume: function (v) {
       volume = Math.max(0, Math.min(1, v));
       Object.keys(sounds).forEach(function (key) {
