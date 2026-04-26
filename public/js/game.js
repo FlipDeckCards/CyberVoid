@@ -645,7 +645,7 @@ function update(dt) {
 
     // progress: 0 at spawn, 1 at player
     var progress = Math.max(0, 1 - (z.z / STREET_DEPTH));
-    // Start at 30% of lane pos (tight cluster), grow to 100% (perspective does the rest)
+    // Start at 45% of lane pos (tight cluster), grow to 100% (perspective does the rest)
     var spreadTarget = z.spawnX * (0.3 + progress * 0.7);
     var driftSpeed = 0.03 * dt * 60;
     if (z.x < spreadTarget - 0.1) z.x += driftSpeed;
