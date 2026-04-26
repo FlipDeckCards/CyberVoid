@@ -77,7 +77,7 @@ function resize() {
   H = canvas.height = window.innerHeight;
   cx = W / 2; cy = H / 2;
   horizonY = H * 0.55;
-  roadVPx = W * 0.35;
+  roadVPx = W * 0.25;
 }
 window.addEventListener('resize', resize);
 resize();
@@ -536,10 +536,10 @@ function drawGun() {
   if (muzzleFlash > 0) {
     // Per-weapon barrel tip offsets (fraction of gunW from left, fraction of gunH from top)
     var barrelTip = {
-      pistol:  { bx: 0.50, by: 0.05 },
-      shotgun: { bx: 0.50, by: 0.02 },
-      rifle:   { bx: 0.50, by: 0.00 },
-      rocket:  { bx: 0.50, by: 0.02 }
+      pistol:  { bx: 0.25, by: 0.02 },
+      shotgun: { bx: 0.25, by: 0.01 },
+      rifle:   { bx: 0.25, by: 0.01 },
+      rocket:  { bx: 0.25, by: 0.02 }
     };
     var tip = barrelTip[curWeapon];
     var mfX = gunX + gunW * tip.bx;
