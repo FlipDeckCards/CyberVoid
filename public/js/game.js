@@ -460,37 +460,19 @@ function drawEnemy(e) {
 
   ctx.save();
 
-  // Glow aura behind the enemy
-  ctx.shadowColor = glowCol;
-  ctx.shadowBlur = 15 + Math.sin(e.hoverPhase * 2) * 5;
-  ctx.globalAlpha = 0.3;
-  ctx.fillStyle = glowCol;
-  ctx.beginPath();
-  ctx.ellipse(ecx, drawY + drawH * 0.5, drawW * 0.5, drawH * 0.5, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.shadowBlur = 0;
-  ctx.globalAlpha = 1;
-
-  // Draw the PNG
   if (img && img.complete && img.naturalWidth > 0) {
+    // Hit flash — brighten the sprite itself, no overlay box
+    if (e.flash > 0) {
+      ctx.filter = 'brightness(' + (1 + e.flash * 15) + ') saturate(0)';
+    }
     ctx.drawImage(img, drawX, drawY, drawW, drawH);
+    ctx.filter = 'none';
   } else {
-    // Fallback shape while PNG loads
     ctx.fillStyle = glowCol;
     ctx.globalAlpha = 0.6;
     ctx.beginPath();
     ctx.ellipse(ecx, drawY + drawH * 0.5, drawW * 0.4, drawH * 0.4, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.globalAlpha = 1;
-  }
-
-  // Hit flash — white overlay on the sprite
-  if (e.flash > 0) {
-    ctx.globalAlpha = Math.min(0.7, e.flash * 6);
-    ctx.globalCompositeOperation = 'source-atop';
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(drawX, drawY, drawW, drawH);
-    ctx.globalCompositeOperation = 'source-over';
     ctx.globalAlpha = 1;
   }
 
@@ -508,7 +490,7 @@ function drawEnemy(e) {
     ctx.fillRect(ecx - barW / 2, barY, barW * (e.hp / e.maxhp), barH);
   }
 
-  // Type label (small, fades with distance)
+  // Type label
   if (bodyH > 30) {
     ctx.globalAlpha = Math.min(1, (bodyH - 30) / 60);
     ctx.fillStyle = glowCol;
