@@ -39,7 +39,7 @@ Object.entries(imgSources).forEach(([key, src]) => {
 // ── CONSTANTS ──
 const FOV = 60 * Math.PI / 180;
 const NEAR = 0.5;
-const STREET_DEPTH = 55;
+const STREET_DEPTH = 100;
 const LANE_W = 3;
 const LANES = 7;
 const ZOMBIE_H = 6.4;
@@ -111,10 +111,10 @@ function init() {
 function zombieStats(type, w) {
   const s = 1 + w * 0.08;
   switch (type) {
-    case 'runner':   return { hp:40*s, speed:0.06, points:15, attackDmg:8 };
-    case 'tank':     return { hp:200*s, speed:0.015, points:40, attackDmg:20 };
-    case 'exploder': return { hp:60*s, speed:0.04, points:25, attackDmg:35 };
-    default:         return { hp:80*s, speed:0.03, points:10, attackDmg:12 };
+    case 'runner':   return { hp:40*s, speed:0.12, points:15, attackDmg:8 };
+    case 'tank':     return { hp:200*s, speed:0.03, points:40, attackDmg:20 };
+    case 'exploder': return { hp:60*s, speed:0.08, points:25, attackDmg:35 };
+    default:         return { hp:80*s, speed:0.06, points:10, attackDmg:12 };
   }
 }
 
