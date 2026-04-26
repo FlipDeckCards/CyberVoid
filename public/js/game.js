@@ -420,145 +420,55 @@ function drawZombie(z) {
 
   if (bodyH < 2) return;
 
-  var walk = z.wobble;
-  var legSwing = Math.sin(walk) * 0.3;
-  var armSwing = Math.sin(walk + Math.PI) * 0.35;
+  // Pick sprite sheet
+  var sheet;
+  if (z.type === 'tank') sheet = IMG.zombie_tank_sheet;
+  else if (z.type === 'runner') sheet = IMG.zombie_runner_sheet;
+  else if (z.type === 'exploder') sheet = IMG.zombie_exploder_sheet;
+  else sheet = IMG.zombie_walker_sheet;
 
-  var bodyColor, accentColor, eyeColor;
-  if (z.type === 'tank') {
-    bodyColor = '#1a0f22'; accentColor = '#4a1a5a'; eyeColor = '#ff00ff';
-  } else if (z.type === 'runner') {
-    bodyColor = '#0f1a0f'; accentColor = '#1a3a1a'; eyeColor = '#00ff66';
-  } else if (z.type === 'exploder') {
-    bodyColor = '#1a0f0a'; accentColor = '#3a1a0a'; eyeColor = '#ff4400';
-  } else {
-    bodyColor = '#0e0e18'; accentColor = '#1a1a30'; eyeColor = '#00aaff';
-  }
-
-  var flashCol = z.flash > 0 ? 'rgba(255,80,80,' + Math.min(1, z.flash * 8) + ')' : null;
-
-  var headSize = bodyH * 0.16;
-  var torsoTop = head.y + headSize * 0.8;
-  var torsoBot = head.y + bodyH * 0.55;
-  var torsoW = bodyW * 0.8;
-  var limbW = Math.max(2, bodyW * 0.18);
-  var hipY = torsoBot;
-  var legLen = foot.y - hipY;
-  var shoulderY = torsoTop + bodyH * 0.03;
-  var armLen = bodyH * 0.38;
-
-  ctx.save();
-
+  // Shadow
   ctx.fillStyle = 'rgba(0,0,0,0.3)';
   ctx.beginPath();
   ctx.ellipse(zcx, foot.y + 2, bodyW * 0.6, bodyH * 0.04, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.lineCap = 'round';
+  var totalFrames = 6;
+  var frame = Math.floor(z.wobble) % totalFrames;
 
-  // Left leg
-  var lkx = zcx - torsoW * 0.25 + Math.sin(legSwing) * legLen * 0.25;
-  var lky = hipY + legLen * 0.5;
-  var lfx = zcx - torsoW * 0.25 - Math.sin(legSwing) * legLen * 0.12;
-  ctx.strokeStyle = flashCol || bodyColor;
-  ctx.lineWidth = limbW;
-  ctx.beginPath();
-  ctx.moveTo(zcx - torsoW * 0.25, hipY);
-  ctx.quadraticCurveTo(lkx, lky, lfx, foot.y);
-  ctx.stroke();
-  ctx.strokeStyle = flashCol || accentColor;
-  ctx.lineWidth = Math.max(1, limbW * 0.4);
-  ctx.globalAlpha = 0.4;
-  ctx.beginPath();
-  ctx.moveTo(zcx - torsoW * 0.25, hipY);
-  ctx.quadraticCurveTo(lkx - 1, lky, lfx - 1, foot.y);
-  ctx.stroke();
-  ctx.globalAlpha = 1;
+  if (sheet && sheet.complete && sheet.naturalWidth > 0) {
+    var frameW = sheet.naturalWidth / totalFrames;
+    var frameH = sheet.naturalHeight;
+    var sx = frame * frameW;
 
-  // Right leg
-  var rkx = zcx + torsoW * 0.25 + Math.sin(-legSwing) * legLen * 0.25;
-  var rky = hipY + legLen * 0.5;
-  var rfx = zcx + torsoW * 0.25 - Math.sin(-legSwing) * legLen * 0.12;
-  ctx.strokeStyle = flashCol || bodyColor;
-  ctx.lineWidth = limbW;
-  ctx.beginPath();
-  ctx.moveTo(zcx + torsoW * 0.25, hipY);
-  ctx.quadraticCurveTo(rkx, rky, rfx, foot.y);
-  ctx.stroke();
-  ctx.strokeStyle = flashCol || accentColor;
-  ctx.lineWidth = Math.max(1, limbW * 0.4);
-  ctx.globalAlpha = 0.4;
-  ctx.beginPath();
-  ctx.moveTo(zcx + torsoW * 0.25, hipY);
-  ctx.quadraticCurveTo(rkx + 1, rky, rfx + 1, foot.y);
-  ctx.stroke();
-  ctx.globalAlpha = 1;
+    // Size sprite to match projected height
+    var drawH = bodyH;
+    var drawW = drawH * (frameW / frameH);
+    var drawX = zcx - drawW / 2;
+    var drawY = head.y;
 
-  // Torso
-  ctx.fillStyle = flashCol || bodyColor;
-  ctx.beginPath();
-  ctx.moveTo(zcx - torsoW * 0.55, torsoTop);
-  ctx.lineTo(zcx + torsoW * 0.55, torsoTop);
-  ctx.lineTo(zcx + torsoW * 0.35, torsoBot);
-  ctx.lineTo(zcx - torsoW * 0.35, torsoBot);
-  ctx.closePath();
-  ctx.fill();
+    ctx.save();
+    ctx.drawImage(sheet, sx, 0, frameW, frameH, drawX, drawY, drawW, drawH);
 
-  ctx.strokeStyle = flashCol || accentColor;
-  ctx.lineWidth = Math.max(0.5, bodyH * 0.012);
-  ctx.globalAlpha = 0.35;
-  ctx.beginPath();
-  ctx.moveTo(zcx - torsoW * 0.55, torsoTop);
-  ctx.lineTo(zcx + torsoW * 0.55, torsoTop);
-  ctx.lineTo(zcx + torsoW * 0.35, torsoBot);
-  ctx.lineTo(zcx - torsoW * 0.35, torsoBot);
-  ctx.closePath();
-  ctx.stroke();
-  ctx.globalAlpha = 1;
+    // Hit flash — red overlay on sprite area
+    if (z.flash > 0) {
+      ctx.globalAlpha = Math.min(1, z.flash * 8);
+      ctx.fillStyle = '#f00';
+      ctx.globalCompositeOperation = 'source-atop';
+      ctx.fillRect(drawX, drawY, drawW, drawH);
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = 1;
+    }
 
-  // Left arm
-  var lex = zcx - torsoW * 0.55 - bodyW * 0.1;
-  var ley = shoulderY + armLen * 0.4;
-  var lhx = zcx - torsoW * 0.3 + Math.sin(armSwing) * armLen * 0.4;
-  var lhy = shoulderY + armLen * 0.7 + Math.cos(armSwing) * armLen * 0.15;
-  ctx.strokeStyle = flashCol || bodyColor;
-  ctx.lineWidth = Math.max(1.5, limbW * 0.75);
-  ctx.beginPath();
-  ctx.moveTo(zcx - torsoW * 0.55, shoulderY);
-  ctx.quadraticCurveTo(lex, ley, lhx, lhy);
-  ctx.stroke();
-
-  // Right arm
-  var rex = zcx + torsoW * 0.55 + bodyW * 0.1;
-  var rey = shoulderY + armLen * 0.4;
-  var rhx = zcx + torsoW * 0.3 + Math.sin(-armSwing) * armLen * 0.4;
-  var rhy = shoulderY + armLen * 0.7 + Math.cos(-armSwing) * armLen * 0.15;
-  ctx.strokeStyle = flashCol || bodyColor;
-  ctx.lineWidth = Math.max(1.5, limbW * 0.75);
-  ctx.beginPath();
-  ctx.moveTo(zcx + torsoW * 0.55, shoulderY);
-  ctx.quadraticCurveTo(rex, rey, rhx, rhy);
-  ctx.stroke();
-
-  // Head
-  var headCY = head.y + headSize * 0.5;
-  ctx.fillStyle = flashCol || bodyColor;
-  ctx.beginPath();
-  ctx.ellipse(zcx, headCY, headSize * 0.55, headSize * 0.6, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.shadowColor = eyeColor;
-  ctx.shadowBlur = headSize * 0.8;
-  ctx.fillStyle = flashCol || eyeColor;
-  var eyeGap = headSize * 0.2;
-  var eyeR = Math.max(1.5, headSize * 0.14);
-  ctx.beginPath();
-  ctx.arc(zcx - eyeGap, headCY - headSize * 0.05, eyeR, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.arc(zcx + eyeGap, headCY - headSize * 0.05, eyeR, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.shadowBlur = 0;
+    ctx.restore();
+  } else {
+    // Fallback colored block if sheet missing
+    var col = z.type === 'tank' ? '#ff00ff' : z.type === 'runner' ? '#00ff66' : z.type === 'exploder' ? '#ff4400' : '#00aaff';
+    ctx.fillStyle = col;
+    ctx.globalAlpha = 0.5;
+    ctx.fillRect(zcx - bodyW / 2, head.y, bodyW, bodyH);
+    ctx.globalAlpha = 1;
+  }
 
   // Health bar
   if (z.hp < z.maxhp) {
@@ -566,12 +476,10 @@ function drawZombie(z) {
     var barH = Math.max(2, bodyH * 0.03);
     var barY = head.y - barH - 5;
     ctx.fillStyle = 'rgba(0,0,0,0.8)';
-    ctx.fillRect(zcx - barW/2, barY, barW, barH);
-    ctx.fillStyle = z.hp/z.maxhp > 0.5 ? '#0f0' : z.hp/z.maxhp > 0.25 ? '#ff0' : '#f00';
-    ctx.fillRect(zcx - barW/2, barY, barW * (z.hp/z.maxhp), barH);
+    ctx.fillRect(zcx - barW / 2, barY, barW, barH);
+    ctx.fillStyle = z.hp / z.maxhp > 0.5 ? '#0f0' : z.hp / z.maxhp > 0.25 ? '#ff0' : '#f00';
+    ctx.fillRect(zcx - barW / 2, barY, barW * (z.hp / z.maxhp), barH);
   }
-
-  ctx.restore();
 }
 
 function drawPowerup(pu) {
