@@ -46,12 +46,31 @@ Object.entries(imgSources).forEach(([key, src]) => {
   IMG[key].onload = () => imagesLoaded++;
   IMG[key].src = src;
 });
+
+// ── VIDEO TEXTURES (3 copies each, staggered for variety) ──
 var VID = {
-  walker: document.getElementById('vid_walker'),
-  runner: document.getElementById('vid_runner'),
-  tank: document.getElementById('vid_tank'),
-  exploder: document.getElementById('vid_exploder')
+  walker: [
+    document.getElementById('vid_walker_0'),
+    document.getElementById('vid_walker_1'),
+    document.getElementById('vid_walker_2')
+  ],
+  runner: [
+    document.getElementById('vid_runner_0'),
+    document.getElementById('vid_runner_1'),
+    document.getElementById('vid_runner_2')
+  ],
+  tank: [
+    document.getElementById('vid_tank_0'),
+    document.getElementById('vid_tank_1'),
+    document.getElementById('vid_tank_2')
+  ],
+  exploder: [
+    document.getElementById('vid_exploder_0'),
+    document.getElementById('vid_exploder_1'),
+    document.getElementById('vid_exploder_2')
+  ]
 };
+
 // ── CONSTANTS ──
 const FOV = 60 * Math.PI / 180;
 const NEAR = 0.5;
@@ -184,6 +203,16 @@ leaderboardBox.addEventListener('click', () => {
   }
 });
 
+// ── HELPER: play and stagger all video copies ──
+function playAllVideos() {
+  Object.values(VID).forEach(function(arr) {
+    arr.forEach(function(v, i) {
+      v.play().catch(function(){});
+      v.currentTime = i * 5;
+    });
+  });
+}
+
 // ── INIT GAME ──
 function init() {
   score = 0; wave = 1; kills = 0; killGoal = 8;
@@ -248,7 +277,8 @@ function spawnZombie() {
     wobble: Math.random() * Math.PI * 2,
     animPhase: Math.random() * Math.PI * 2,
     attackCooldown: 0,
-    spawnX: sp.x + xJitter
+    spawnX: sp.x + xJitter,
+    vidIndex: Math.floor(Math.random() * 3)
   });
 }
 
@@ -425,12 +455,8 @@ function drawZombie(z) {
 
   if (bodyH < 2) return;
 
-  // Pick video by type
-  var vid;
-  if (z.type === 'tank') vid = VID.tank;
-  else if (z.type === 'runner') vid = VID.runner;
-  else if (z.type === 'exploder') vid = VID.exploder;
-  else vid = VID.walker;
+  // Pick video by type AND per-zombie index (staggered copies)
+  var vid = VID[z.type][z.vidIndex || 0];
 
   // Shadow
   ctx.fillStyle = 'rgba(0,0,0,0.3)';
@@ -447,14 +473,12 @@ function drawZombie(z) {
   ctx.save();
 
   if (vid.readyState >= 2) {
-    // 'screen' blend makes black background invisible
-     ctx.globalCompositeOperation = 'screen';
+    ctx.globalCompositeOperation = 'screen';
     ctx.filter = 'brightness(2.5) contrast(1.5)';
     ctx.drawImage(vid, drawX, drawY, drawW, drawH);
     ctx.filter = 'none';
     ctx.globalCompositeOperation = 'source-over';
   } else {
-    // Fallback colored block while video loads
     var col = z.type === 'tank' ? '#ff00ff' : z.type === 'runner' ? '#00ff66' : z.type === 'exploder' ? '#ff4400' : '#00aaff';
     ctx.fillStyle = col;
     ctx.globalAlpha = 0.5;
@@ -786,7 +810,6 @@ startBtn.addEventListener('click', async () => {
     return;
   }
 
-  // Check callsign availability
   const available = await checkCallsign(name);
   if (!available) {
     callsignError.textContent = 'CALLSIGN TAKEN — CHOOSE ANOTHER';
@@ -798,15 +821,15 @@ startBtn.addEventListener('click', async () => {
   startScreen.style.display = 'none';
   canvas.style.cursor = 'none';
   init();
-    Object.values(VID).forEach(function(v) { v.play().catch(function(){}); });
-  });
+  playAllVideos();
+});
 
 restartBtn.addEventListener('click', () => {
   gameOverScreen.style.display = 'none';
   canvas.style.cursor = 'none';
   init();
-   Object.values(VID).forEach(function(v) { v.play().catch(function(){}); });
-  });
+  playAllVideos();
+});
 
 mainMenuBtn.addEventListener('click', () => {
   gameOverScreen.style.display = 'none';
