@@ -254,7 +254,7 @@ function spawnEnemy() {
     hoverBase: hoverBase,
     hoverPhase: Math.random() * Math.PI * 2,
     attackCooldown: 0,
-    spawnX: sp.x + xJitter
+    spawnX: sp.x + xJitter,
     sizeScale: sizeScale
   });
 }
