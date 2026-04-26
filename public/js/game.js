@@ -318,9 +318,9 @@ function collectPowerup(pu) {
 //  5-POINT DOMINO HITBOX
 // ═══════════════════════════════════════
 function checkHit(aimX, aimY, screenCX, screenCY, projSize) {
-  var centerRadius = projSize * 0.35;
-  var cornerRadius = projSize * 0.25;
-  var cornerOffset = projSize * 0.45;
+  var centerRadius = projSize * 0.12;
+  var cornerRadius = projSize * 0.22;
+  var cornerOffset = projSize * 0.30;
 
   var dx = aimX - screenCX;
   var dy = aimY - screenCY;
