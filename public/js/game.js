@@ -234,13 +234,14 @@ function spawnEnemy() {
   var xJitter = (Math.random() - 0.5) * LANE_W * 0.5;
   var zJitter = Math.random() * 12;
 
-  // Flying height — each type hovers at a different base altitude
+  // Flying height + size per type
   var hoverBase;
+  var sizeScale;
   switch (type) {
     case 'phantom':  hoverBase = 9.0 + Math.random() * 3.0; sizeScale = 1.0;  break;
-      case 'titan':    hoverBase = 1.0 + Math.random() * 1.0; sizeScale = 4/3;  break;
-      case 'scorch':   hoverBase = 0.2 + Math.random() * 0.6; sizeScale = 2/3;  break;
-      default:         hoverBase = 3.0 + Math.random() * 2.0; sizeScale = 3/4;  break;
+    case 'titan':    hoverBase = 1.0 + Math.random() * 1.0; sizeScale = 4/3;  break;
+    case 'scorch':   hoverBase = 0.2 + Math.random() * 0.6; sizeScale = 2/3;  break;
+    default:         hoverBase = 3.0 + Math.random() * 2.0; sizeScale = 3/4;  break;
   }
 
   enemies.push({
@@ -337,7 +338,7 @@ function shoot() {
         if (aimY < tp.y + sh*0.3) dmg *= 2; // headshot
         e.hp -= dmg;
         e.flash = 0.15;
-        spawnSparks(e.x, hoverY + ENEMY_H*0.5, e.z);
+        spawnSparks(e.x, hoverY + scaledH*0.5, e.z);
         if (w.explosive) {
           screenShake = 0.6;
           enemies.forEach(oe => {
@@ -428,8 +429,8 @@ function drawFog() {
 // ========== ENEMY DRAWING ==========
 function drawEnemy(e) {
   var hoverY = e.hoverBase + Math.sin(e.hoverPhase) * 0.8;
-  var foot = proj(e.x, hoverY, e.z);
   var scaledH = ENEMY_H * (e.sizeScale || 1);
+  var foot = proj(e.x, hoverY, e.z);
   var head = proj(e.x, hoverY + scaledH, e.z);
   var bodyH = foot.y - head.y;
   var bodyW = bodyH * 0.6;
@@ -603,19 +604,32 @@ function drawHUD() {
   ctx.fillText('SCORE: '+score+'   KILLS: '+kills+'/'+killGoal,cx,48);
   ctx.textAlign = 'left';
 
-  const invW = 42, invStart = cx-(WEAPON_ORDER.length*invW)/2;
-  WEAPON_ORDER.forEach((wk,i) => {
-    const wx = invStart+i*invW;
-    const active = wk===curWeapon;
-    const hasAmmo = weaponAmmo[wk]>0||weaponAmmo[wk]===Infinity;
+  // Weapon inventory (touch-friendly on mobile)
+  var isMobile = W < 800;
+  var invW = isMobile ? 56 : 42;
+  var invH = isMobile ? 38 : 26;
+  var invY = isMobile ? H - 110 : H - 95;
+  var invStart = cx - (WEAPON_ORDER.length * invW) / 2;
+  weaponBtnRects = [];
+
+  WEAPON_ORDER.forEach((wk, i) => {
+    var wx = invStart + i * invW;
+    var active = wk === curWeapon;
+    var hasAmmo = weaponAmmo[wk] > 0 || weaponAmmo[wk] === Infinity;
+
+    weaponBtnRects.push({ x: wx, y: invY, w: invW - 4, h: invH, weapon: wk });
+
     ctx.fillStyle = active ? 'rgba(0,255,0,0.2)' : 'rgba(0,0,0,0.5)';
-    ctx.fillRect(wx,H-95,invW-4,26);
+    ctx.fillRect(wx, invY, invW - 4, invH);
     if (active) {
-      ctx.strokeStyle='#0f0'; ctx.lineWidth=2; ctx.shadowColor='#0f0'; ctx.shadowBlur=6;
-      ctx.strokeRect(wx,H-95,invW-4,26); ctx.shadowBlur=0;
+      ctx.strokeStyle = '#0f0'; ctx.lineWidth = 2; ctx.shadowColor = '#0f0'; ctx.shadowBlur = 6;
+      ctx.strokeRect(wx, invY, invW - 4, invH); ctx.shadowBlur = 0;
     }
-    ctx.fillStyle = hasAmmo?'#fff':'#444'; ctx.font = 'bold 11px monospace'; ctx.textAlign = 'center';
-    ctx.fillText((i+1).toString(), wx+(invW-4)/2, H-78); ctx.textAlign = 'left';
+    ctx.fillStyle = hasAmmo ? '#fff' : '#444';
+    ctx.font = 'bold ' + (isMobile ? '14' : '11') + 'px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(WEAPONS[wk].name.slice(0, 3), wx + (invW - 4) / 2, invY + invH - (isMobile ? 10 : 8));
+    ctx.textAlign = 'left';
   });
 
   ctx.strokeStyle = 'rgba(0,255,0,0.9)'; ctx.lineWidth = 2;
@@ -783,10 +797,11 @@ function draw(timestamp) {
 }
 
 // ═══════════════════════════════════════
-//  INPUT
+//  INPUT (Mouse + Touch)
 // ═══════════════════════════════════════
-canvas.addEventListener('mousemove', e => { mouse.x=e.clientX; mouse.y=e.clientY; });
 
+// -- Mouse --
+canvas.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
 canvas.addEventListener('mousedown', () => {
   if (state !== 'playing') return;
   mouseDown = true;
@@ -796,14 +811,77 @@ canvas.addEventListener('mouseup', () => { mouseDown = false; });
 canvas.addEventListener('mouseleave', () => { mouseDown = false; });
 canvas.addEventListener('contextmenu', e => e.preventDefault());
 
+// -- Touch --
+var touchShootId = null;
+
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  if (state !== 'playing') return;
+  for (var i = 0; i < e.changedTouches.length; i++) {
+    var t = e.changedTouches[i];
+    // Check if touch is on weapon switch buttons
+    var wpnHit = hitTestWeaponButton(t.clientX, t.clientY);
+    if (wpnHit) {
+      if (weaponAmmo[wpnHit] > 0 || weaponAmmo[wpnHit] === Infinity) curWeapon = wpnHit;
+      return;
+    }
+    // Otherwise it's a shoot touch
+    mouse.x = t.clientX;
+    mouse.y = t.clientY;
+    touchShootId = t.identifier;
+    mouseDown = true;
+    shoot();
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  for (var i = 0; i < e.changedTouches.length; i++) {
+    var t = e.changedTouches[i];
+    if (t.identifier === touchShootId) {
+      mouse.x = t.clientX;
+      mouse.y = t.clientY;
+    }
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchend', e => {
+  e.preventDefault();
+  for (var i = 0; i < e.changedTouches.length; i++) {
+    if (e.changedTouches[i].identifier === touchShootId) {
+      mouseDown = false;
+      touchShootId = null;
+    }
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchcancel', e => {
+  mouseDown = false;
+  touchShootId = null;
+});
+
+// -- Keyboard (desktop) --
 document.addEventListener('keydown', e => {
   if (state !== 'playing') return;
-  const num = parseInt(e.key);
+  var num = parseInt(e.key);
   if (num >= 1 && num <= 4) {
-    const wk = WEAPON_ORDER[num-1];
-    if (weaponAmmo[wk]>0||weaponAmmo[wk]===Infinity) curWeapon = wk;
+    var wk = WEAPON_ORDER[num - 1];
+    if (weaponAmmo[wk] > 0 || weaponAmmo[wk] === Infinity) curWeapon = wk;
   }
 });
+
+// -- Weapon button hit test (for touch) --
+var weaponBtnRects = [];
+
+function hitTestWeaponButton(tx, ty) {
+  for (var i = 0; i < weaponBtnRects.length; i++) {
+    var r = weaponBtnRects[i];
+    if (tx >= r.x && tx <= r.x + r.w && ty >= r.y && ty <= r.y + r.h) {
+      return r.weapon;
+    }
+  }
+  return null;
+}
 
 // ═══════════════════════════════════════
 //  HTML BUTTON WIRING
