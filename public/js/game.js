@@ -420,12 +420,12 @@ function drawZombie(z) {
 
   if (bodyH < 2) return;
 
-  // Pick sprite sheet
-  var sheet;
-  if (z.type === 'tank') sheet = IMG.zombie_tank_sheet;
-  else if (z.type === 'runner') sheet = IMG.zombie_runner_sheet;
-  else if (z.type === 'exploder') sheet = IMG.zombie_exploder_sheet;
-  else sheet = IMG.zombie_walker_sheet;
+  // Pick video by type
+  var vid;
+  if (z.type === 'tank') vid = VID.tank;
+  else if (z.type === 'runner') vid = VID.runner;
+  else if (z.type === 'exploder') vid = VID.exploder;
+  else vid = VID.walker;
 
   // Shadow
   ctx.fillStyle = 'rgba(0,0,0,0.3)';
@@ -433,42 +433,37 @@ function drawZombie(z) {
   ctx.ellipse(zcx, foot.y + 2, bodyW * 0.6, bodyH * 0.04, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  var totalFrames = 6;
-  var frame = Math.floor(z.wobble) % totalFrames;
+  var drawH = Math.min(bodyH, H * 0.45);
+  var aspect = (vid.videoWidth && vid.videoHeight) ? vid.videoWidth / vid.videoHeight : 0.56;
+  var drawW = drawH * aspect;
+  var drawX = zcx - drawW / 2;
+  var drawY = head.y;
 
-  if (sheet && sheet.complete && sheet.naturalWidth > 0) {
-    var frameW = sheet.naturalWidth / totalFrames;
-    var frameH = sheet.naturalHeight;
-    var sx = frame * frameW;
+  ctx.save();
 
-    // Size sprite to match projected height
-    var drawH = bodyH;
-    var drawW = drawH * (frameW / frameH);
-    var drawX = zcx - drawW / 2;
-    var drawY = head.y;
-
-    ctx.save();
-    ctx.drawImage(sheet, sx, 0, frameW, frameH, drawX, drawY, drawW, drawH);
-
-    // Hit flash — red overlay on sprite area
-    if (z.flash > 0) {
-      ctx.globalAlpha = Math.min(1, z.flash * 8);
-      ctx.fillStyle = '#f00';
-      ctx.globalCompositeOperation = 'source-atop';
-      ctx.fillRect(drawX, drawY, drawW, drawH);
-      ctx.globalCompositeOperation = 'source-over';
-      ctx.globalAlpha = 1;
-    }
-
-    ctx.restore();
+  if (vid.readyState >= 2) {
+    // 'screen' blend makes black background invisible
+    ctx.globalCompositeOperation = 'screen';
+    ctx.drawImage(vid, drawX, drawY, drawW, drawH);
+    ctx.globalCompositeOperation = 'source-over';
   } else {
-    // Fallback colored block if sheet missing
+    // Fallback colored block while video loads
     var col = z.type === 'tank' ? '#ff00ff' : z.type === 'runner' ? '#00ff66' : z.type === 'exploder' ? '#ff4400' : '#00aaff';
     ctx.fillStyle = col;
     ctx.globalAlpha = 0.5;
-    ctx.fillRect(zcx - bodyW / 2, head.y, bodyW, bodyH);
+    ctx.fillRect(drawX, drawY, drawW, drawH);
     ctx.globalAlpha = 1;
   }
+
+  // Hit flash
+  if (z.flash > 0) {
+    ctx.globalAlpha = Math.min(1, z.flash * 8);
+    ctx.fillStyle = '#f00';
+    ctx.fillRect(drawX, drawY, drawW, drawH);
+    ctx.globalAlpha = 1;
+  }
+
+  ctx.restore();
 
   // Health bar
   if (z.hp < z.maxhp) {
