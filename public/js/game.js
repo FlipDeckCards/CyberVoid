@@ -515,9 +515,9 @@ function drawGun() {
   // Per-weapon orientation: rot in radians, flipX mirrors horizontally
   var gunConfig = {
     pistol:  { rot: 0,    flipX: false },
-    shotgun: { rot: 0,    flipX: true },
-    rifle:   { rot: 0,    flipX: true },
-    rocket:  { rot: 0,    flipX: true }
+    shotgun: { rot: .5,    flipX: false },
+    rifle:   { rot: .5,    flipX: false },
+    rocket:  { rot: .5,    flipX: false }
   };
 
   var gunImg;
