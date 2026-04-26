@@ -39,11 +39,13 @@ Object.entries(imgSources).forEach(([key, src]) => {
 // ── CONSTANTS ──
 const FOV = 60 * Math.PI / 180;
 const NEAR = 0.5;
-const STREET_DEPTH = 500;
+const STREET_DEPTH = 80;
 const LANE_W = 9;
 const LANES = 7;
 const ZOMBIE_H = 6.4;
 const ATTACK_RANGE = 4;
+const CAM_H = 18;
+const GROUND_CLAMP = 0.55;
 
 // ── WEAPONS ──
 const WEAPONS = {
@@ -55,7 +57,7 @@ const WEAPONS = {
 const WEAPON_ORDER = ['pistol','shotgun','rifle','rocket'];
 
 // ── STATE ──
-let W, H, cx, cy, horizonY;
+let W, H, cx, cy, horizonY, roadVPx;
 let state = 'waiting';
 let playerName = 'OPERATOR';
 let score = 0, wave = 1, kills = 0, killGoal = 8, health = 100, armor = 0;
@@ -74,7 +76,8 @@ function resize() {
   W = canvas.width = window.innerWidth;
   H = canvas.height = window.innerHeight;
   cx = W / 2; cy = H / 2;
-  horizonY = H * 0.42;
+  horizonY = H * 0.28;
+  roadVPx = W * 0.35;
 }
 window.addEventListener('resize', resize);
 resize();
@@ -83,7 +86,8 @@ resize();
 function proj(wx, wy, wz) {
   if (wz < NEAR) wz = NEAR;
   const s = (H * 0.5) / (wz * Math.tan(FOV / 2));
-  return { x: cx + wx * s, y: horizonY - wy * s, s };
+  const groundOffset = Math.min(H * GROUND_CLAMP, CAM_H * s);
+  return { x: roadVPx + wx * s, y: horizonY + groundOffset - wy * s, s };
 }
 
 // ── INIT GAME ──
@@ -107,10 +111,10 @@ function init() {
 function zombieStats(type, w) {
   const s = 1 + w * 0.08;
   switch (type) {
-    case 'runner':   return { hp:40*s, speed:0.14, points:15, attackDmg:8 };
-    case 'tank':     return { hp:200*s, speed:0.04, points:40, attackDmg:20 };
-    case 'exploder': return { hp:60*s, speed:0.09, points:25, attackDmg:35 };
-    default:         return { hp:80*s, speed:0.07, points:10, attackDmg:12 };
+    case 'runner':   return { hp:40*s, speed:0.025, points:15, attackDmg:8 };
+    case 'tank':     return { hp:200*s, speed:0.008, points:40, attackDmg:20 };
+    case 'exploder': return { hp:60*s, speed:0.016, points:25, attackDmg:35 };
+    default:         return { hp:80*s, speed:0.013, points:10, attackDmg:12 };
   }
 }
 
@@ -137,12 +141,12 @@ function spawnZombie() {
   ];
   var sp = spawns[Math.floor(Math.random() * spawns.length)];
   var xJitter = (Math.random() - 0.5) * LANE_W * 0.4;
-  var zJitter = Math.random() * 80;
+  var zJitter = Math.random() * 15;
   zombies.push({
     x: sp.x + xJitter,
-    z: STREET_DEPTH * 1.0 + zJitter,
+    z: STREET_DEPTH + zJitter,
     type: type, hp: stats.hp, maxhp: stats.hp,
-    speed: stats.speed + Math.random() * 0.03,
+    speed: stats.speed + Math.random() * 0.005,
     points: stats.points, attackDmg: stats.attackDmg,
     flash: 0,
     wobble: Math.random() * Math.PI * 2,
@@ -330,7 +334,6 @@ function drawZombie(z) {
   var legSwing = Math.sin(walk) * 0.3;
   var armSwing = Math.sin(walk + Math.PI) * 0.35;
 
-  // Dark base colors — silhouettes with subtle type tinting
   var bodyColor, accentColor, eyeColor;
   if (z.type === 'tank') {
     bodyColor = '#1a0f22'; accentColor = '#4a1a5a'; eyeColor = '#ff00ff';
@@ -356,13 +359,11 @@ function drawZombie(z) {
 
   ctx.save();
 
-  // Ground shadow
   ctx.fillStyle = 'rgba(0,0,0,0.3)';
   ctx.beginPath();
   ctx.ellipse(zcx, foot.y + 2, bodyW * 0.6, bodyH * 0.04, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // ---- LEGS ----
   ctx.lineCap = 'round';
 
   // Left leg
@@ -403,7 +404,7 @@ function drawZombie(z) {
   ctx.stroke();
   ctx.globalAlpha = 1;
 
-  // ---- TORSO (hunched, wider shoulders) ----
+  // Torso
   ctx.fillStyle = flashCol || bodyColor;
   ctx.beginPath();
   ctx.moveTo(zcx - torsoW * 0.55, torsoTop);
@@ -413,7 +414,6 @@ function drawZombie(z) {
   ctx.closePath();
   ctx.fill();
 
-  // Subtle accent outline on torso
   ctx.strokeStyle = flashCol || accentColor;
   ctx.lineWidth = Math.max(0.5, bodyH * 0.012);
   ctx.globalAlpha = 0.35;
@@ -426,7 +426,6 @@ function drawZombie(z) {
   ctx.stroke();
   ctx.globalAlpha = 1;
 
-  // ---- ARMS (reaching forward — zombie pose) ----
   // Left arm
   var lex = zcx - torsoW * 0.55 - bodyW * 0.1;
   var ley = shoulderY + armLen * 0.4;
@@ -451,14 +450,13 @@ function drawZombie(z) {
   ctx.quadraticCurveTo(rex, rey, rhx, rhy);
   ctx.stroke();
 
-  // ---- HEAD ----
+  // Head
   var headCY = head.y + headSize * 0.5;
   ctx.fillStyle = flashCol || bodyColor;
   ctx.beginPath();
   ctx.ellipse(zcx, headCY, headSize * 0.55, headSize * 0.6, 0, 0, Math.PI * 2);
   ctx.fill();
 
-  // Glowing eyes — the main identifier
   ctx.shadowColor = eyeColor;
   ctx.shadowBlur = headSize * 0.8;
   ctx.fillStyle = flashCol || eyeColor;
@@ -472,7 +470,7 @@ function drawZombie(z) {
   ctx.fill();
   ctx.shadowBlur = 0;
 
-  // ---- HEALTH BAR (only when damaged) ----
+  // Health bar
   if (z.hp < z.maxhp) {
     var barW = bodyW * 0.9;
     var barH = Math.max(2, bodyH * 0.03);
@@ -519,7 +517,6 @@ function drawGun() {
   else if (curWeapon === 'rifle') gunImg = IMG.gun_rifle;
   else gunImg = IMG.gun_rocket;
 
-  // Calculate gun dimensions for muzzle flash positioning
   var gunW = W * 0.55;
   var gunAspect = (gunImg && gunImg.complete && gunImg.naturalWidth > 0)
     ? (gunImg.naturalHeight / gunImg.naturalWidth) : 0.5;
@@ -536,7 +533,6 @@ function drawGun() {
     ctx.restore();
   }
 
-  // Muzzle flash — positioned at gun barrel tip
   if (muzzleFlash > 0) {
     var mfX = cx + bobX;
     var mfY = gunY + gunH * 0.08;
@@ -561,7 +557,6 @@ function drawHUD() {
   const w = WEAPONS[curWeapon];
   const pad = 20;
 
-  // Health
   ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(pad,H-65,230,50);
   ctx.strokeStyle = 'rgba(0,255,0,0.3)'; ctx.lineWidth = 1; ctx.strokeRect(pad,H-65,230,50);
   ctx.fillStyle = '#300'; ctx.fillRect(pad+50,H-55,160,14);
@@ -579,7 +574,6 @@ function drawHUD() {
     ctx.fillText('ARM',pad+10,H-28);
   }
 
-  // Ammo
   const ammoTxt = weaponAmmo[curWeapon]===Infinity ? '∞' : weaponAmmo[curWeapon];
   ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(W-210-pad,H-65,210,50);
   ctx.strokeStyle = w.col+'44'; ctx.strokeRect(W-210-pad,H-65,210,50);
@@ -590,7 +584,6 @@ function drawHUD() {
   ctx.fillText(ammoTxt.toString(),W-pad-15,H-22);
   ctx.shadowBlur = 0; ctx.textAlign = 'left';
 
-  // Wave
   ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(cx-140,10,280,45);
   ctx.strokeStyle = 'rgba(0,255,0,0.2)'; ctx.strokeRect(cx-140,10,280,45);
   ctx.fillStyle = '#0f0'; ctx.font = 'bold 15px monospace'; ctx.textAlign = 'center';
@@ -600,7 +593,6 @@ function drawHUD() {
   ctx.fillText('SCORE: '+score+'   KILLS: '+kills+'/'+killGoal,cx,48);
   ctx.textAlign = 'left';
 
-  // Weapon slots
   const invW = 42, invStart = cx-(WEAPON_ORDER.length*invW)/2;
   WEAPON_ORDER.forEach((wk,i) => {
     const wx = invStart+i*invW;
@@ -616,7 +608,6 @@ function drawHUD() {
     ctx.fillText((i+1).toString(), wx+(invW-4)/2, H-78); ctx.textAlign = 'left';
   });
 
-  // Crosshair
   ctx.strokeStyle = 'rgba(0,255,0,0.9)'; ctx.lineWidth = 2;
   ctx.shadowColor = '#0f0'; ctx.shadowBlur = 4;
   ctx.beginPath();
@@ -650,13 +641,11 @@ function update(dt) {
   if (zombies.length > 0) gunBob += dt*3;
   if (mouseDown && WEAPONS[curWeapon].auto) shoot();
 
-  // Spawn
   spawnTimer -= dt*1000;
   if (spawnTimer <= 0 && spawnBudget > 0) {
     spawnZombie(); spawnBudget--; spawnTimer = spawnInterval;
   }
 
-  // Wave progression
   if (kills >= killGoal && zombies.length === 0) {
     wave++; kills = 0;
     killGoal = Math.floor(8+wave*3);
@@ -667,7 +656,6 @@ function update(dt) {
     spawnBudget = killGoal-kills; spawnTimer = 200;
   }
 
-  // Update zombies
   zombies.forEach(z => {
     z.z -= z.speed*dt*60;
     z.wobble += dt*(z.type==='runner'?12:6);
@@ -695,7 +683,6 @@ function update(dt) {
     }
   });
 
-  // Remove dead
   zombies = zombies.filter(z => {
     if (z.hp <= 0) {
       score += z.points; kills++;
@@ -715,18 +702,15 @@ function update(dt) {
     return true;
   });
 
-  // Particles
   particles.forEach(p => { p.x+=p.vx; p.y+=p.vy; p.vy+=0.3; p.life-=dt; });
   particles = particles.filter(p => p.life>0);
 
-  // Powerups
   powerups.forEach(pu => {
     pu.life -= dt;
     if (pu.z <= ATTACK_RANGE+2) { collectPowerup(pu); pu.life = 0; }
   });
   powerups = powerups.filter(pu => pu.life>0);
 
-  // Death
   if (health <= 0) {
     health = 0; state = 'dead';
     canvas.style.cursor = 'default';
