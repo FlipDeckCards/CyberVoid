@@ -55,10 +55,10 @@ const GROUND_CLAMP = 0.50;
 
 // ── WEAPONS ──
 const WEAPONS = {
-  pistol:  { name:'PISTOL',  dmg:20,  rate:320,  spread:0,    pellets:1, auto:false, col:'#0f0',  recoil:6 },
-  shotgun: { name:'SHOTGUN', dmg:45,  rate:700,  spread:0.13, pellets:6, auto:false, col:'#f80',  recoil:14 },
-  rifle:   { name:'RIFLE',   dmg:35,  rate:90,   spread:0.03, pellets:1, auto:true,  col:'#0ff',  recoil:3 },
-  rocket:  { name:'ROCKET',  dmg:170, rate:1100, spread:0,    pellets:1, auto:false, col:'#f44',  recoil:20, explosive:true }
+  pistol:  { name:'PISTOL',  dmg:34,  rate:320,  spread:0,    pellets:1, auto:false, col:'#0f0',  recoil:6 },
+  shotgun: { name:'SHOTGUN', dmg:70,  rate:600,  spread:0.13, pellets:6, auto:false, col:'#f80',  recoil:14 },
+  rifle:   { name:'RIFLE',   dmg:55,  rate:90,   spread:0.03, pellets:1, auto:true,  col:'#0ff',  recoil:3 },
+  rocket:  { name:'ROCKET',  dmg:260, rate:800, spread:0,    pellets:1, auto:false, col:'#f44',  recoil:20, explosive:true }
 };
 const WEAPON_ORDER = ['pistol','rifle','shotgun','rocket'];
 
