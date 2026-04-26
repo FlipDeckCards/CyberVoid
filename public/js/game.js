@@ -237,10 +237,10 @@ function spawnEnemy() {
   // Flying height — each type hovers at a different base altitude
   var hoverBase;
   switch (type) {
-    case 'phantom':  hoverBase = 4.0 + Math.random() * 2.5; break;
-      case 'titan':    hoverBase = 1.0 + Math.random() * 1.0; break;
-      case 'scorch':   hoverBase = 0.5 + Math.random() * 1.0; break;
-      default:         hoverBase = 1.8 + Math.random() * 1.5; break;
+    case 'phantom':  hoverBase = 7.0 + Math.random() * 3.0; sizeScale = 1.0;  break;
+      case 'titan':    hoverBase = 1.0 + Math.random() * 1.0; sizeScale = 4/3;  break;
+      case 'scorch':   hoverBase = 0.2 + Math.random() * 0.6; sizeScale = 2/3;  break;
+      default:         hoverBase = 1.8 + Math.random() * 1.5; sizeScale = 3/4;  break;
   }
 
   enemies.push({
@@ -255,6 +255,7 @@ function spawnEnemy() {
     hoverPhase: Math.random() * Math.PI * 2,
     attackCooldown: 0,
     spawnX: sp.x + xJitter
+    sizeScale: sizeScale
   });
 }
 
@@ -326,8 +327,9 @@ function shoot() {
     const sorted = [...enemies].sort((a,b) => a.z - b.z);
     for (const e of sorted) {
       const hoverY = e.hoverBase + Math.sin(e.hoverPhase) * 0.8;
+      const scaledH = ENEMY_H * (e.sizeScale || 1);
       const bp = proj(e.x, hoverY, e.z);
-      const tp = proj(e.x, hoverY + ENEMY_H, e.z);
+      const tp = proj(e.x, hoverY + scaledH, e.z);
       const sh = bp.y - tp.y;
       const sw = sh * 0.6;
       if (aimX > bp.x-sw/2 && aimX < bp.x+sw/2 && aimY > tp.y && aimY < bp.y) {
@@ -427,7 +429,8 @@ function drawFog() {
 function drawEnemy(e) {
   var hoverY = e.hoverBase + Math.sin(e.hoverPhase) * 0.8;
   var foot = proj(e.x, hoverY, e.z);
-  var head = proj(e.x, hoverY + ENEMY_H, e.z);
+  var scaledH = ENEMY_H * (e.sizeScale || 1);
+  var head = proj(e.x, hoverY + scaledH, e.z);
   var bodyH = foot.y - head.y;
   var bodyW = bodyH * 0.6;
   var ecx = foot.x;
