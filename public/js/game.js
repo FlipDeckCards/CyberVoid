@@ -49,7 +49,7 @@ const STREET_DEPTH = 120;
 const LANE_W = 1.0;
 const LANES = 7;
 const ENEMY_H = 6.4;
-const ATTACK_RANGE = 8;
+const ATTACK_RANGE = 22;
 const CAM_H = 10;
 const GROUND_CLAMP = 0.50;
 
@@ -688,7 +688,12 @@ function update(dt) {
     e.hoverPhase += dt * bobSpeed;
 
     e.wobble += dt * (e.type === 'phantom' ? 12 : 6);
-
+// Swoop down as they get close — keeps them on screen
+    if (e.z < 40) {
+      var swoopFactor = 1 - ((40 - e.z) / 40);
+      var minHover = 2.0;
+      e.hoverBase = minHover + (e.hoverBase - minHover) * Math.max(swoopFactor, 0.15);
+    }
     var progress = Math.max(0, 1 - (e.z / STREET_DEPTH));
     var spreadTarget = e.spawnX * (0.3 + progress * 0.7);
     var driftSpeed = 0.03 * dt * 60;
