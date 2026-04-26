@@ -110,11 +110,12 @@ function init() {
 // ═══════════════════════════════════════
 function zombieStats(type, w) {
   const s = 1 + w * 0.08;
+  const spd = 1 + w * 0.12;  // speed scales 12% per wave
   switch (type) {
-    case 'runner':   return { hp:40*s, speed:0.12, points:15, attackDmg:8 };
-    case 'tank':     return { hp:200*s, speed:0.03, points:40, attackDmg:20 };
-    case 'exploder': return { hp:60*s, speed:0.08, points:25, attackDmg:35 };
-    default:         return { hp:80*s, speed:0.06, points:10, attackDmg:12 };
+    case 'runner':   return { hp:40*s, speed:0.16 * spd, points:15, attackDmg:8 };
+    case 'tank':     return { hp:200*s, speed:0.05 * spd, points:40, attackDmg:20 };
+    case 'exploder': return { hp:60*s, speed:0.10 * spd, points:25, attackDmg:35 };
+    default:         return { hp:80*s, speed:0.08 * spd, points:10, attackDmg:12 };
   }
 }
 
