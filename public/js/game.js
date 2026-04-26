@@ -448,8 +448,10 @@ function drawZombie(z) {
 
   if (vid.readyState >= 2) {
     // 'screen' blend makes black background invisible
-    ctx.globalCompositeOperation = 'screen';
+     ctx.globalCompositeOperation = 'screen';
+    ctx.filter = 'brightness(2.5) contrast(1.5)';
     ctx.drawImage(vid, drawX, drawY, drawW, drawH);
+    ctx.filter = 'none';
     ctx.globalCompositeOperation = 'source-over';
   } else {
     // Fallback colored block while video loads
