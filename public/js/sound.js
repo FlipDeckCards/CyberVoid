@@ -156,50 +156,98 @@ var SFX = (function() {
     sub.stop(t + 0.45);
   }
 
-  // ── HIT: Critical (high ping) ──
+  // ── HIT: Critical (metallic clang) ──
   function hitCritical() {
     if (!audioCtx) return;
     var t = now();
+    // Primary metallic strike
     var osc = audioCtx.createOscillator();
     var gain = audioCtx.createGain();
-    osc.type = 'sine';
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(3400, t);
+    osc.frequency.exponentialRampToValueAtTime(1200, t + 0.15);
+    gain.gain.setValueAtTime(0.25, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+    osc.connect(gain);
+    gain.connect(masterGain);
+    osc.start(t);
+    osc.stop(t + 0.18);
+
+    // Metallic resonance layer
+    var osc2 = audioCtx.createOscillator();
+    var gain2 = audioCtx.createGain();
+    osc2.type = 'triangle';
+    osc2.frequency.setValueAtTime(4800, t);
+    osc2.frequency.exponentialRampToValueAtTime(2000, t + 0.12);
+    gain2.gain.setValueAtTime(0.15, t);
+    gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+    osc2.connect(gain2);
+    gain2.connect(masterGain);
+    osc2.start(t);
+    osc2.stop(t + 0.2);
+
+    // Short noise burst (impact texture)
+    var bufSize = audioCtx.sampleRate * 0.03;
+    var buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+    var data = buf.getChannelData(0);
+    for (var i = 0; i < bufSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufSize, 6);
+    }
+    var noise = audioCtx.createBufferSource();
+    noise.buffer = buf;
+    var nGain = audioCtx.createGain();
+    nGain.gain.setValueAtTime(0.3, t);
+    nGain.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
+    noise.connect(nGain);
+    nGain.connect(masterGain);
+    noise.start(t);
+  }
+
+  // ── HIT: Corner (metal thud) ──
+  function hitCorner() {
+    if (!audioCtx) return;
+    var t = now();
+    // Metallic thunk
+    var osc = audioCtx.createOscillator();
+    var gain = audioCtx.createGain();
+    osc.type = 'square';
     osc.frequency.setValueAtTime(1800, t);
-    osc.frequency.exponentialRampToValueAtTime(2400, t + 0.06);
-    gain.gain.setValueAtTime(0.3, t);
+    osc.frequency.exponentialRampToValueAtTime(400, t + 0.08);
+    gain.gain.setValueAtTime(0.2, t);
     gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
     osc.connect(gain);
     gain.connect(masterGain);
     osc.start(t);
     osc.stop(t + 0.1);
 
-    // Metallic ring
+    // Rattle/ring tail
     var osc2 = audioCtx.createOscillator();
     var gain2 = audioCtx.createGain();
     osc2.type = 'triangle';
-    osc2.frequency.setValueAtTime(3200, t);
-    gain2.gain.setValueAtTime(0.15, t);
+    osc2.frequency.setValueAtTime(2600, t);
+    osc2.frequency.exponentialRampToValueAtTime(900, t + 0.1);
+    gain2.gain.setValueAtTime(0.1, t);
     gain2.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
     osc2.connect(gain2);
     gain2.connect(masterGain);
     osc2.start(t);
     osc2.stop(t + 0.12);
-  }
 
-  // ── HIT: Corner (lower thunk) ──
-  function hitCorner() {
-    if (!audioCtx) return;
-    var t = now();
-    var osc = audioCtx.createOscillator();
-    var gain = audioCtx.createGain();
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(600, t);
-    osc.frequency.exponentialRampToValueAtTime(300, t + 0.06);
-    gain.gain.setValueAtTime(0.25, t);
-    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
-    osc.connect(gain);
-    gain.connect(masterGain);
-    osc.start(t);
-    osc.stop(t + 0.08);
+    // Impact crack
+    var bufSize = audioCtx.sampleRate * 0.02;
+    var buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
+    var data = buf.getChannelData(0);
+    for (var i = 0; i < bufSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufSize, 8);
+    }
+    var noise = audioCtx.createBufferSource();
+    noise.buffer = buf;
+    var nGain = audioCtx.createGain();
+    nGain.gain.setValueAtTime(0.2, t);
+    nGain.gain.exponentialRampToValueAtTime(0.001, t + 0.03);
+    noise.connect(nGain);
+    nGain.connect(masterGain);
+    noise.start(t);
   }
 
   // ── ENEMY DEATH: Digital explosion ──
