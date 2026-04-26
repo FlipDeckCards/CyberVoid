@@ -531,34 +531,6 @@ function drawGun() {
     ctx.translate(-(gunX + gunW / 2), -(gunY + gunH / 2));
     ctx.drawImage(gunImg, gunX, gunY, gunW, gunH);
     ctx.restore();
-  }
-
-  if (muzzleFlash > 0) {
-    // Per-weapon barrel tip offsets (fraction of gunW from left, fraction of gunH from top)
-    var barrelTip = {
-      pistol:  { bx: 0.25, by: 0.02 },
-      shotgun: { bx: 0.25, by: 0.01 },
-      rifle:   { bx: 0.25, by: 0.01 },
-      rocket:  { bx: 0.25, by: 0.02 }
-    };
-    var tip = barrelTip[curWeapon];
-    var mfX = gunX + gunW * tip.bx;
-    var mfY = gunY + gunH * tip.by;
-    var mfSize = 25 + (curWeapon === 'rocket' ? 55 : curWeapon === 'shotgun' ? 45 : curWeapon === 'rifle' ? 20 : 15);
-    ctx.globalAlpha = muzzleFlash;
-    ctx.fillStyle = '#fff';
-    ctx.shadowColor = w.col;
-    ctx.shadowBlur = 80;
-    ctx.beginPath();
-    ctx.arc(mfX, mfY, mfSize * muzzleFlash, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = w.col;
-    ctx.beginPath();
-    ctx.arc(mfX, mfY, mfSize * muzzleFlash * 0.4, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.shadowBlur = 0;
-    ctx.globalAlpha = 1;
-  }
 }
 
 function drawHUD() {
