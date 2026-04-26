@@ -532,8 +532,8 @@ function drawGun() {
     ctx.translate(-(gunX + gunW / 2), -(gunY + gunH / 2));
     ctx.drawImage(gunImg, gunX, gunY, gunW, gunH);
     ctx.restore();
+  }
 }
-
 function drawHUD() {
   const w = WEAPONS[curWeapon];
   const pad = 20;
