@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// DEADZONE — First-Person Cyberpunk Zombie Survival
+// DEADZONE — First-Person Cyberpunk Robot Survival
 // ═══════════════════════════════════════════════════════════
 
 const canvas = document.getElementById('game');
@@ -24,20 +24,15 @@ if (!sessionToken) {
 const IMG = {};
 const imgSources = {
   bg: '/assets/city_bg.png',
-  player: '/assets/player.png',
-  zombie_walker: '/assets/zombie_walker.png',
-  zombie_runner: '/assets/zombie_runner.png',
-  zombie_exploder: '/assets/zombie_exploder.png',
-  zombie_tank: '/assets/zombie_tank.png',
+  fog: '/assets/fog.png',
   gun_pistol: '/assets/pistol.png',
   gun_shotgun: '/assets/shotgun.png',
   gun_rifle: '/assets/rifle.png',
   gun_rocket: '/assets/rocket.png',
-  zombie_walker_sheet: '/assets/zombie_walker_sheet.png',
-  zombie_runner_sheet: '/assets/zombie_runner_sheet.png',
-  zombie_tank_sheet: '/assets/zombie_tank_sheet.png',
-  zombie_exploder_sheet: '/assets/zombie_exploder_sheet.png',
-  fog: '/assets/fog.png'
+  sentinel: '/assets/sentinel.png',
+  phantom: '/assets/phantom.png',
+  titan: '/assets/titan.png',
+  scorch: '/assets/scorch.png'
 };
 let imagesLoaded = 0;
 const totalImages = Object.keys(imgSources).length;
@@ -47,37 +42,13 @@ Object.entries(imgSources).forEach(([key, src]) => {
   IMG[key].src = src;
 });
 
-// ── VIDEO TEXTURES (3 copies each, staggered for variety) ──
-var VID = {
-  walker: [
-    document.getElementById('vid_walker_0'),
-    document.getElementById('vid_walker_1'),
-    document.getElementById('vid_walker_2')
-  ],
-  runner: [
-    document.getElementById('vid_runner_0'),
-    document.getElementById('vid_runner_1'),
-    document.getElementById('vid_runner_2')
-  ],
-  tank: [
-    document.getElementById('vid_tank_0'),
-    document.getElementById('vid_tank_1'),
-    document.getElementById('vid_tank_2')
-  ],
-  exploder: [
-    document.getElementById('vid_exploder_0'),
-    document.getElementById('vid_exploder_1'),
-    document.getElementById('vid_exploder_2')
-  ]
-};
-
 // ── CONSTANTS ──
 const FOV = 60 * Math.PI / 180;
 const NEAR = 0.5;
 const STREET_DEPTH = 120;
 const LANE_W = 1.0;
 const LANES = 7;
-const ZOMBIE_H = 6.4;
+const ENEMY_H = 6.4;
 const ATTACK_RANGE = 8;
 const CAM_H = 10;
 const GROUND_CLAMP = 0.50;
@@ -91,6 +62,14 @@ const WEAPONS = {
 };
 const WEAPON_ORDER = ['pistol','rifle','shotgun','rocket'];
 
+// ── ENEMY CONFIG ──
+const ENEMY_GLOW = {
+  sentinel: '#0ff',
+  phantom:  '#0f0',
+  titan:    '#f0f',
+  scorch:   '#f80'
+};
+
 // ── STATE ──
 let W, H, cx, cy, horizonY, roadVPx;
 let state = 'waiting';
@@ -99,7 +78,7 @@ let score = 0, wave = 1, kills = 0, killGoal = 8, health = 100, armor = 0;
 let curWeapon = 'pistol';
 let weaponAmmo = { pistol:Infinity, shotgun:0, rifle:0, rocket:0 };
 let lastShot = 0, gunRecoil = 0, muzzleFlash = 0, gunBob = 0;
-let zombies = [], particles = [], powerups = [];
+let enemies = [], particles = [], powerups = [];
 let dmgFlash = 0, screenShake = 0;
 let spawnTimer = 0, spawnInterval = 1800, spawnBudget = 0;
 let mouse = { x:0, y:0 };
@@ -172,9 +151,7 @@ async function submitScore() {
         token: sessionToken
       })
     });
-  } catch (e) {
-    // Silent fail — don't block death screen
-  }
+  } catch (e) {}
 }
 
 async function checkCallsign(name) {
@@ -187,11 +164,10 @@ async function checkCallsign(name) {
     const data = await res.json();
     return data.available;
   } catch (e) {
-    return true; // Allow on network error so game isn't blocked
+    return true;
   }
 }
 
-// Toggle leaderboard open/close
 leaderboardBox.addEventListener('click', () => {
   leaderboardList.classList.toggle('open');
   const title = leaderboardBox.querySelector('.lb-title');
@@ -203,16 +179,6 @@ leaderboardBox.addEventListener('click', () => {
   }
 });
 
-// ── HELPER: play and stagger all video copies ──
-function playAllVideos() {
-  Object.values(VID).forEach(function(arr) {
-    arr.forEach(function(v, i) {
-      v.play().catch(function(){});
-      v.currentTime = i * 5;
-    });
-  });
-}
-
 // ── INIT GAME ──
 function init() {
   score = 0; wave = 1; kills = 0; killGoal = 8;
@@ -220,7 +186,7 @@ function init() {
   curWeapon = 'pistol';
   weaponAmmo = { pistol:Infinity, shotgun:0, rifle:0, rocket:0 };
   lastShot = 0; gunRecoil = 0; muzzleFlash = 0; gunBob = 0;
-  zombies = []; particles = []; powerups = [];
+  enemies = []; particles = []; powerups = [];
   dmgFlash = 0; screenShake = 0;
   spawnTimer = 0; spawnInterval = 1800; spawnBudget = 0;
   spawnBudget = killGoal;
@@ -230,31 +196,31 @@ function init() {
 }
 
 // ═══════════════════════════════════════
-//  ZOMBIE TYPES
+//  ENEMY TYPES
 // ═══════════════════════════════════════
-function zombieStats(type, w) {
+function enemyStats(type, w) {
   const s = 1 + w * 0.08;
   const spd = 1 + w * 0.12;
   switch (type) {
-    case 'runner':   return { hp:40*s, speed:0.16 * spd, points:15, attackDmg:8 };
-    case 'tank':     return { hp:200*s, speed:0.05 * spd, points:40, attackDmg:20 };
-    case 'exploder': return { hp:60*s, speed:0.10 * spd, points:25, attackDmg:35 };
-    default:         return { hp:80*s, speed:0.08 * spd, points:10, attackDmg:12 };
+    case 'phantom':  return { hp:40*s,  speed:0.16*spd, points:15, attackDmg:8 };
+    case 'titan':    return { hp:200*s, speed:0.05*spd, points:40, attackDmg:20 };
+    case 'scorch':   return { hp:60*s,  speed:0.10*spd, points:25, attackDmg:35 };
+    default:         return { hp:80*s,  speed:0.08*spd, points:10, attackDmg:12 };
   }
 }
 
-function pickZombieType(w) {
-  if (w < 2) return 'walker';
+function pickEnemyType(w) {
+  if (w < 2) return 'sentinel';
   const r = Math.random();
-  if (w >= 5 && r < 0.1) return 'tank';
-  if (w >= 3 && r < 0.3) return 'exploder';
-  if (r < 0.5) return 'runner';
-  return 'walker';
+  if (w >= 5 && r < 0.1) return 'titan';
+  if (w >= 3 && r < 0.3) return 'scorch';
+  if (r < 0.5) return 'phantom';
+  return 'sentinel';
 }
 
-function spawnZombie() {
-  var type = pickZombieType(wave);
-  var stats = zombieStats(type, wave);
+function spawnEnemy() {
+  var type = pickEnemyType(wave);
+  var stats = enemyStats(type, wave);
   var spawns = [
     { x: -LANE_W * 3.0 },
     { x: -LANE_W * 2.0 },
@@ -267,7 +233,17 @@ function spawnZombie() {
   var sp = spawns[Math.floor(Math.random() * spawns.length)];
   var xJitter = (Math.random() - 0.5) * LANE_W * 0.5;
   var zJitter = Math.random() * 12;
-  zombies.push({
+
+  // Flying height — each type hovers at a different base altitude
+  var hoverBase;
+  switch (type) {
+    case 'phantom':  hoverBase = 2.5 + Math.random() * 2.0; break;
+    case 'titan':    hoverBase = 1.0 + Math.random() * 1.0; break;
+    case 'scorch':   hoverBase = 1.5 + Math.random() * 2.5; break;
+    default:         hoverBase = 1.8 + Math.random() * 1.5; break;
+  }
+
+  enemies.push({
     x: sp.x + xJitter,
     z: STREET_DEPTH + zJitter,
     type: type, hp: stats.hp, maxhp: stats.hp,
@@ -275,10 +251,10 @@ function spawnZombie() {
     points: stats.points, attackDmg: stats.attackDmg,
     flash: 0,
     wobble: Math.random() * Math.PI * 2,
-    animPhase: Math.random() * Math.PI * 2,
+    hoverBase: hoverBase,
+    hoverPhase: Math.random() * Math.PI * 2,
     attackCooldown: 0,
-    spawnX: sp.x + xJitter,
-    vidIndex: Math.floor(Math.random() * 3)
+    spawnX: sp.x + xJitter
   });
 }
 
@@ -294,10 +270,11 @@ function spawnParticle(x, y, col, count) {
   }
 }
 
-function spawnBlood(wx, wz) {
-  const p = proj(wx, ZOMBIE_H*0.5, wz);
-  spawnParticle(p.x, p.y, '#f00', 8);
-  spawnParticle(p.x, p.y, '#a00', 5);
+function spawnSparks(wx, wy, wz) {
+  const p = proj(wx, wy, wz);
+  const col = '#ff0';
+  spawnParticle(p.x, p.y, col, 6);
+  spawnParticle(p.x, p.y, '#fff', 4);
 }
 
 // ═══════════════════════════════════════
@@ -319,12 +296,12 @@ function collectPowerup(pu) {
     case 'rifle': weaponAmmo.rifle += 60; break;
     case 'rocket': weaponAmmo.rocket += 3; break;
     case 'nuke':
-      zombies.forEach(z => {
-        const p = proj(z.x, ZOMBIE_H*0.5, z.z);
+      enemies.forEach(e => {
+        const p = proj(e.x, e.hoverBase, e.z);
         spawnParticle(p.x, p.y, '#ff0', 15);
-        score += z.points; kills++;
+        score += e.points; kills++;
       });
-      zombies = [];
+      enemies = [];
       screenShake = 1;
       break;
   }
@@ -346,24 +323,25 @@ function shoot() {
   for (let p = 0; p < w.pellets; p++) {
     const aimX = mouse.x + (Math.random()-0.5) * w.spread * W;
     const aimY = mouse.y + (Math.random()-0.5) * w.spread * H * 0.5;
-    const sorted = [...zombies].sort((a,b) => a.z - b.z);
-    for (const z of sorted) {
-      const zp = proj(z.x, 0, z.z);
-      const tp = proj(z.x, ZOMBIE_H, z.z);
-      const sh = zp.y - tp.y;
+    const sorted = [...enemies].sort((a,b) => a.z - b.z);
+    for (const e of sorted) {
+      const hoverY = e.hoverBase + Math.sin(e.hoverPhase) * 0.8;
+      const bp = proj(e.x, hoverY, e.z);
+      const tp = proj(e.x, hoverY + ENEMY_H, e.z);
+      const sh = bp.y - tp.y;
       const sw = sh * 0.6;
-      if (aimX > zp.x-sw/2 && aimX < zp.x+sw/2 && aimY > tp.y && aimY < zp.y) {
+      if (aimX > bp.x-sw/2 && aimX < bp.x+sw/2 && aimY > tp.y && aimY < bp.y) {
         let dmg = w.dmg;
-        if (aimY < tp.y + sh*0.3) dmg *= 2;
-        z.hp -= dmg;
-        z.flash = 0.15;
-        spawnBlood(z.x, z.z);
+        if (aimY < tp.y + sh*0.3) dmg *= 2; // headshot
+        e.hp -= dmg;
+        e.flash = 0.15;
+        spawnSparks(e.x, hoverY + ENEMY_H*0.5, e.z);
         if (w.explosive) {
           screenShake = 0.6;
-          zombies.forEach(oz => {
-            if (oz === z) return;
-            const dist = Math.sqrt((oz.x-z.x)**2 + (oz.z-z.z)**2);
-            if (dist < 12) { oz.hp -= w.dmg*(1-dist/12); oz.flash = 0.1; }
+          enemies.forEach(oe => {
+            if (oe === e) return;
+            const dist = Math.sqrt((oe.x-e.x)**2 + (oe.z-e.z)**2);
+            if (dist < 12) { oe.hp -= w.dmg*(1-dist/12); oe.flash = 0.1; }
           });
         }
         break;
@@ -445,75 +423,103 @@ function drawFog() {
   ctx.restore();
 }
 
-// ========== ZOMBIE DRAWING ==========
-function drawZombie(z) {
-  var foot = proj(z.x, 0, z.z);
-  var head = proj(z.x, ZOMBIE_H, z.z);
+// ========== ENEMY DRAWING ==========
+function drawEnemy(e) {
+  var hoverY = e.hoverBase + Math.sin(e.hoverPhase) * 0.8;
+  var foot = proj(e.x, hoverY, e.z);
+  var head = proj(e.x, hoverY + ENEMY_H, e.z);
   var bodyH = foot.y - head.y;
-  var bodyW = bodyH * 0.45;
-  var zcx = foot.x;
+  var bodyW = bodyH * 0.6;
+  var ecx = foot.x;
 
   if (bodyH < 2) return;
 
-  var vid = VID[z.type][z.vidIndex || 0];
+  var img = IMG[e.type];
+  var glowCol = ENEMY_GLOW[e.type] || '#0ff';
 
-  // Shadow
-  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  // Shadow on ground (faint — they're flying)
+  var ground = proj(e.x, 0, e.z);
+  ctx.fillStyle = 'rgba(0,0,0,0.15)';
   ctx.beginPath();
-  ctx.ellipse(zcx, foot.y + 2, bodyW * 0.6, bodyH * 0.04, 0, 0, Math.PI * 2);
+  ctx.ellipse(ground.x, ground.y + 2, bodyW * 0.4, bodyH * 0.025, 0, 0, Math.PI * 2);
   ctx.fill();
 
   var drawH = Math.min(bodyH, H * 0.45);
-  var aspect = (vid.videoWidth && vid.videoHeight) ? vid.videoWidth / vid.videoHeight : 0.56;
+  var aspect = (img && img.complete && img.naturalWidth > 0) ? img.naturalWidth / img.naturalHeight : 1;
   var drawW = drawH * aspect;
-  var drawX = zcx - drawW / 2;
+  var drawX = ecx - drawW / 2;
   var drawY = head.y;
 
-  // Clamp to screen so close zombies stay visible
+  // Clamp to screen
   if (drawY < 0) {
     drawH = Math.max(2, drawH + drawY);
     drawW = drawH * aspect;
-    drawX = zcx - drawW / 2;
+    drawX = ecx - drawW / 2;
     drawY = 0;
   }
 
   ctx.save();
 
-  if (vid.readyState >= 2) {
-    // Draw TWICE with screen blend — doubles intensity, kills black BG
-    ctx.globalCompositeOperation = 'screen';
-    ctx.filter = 'brightness(2) contrast(1.8)';
-    ctx.drawImage(vid, drawX, drawY, drawW, drawH);
-    ctx.drawImage(vid, drawX, drawY, drawW, drawH);
-    ctx.filter = 'none';
-    ctx.globalCompositeOperation = 'source-over';
+  // Glow aura behind the enemy
+  ctx.shadowColor = glowCol;
+  ctx.shadowBlur = 15 + Math.sin(e.hoverPhase * 2) * 5;
+  ctx.globalAlpha = 0.3;
+  ctx.fillStyle = glowCol;
+  ctx.beginPath();
+  ctx.ellipse(ecx, drawY + drawH * 0.5, drawW * 0.5, drawH * 0.5, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.globalAlpha = 1;
 
-    // Hit flash — white-hot sprite flash, no rectangle
-    if (z.flash > 0) {
-      ctx.globalCompositeOperation = 'screen';
-      ctx.globalAlpha = Math.min(0.8, z.flash * 6);
-      ctx.filter = 'brightness(8) saturate(0)';
-      ctx.drawImage(vid, drawX, drawY, drawW, drawH);
-      ctx.filter = 'none';
-      ctx.globalAlpha = 1;
-      ctx.globalCompositeOperation = 'source-over';
-    }
+  // Draw the PNG
+  if (img && img.complete && img.naturalWidth > 0) {
+    ctx.drawImage(img, drawX, drawY, drawW, drawH);
+  } else {
+    // Fallback shape while PNG loads
+    ctx.fillStyle = glowCol;
+    ctx.globalAlpha = 0.6;
+    ctx.beginPath();
+    ctx.ellipse(ecx, drawY + drawH * 0.5, drawW * 0.4, drawH * 0.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  // Hit flash — white overlay on the sprite
+  if (e.flash > 0) {
+    ctx.globalAlpha = Math.min(0.7, e.flash * 6);
+    ctx.globalCompositeOperation = 'source-atop';
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(drawX, drawY, drawW, drawH);
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1;
   }
 
   ctx.restore();
 
   // Health bar
-  if (z.hp < z.maxhp) {
+  if (e.hp < e.maxhp) {
     var barW = bodyW * 0.9;
     var barH = Math.max(2, bodyH * 0.03);
     var barY = head.y - barH - 5;
     if (barY < 0) barY = drawY + 2;
     ctx.fillStyle = 'rgba(0,0,0,0.8)';
-    ctx.fillRect(zcx - barW / 2, barY, barW, barH);
-    ctx.fillStyle = z.hp / z.maxhp > 0.5 ? '#0f0' : z.hp / z.maxhp > 0.25 ? '#ff0' : '#f00';
-    ctx.fillRect(zcx - barW / 2, barY, barW * (z.hp / z.maxhp), barH);
+    ctx.fillRect(ecx - barW / 2, barY, barW, barH);
+    ctx.fillStyle = e.hp / e.maxhp > 0.5 ? '#0f0' : e.hp / e.maxhp > 0.25 ? '#ff0' : '#f00';
+    ctx.fillRect(ecx - barW / 2, barY, barW * (e.hp / e.maxhp), barH);
+  }
+
+  // Type label (small, fades with distance)
+  if (bodyH > 30) {
+    ctx.globalAlpha = Math.min(1, (bodyH - 30) / 60);
+    ctx.fillStyle = glowCol;
+    ctx.font = 'bold ' + Math.max(9, Math.floor(bodyH * 0.06)) + 'px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(e.type.toUpperCase(), ecx, (barY || head.y) - 8);
+    ctx.textAlign = 'left';
+    ctx.globalAlpha = 1;
   }
 }
+
 function drawPowerup(pu) {
   const p = proj(pu.x, 1.5+Math.sin(Date.now()*0.004)*0.5, pu.z);
   const sz = Math.max(4, p.s * 0.83);
@@ -535,7 +541,6 @@ function drawPowerup(pu) {
 }
 
 function drawGun() {
-  var w = WEAPONS[curWeapon];
   var bobX = Math.sin(gunBob) * 8;
   var bobY = Math.abs(Math.cos(gunBob)) * 5;
   var kickY = gunRecoil * 35;
@@ -658,69 +663,80 @@ function update(dt) {
   gunRecoil *= 0.85; muzzleFlash *= 0.8;
   dmgFlash *= 0.92; screenShake *= 0.9;
   if (screenShake < 0.01) screenShake = 0;
-  if (zombies.length > 0) gunBob += dt*3;
+  if (enemies.length > 0) gunBob += dt*3;
   if (mouseDown && WEAPONS[curWeapon].auto) shoot();
 
   spawnTimer -= dt*1000;
   if (spawnTimer <= 0 && spawnBudget > 0) {
-    spawnZombie(); spawnBudget--; spawnTimer = spawnInterval;
+    spawnEnemy(); spawnBudget--; spawnTimer = spawnInterval;
   }
 
-  if (kills >= killGoal && zombies.length === 0) {
+  if (kills >= killGoal && enemies.length === 0) {
     wave++; kills = 0;
     killGoal = Math.floor(8+wave*3);
     spawnBudget = killGoal;
     spawnInterval = Math.max(400, 1800-wave*100);
     spawnTimer = 500;
-  } else if (spawnBudget <= 0 && zombies.length === 0 && kills < killGoal) {
+  } else if (spawnBudget <= 0 && enemies.length === 0 && kills < killGoal) {
     spawnBudget = killGoal-kills; spawnTimer = 200;
   }
 
-  zombies.forEach(z => {
-    z.z -= z.speed * dt * 60;
-    z.wobble += dt * (z.type === 'runner' ? 12 : 6);
+  enemies.forEach(e => {
+    e.z -= e.speed * dt * 60;
 
-    var progress = Math.max(0, 1 - (z.z / STREET_DEPTH));
-    var spreadTarget = z.spawnX * (0.3 + progress * 0.7);
+    // Hover bob animation
+    var bobSpeed = e.type === 'phantom' ? 5 : e.type === 'scorch' ? 7 : e.type === 'titan' ? 2.5 : 3.5;
+    e.hoverPhase += dt * bobSpeed;
+
+    e.wobble += dt * (e.type === 'phantom' ? 12 : 6);
+
+    var progress = Math.max(0, 1 - (e.z / STREET_DEPTH));
+    var spreadTarget = e.spawnX * (0.3 + progress * 0.7);
     var driftSpeed = 0.03 * dt * 60;
-    if (z.x < spreadTarget - 0.1) z.x += driftSpeed;
-    else if (z.x > spreadTarget + 0.1) z.x -= driftSpeed;
+    if (e.x < spreadTarget - 0.1) e.x += driftSpeed;
+    else if (e.x > spreadTarget + 0.1) e.x -= driftSpeed;
 
-    z.x += Math.sin(z.wobble * 0.5) * 0.01;
+    // Lateral sway
+    e.x += Math.sin(e.wobble * 0.5) * 0.015;
 
-    if (z.flash > 0) z.flash -= dt;
+    if (e.flash > 0) e.flash -= dt;
 
-    if (z.z <= ATTACK_RANGE) {
-      z.attackCooldown -= dt;
-      if (z.attackCooldown <= 0) {
-        let dmg = z.attackDmg;
+    if (e.z <= ATTACK_RANGE) {
+      e.attackCooldown -= dt;
+      if (e.attackCooldown <= 0) {
+        let dmg = e.attackDmg;
         if (armor > 0) { const ab = Math.min(armor,dmg*0.6); armor -= ab; dmg -= ab; }
-        health -= dmg; dmgFlash = 1; screenShake = 0.4; z.attackCooldown = 1;
-        if (z.type === 'exploder') {
-          z.hp = 0;
-          const p = proj(z.x,ZOMBIE_H*0.5,z.z);
-          spawnParticle(p.x,p.y,'#f80',25); spawnParticle(p.x,p.y,'#ff0',15);
+        health -= dmg; dmgFlash = 1; screenShake = 0.4; e.attackCooldown = 1;
+        if (e.type === 'scorch') {
+          e.hp = 0;
+          const p = proj(e.x, e.hoverBase, e.z);
+          spawnParticle(p.x, p.y, '#f80', 25);
+          spawnParticle(p.x, p.y, '#ff0', 15);
+          spawnParticle(p.x, p.y, '#fff', 8);
           screenShake = 0.8;
         }
       }
-      z.z = ATTACK_RANGE;
+      e.z = ATTACK_RANGE;
     }
   });
 
-  zombies = zombies.filter(z => {
-    if (z.hp <= 0) {
-      score += z.points; kills++;
-      const p = proj(z.x,ZOMBIE_H*0.5,z.z);
-      spawnParticle(p.x,p.y,'#f00',12); spawnParticle(p.x,p.y,'#0f0',3);
-      if (z.type === 'exploder') {
-        zombies.forEach(oz => {
-          if (oz===z) return;
-          const dist = Math.sqrt((oz.x-z.x)**2+(oz.z-z.z)**2);
-          if (dist<10) oz.hp -= 50;
+  enemies = enemies.filter(e => {
+    if (e.hp <= 0) {
+      score += e.points; kills++;
+      const p = proj(e.x, e.hoverBase, e.z);
+      // Sparks + type-colored explosion
+      spawnParticle(p.x, p.y, '#fff', 8);
+      spawnParticle(p.x, p.y, ENEMY_GLOW[e.type] || '#0ff', 10);
+      spawnParticle(p.x, p.y, '#ff0', 5);
+      if (e.type === 'scorch') {
+        enemies.forEach(oe => {
+          if (oe === e) return;
+          const dist = Math.sqrt((oe.x-e.x)**2+(oe.z-e.z)**2);
+          if (dist < 10) oe.hp -= 50;
         });
         screenShake = 0.6;
       }
-      maybeDropPowerup(z.x,z.z);
+      maybeDropPowerup(e.x, e.z);
       return false;
     }
     return true;
@@ -764,8 +780,8 @@ function draw(timestamp) {
     drawBackground();
     powerups.sort((a,b) => b.z-a.z);
     powerups.forEach(drawPowerup);
-    zombies.sort((a,b) => b.z-a.z);
-    zombies.forEach(drawZombie);
+    enemies.sort((a,b) => b.z-a.z);
+    enemies.forEach(drawEnemy);
     drawParticles();
     drawFog();
     drawRain();
@@ -827,14 +843,12 @@ startBtn.addEventListener('click', async () => {
   startScreen.style.display = 'none';
   canvas.style.cursor = 'none';
   init();
-  playAllVideos();
 });
 
 restartBtn.addEventListener('click', () => {
   gameOverScreen.style.display = 'none';
   canvas.style.cursor = 'none';
   init();
-  playAllVideos();
 });
 
 mainMenuBtn.addEventListener('click', () => {
