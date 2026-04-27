@@ -745,7 +745,10 @@ var wallType = map[mapY][mapX];
             for (var x = 0; x < W; x += 4) {
                 var fx = Math.floor(floorX);
                 var fy = Math.floor(floorY);
-                
+                var hash = ((fx * 374761 + fy * 668265) >> 2) & 7;
+                var r = 190 + hash * 3;
+                var g = 160 + hash * 2;
+                var b = 100 + hash * 2;
 
                 r = Math.floor(r * (1 - fog));
                 g = Math.floor(g * (1 - fog));
