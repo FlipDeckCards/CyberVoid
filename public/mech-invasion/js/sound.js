@@ -9,26 +9,26 @@
 
   // ── Preload all audio ──
   var sounds = {
-    pistol:       new Audio('/pistol_shot.wav'),
-    shotgun:      new Audio('/shotgun_shot.wav'),
-    rifle:        new Audio('/rifle_shot.wav'),
-    rocket:       new Audio('/rocket_launcer_shot.wav'),
-    enemyDeath:   new Audio('/rocket_impact.wav'),
-    hitCritical:  new Audio('/bullet_impact.wav'),
-    hitCorner:    new Audio('/riccochet_impact.wav'),
-    powerup:      new Audio('/power_up.wav'),
-    waveComplete: new Audio('/next_wave.mp3'),
-    gameOver:     new Audio('/game_over.mp3'),
-    gameStart:    new Audio('/game_on.mp3')
+    pistol:       new Audio('sounds/pistol_shot.wav'),
+    shotgun:      new Audio('sounds/shotgun_shot.wav'),
+    rifle:        new Audio('sounds/rifle_shot.wav'),
+    rocket:       new Audio('sounds/rocket_launcer_shot.wav'),
+    enemyDeath:   new Audio('sounds/rocket_impact.wav'),
+    hitCritical:  new Audio('sounds/bullet_impact.wav'),
+    hitCorner:    new Audio('sounds/riccochet_impact.wav'),
+    powerup:      new Audio('sounds/power_up.wav'),
+    waveComplete: new Audio('sounds/next_wave.mp3'),
+    gameOver:     new Audio('sounds/game_over.mp3'),
+    gameStart:    new Audio('sounds/game_on.mp3')
   };
 
   // ── Background Music (gameplay) ──
-  var music = new Audio('/i_dont_like_monday.mp3');
+  var music = new Audio('sounds/i_dont_like_monday.mp3');
   music.loop = true;
   music.volume = 0.25;
 
   // ── Menu Music (start screen + game over) ──  ◄ NEW
-  var menuMusic = new Audio('/chrome_riot.mp3');
+  var menuMusic = new Audio('sounds/chrome_riot.mp3');
   menuMusic.loop = true;
   menuMusic.volume = 0.35;
 
