@@ -20,6 +20,29 @@ if (!sessionToken) {
   localStorage.setItem('dz_session', sessionToken);
 }
 
+// ── EMAIL SYNC (optional cross-device callsign) ──  ◄ NEW
+let playerEmail = localStorage.getItem('dz_email') || '';
+
+window.addEventListener('DOMContentLoaded', function() {
+  var emailInput = document.getElementById('emailInput');
+  var nameInput = document.getElementById('nameInput');
+  if (emailInput && playerEmail) {
+    emailInput.value = playerEmail;
+    fetch('/api/get-callsign', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: playerEmail })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.callsign && nameInput) {
+        nameInput.value = data.callsign;
+      }
+    })
+    .catch(function(){});
+  }
+});
+
 // ── MOBILE DETECTION ──
 var mobileDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 
@@ -214,7 +237,8 @@ async function submitScore() {
         score,
         wave,
         kills,
-        token: sessionToken
+        token: sessionToken,
+        email: playerEmail  // ◄ NEW
       })
     });
   } catch (e) {}
@@ -222,10 +246,12 @@ async function submitScore() {
 
 async function checkCallsign(name) {
   try {
+    var emailInput = document.getElementById('emailInput');  // ◄ NEW
+    var email = (emailInput && emailInput.value.trim()) || '';  // ◄ NEW
     const res = await fetch('/api/check-callsign', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ callsign: name, token: sessionToken })
+      body: JSON.stringify({ callsign: name, token: sessionToken, email: email })  // ◄ CHANGED
     });
     const data = await res.json();
     return data.available;
@@ -235,7 +261,7 @@ async function checkCallsign(name) {
 }
 
 leaderboardBox.addEventListener('click', () => {
-  GameSound.menuMusicStart(); // ◄ NEW
+  GameSound.menuMusicStart();
   leaderboardList.classList.toggle('open');
   const title = leaderboardBox.querySelector('.lb-title');
   if (leaderboardList.classList.contains('open')) {
@@ -943,10 +969,10 @@ function update(dt) {
   if (mobileDevice && joystick.active) {
     mouse.x += joystick.dx * AIM_SPEED;
     mouse.y += joystick.dy * AIM_SPEED;
-    if (mouse.x < 20) mouse.x = 20;
-    if (mouse.x > W - 20) mouse.x = W - 20;
-    if (mouse.y < 20) mouse.y = 20;
-    if (mouse.y > H - 60) mouse.y = H - 60;
+    if (mouse.x < 20) mouse.x = 20;           // ◄ CHANGED
+    if (mouse.x > W - 20) mouse.x = W - 20;   // ◄ CHANGED
+    if (mouse.y < 20) mouse.y = 20;            // ◄ CHANGED
+    if (mouse.y > H - 60) mouse.y = H - 60;   // ◄ CHANGED
   }
 
   spawnTimer -= dt*1000;
@@ -1039,7 +1065,7 @@ function update(dt) {
     health = 0; state = 'dead';
     GameSound.gameOver();
     GameSound.musicStop();
-    GameSound.menuMusicStart(); // ◄ NEW — menu music on death screen
+    GameSound.menuMusicStart(); // ◄ NEW
     canvas.style.cursor = 'default';
     document.getElementById('goScore').textContent = 'SCORE: '+score;
     document.getElementById('goWave').textContent = 'WAVE: '+wave;
@@ -1048,6 +1074,7 @@ function update(dt) {
     submitScore();
   }
 }
+
 // ═══════════════════════════════════════
 //  MAIN LOOP
 // ═══════════════════════════════════════
@@ -1239,6 +1266,15 @@ startBtn.addEventListener('click', async () => {
   }
 
   callsignError.textContent = '';
+
+  // Save email if provided  ◄ NEW
+  var emailInput = document.getElementById('emailInput');
+  var email = (emailInput && emailInput.value.trim()) || '';
+  if (email) {
+    playerEmail = email;
+    localStorage.setItem('dz_email', email);
+  }
+
   GameSound.menuMusicStop(); // ◄ NEW
   GameSound.gameStart();
   GameSound.musicStart();
