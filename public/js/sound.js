@@ -22,11 +22,16 @@
     gameStart:    new Audio('/game_on.mp3')
   };
 
-  // ── Background Music ──
-   var music = new Audio('/i_dont_like_monday.mp3');
-   music.loop = true;
-   music.volume = 0.25;
-   
+  // ── Background Music (gameplay) ──
+  var music = new Audio('/i_dont_like_monday.mp3');
+  music.loop = true;
+  music.volume = 0.25;
+
+  // ── Menu Music (start screen + game over) ──  ◄ NEW
+  var menuMusic = new Audio('/chrome_riot.mp3');
+  menuMusic.loop = true;
+  menuMusic.volume = 0.35;
+
   // Set initial volume on all sounds
   Object.keys(sounds).forEach(function (key) {
     sounds[key].volume = volume;
@@ -54,11 +59,22 @@
     gameOver:     function () { play('gameOver'); },
     gameStart:    function () { play('gameStart'); },
 
-   musicStart:  function () { if (!muted) music.play().catch(function () {}); },
-   musicStop:   function () { music.pause(); music.currentTime = 0; },
-   musicPause:  function () { music.pause(); },
-   setMusicVol: function (v) { music.volume = Math.max(0, Math.min(1, v)); },
-     
+    musicStart:  function () { if (!muted) music.play().catch(function () {}); },
+    musicStop:   function () { music.pause(); music.currentTime = 0; },
+    musicPause:  function () { music.pause(); },
+    setMusicVol: function (v) { music.volume = Math.max(0, Math.min(1, v)); },
+
+    // ── Menu music controls ──  ◄ NEW
+    menuMusicStart: function () {
+      if (muted || !menuMusic.paused) return;
+      menuMusic.currentTime = 0;
+      menuMusic.play().catch(function () {});
+    },
+    menuMusicStop: function () {
+      menuMusic.pause();
+      menuMusic.currentTime = 0;
+    },
+
     setVolume: function (v) {
       volume = Math.max(0, Math.min(1, v));
       Object.keys(sounds).forEach(function (key) {
