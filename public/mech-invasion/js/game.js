@@ -260,6 +260,7 @@ async function checkCallsign(name) {
   }
 }
 
+document.addEventListener("click", function() { GameSound.menuMusicStart(); }, { once: true });
 leaderboardBox.addEventListener('click', () => {
   GameSound.menuMusicStart();
   leaderboardList.classList.toggle('open');
