@@ -54,53 +54,78 @@
     var touchLook = null;
     var shooting = false;
     var fireTimer = 0;
-    var fireRate = 15; // frames between shots
+
+    // === WEAPONS ===
+    var WEAPONS = {
+        revolver: {
+            name: 'Revolver',
+            damage: 25,
+            fireRate: 15,
+            spread: 0.5,
+            ammo: Infinity,
+            maxAmmo: Infinity,
+            aoe: false,
+            kickback: 4,
+            color: '#8B6914'
+        },
+        shotgun: {
+            name: 'Shotgun',
+            damage: 40,
+            fireRate: 30,
+            spread: 1.2,
+            ammo: 12,
+            maxAmmo: 12,
+            aoe: false,
+            kickback: 10,
+            color: '#5C4033'
+        },
+        rifle: {
+            name: 'Rifle',
+            damage: 70,
+            fireRate: 40,
+            spread: 0.25,
+            ammo: 8,
+            maxAmmo: 8,
+            aoe: false,
+            kickback: 7,
+            color: '#3B2716'
+        },
+        dynamite: {
+            name: 'Dynamite',
+            damage: 50,
+            fireRate: 60,
+            spread: 0,
+            ammo: 3,
+            maxAmmo: 3,
+            aoe: true,
+            aoeRadius: 3,
+            kickback: 2,
+            color: '#CC0000'
+        }
+    };
+
+    var weaponKeys = ['revolver', 'shotgun', 'rifle', 'dynamite'];
+    var currentWeapon = 0;
+    var weaponAmmo = [Infinity, 12, 8, 3];
+    var weaponKick = 0; // visual recoil
 
     // === ENEMY TYPES ===
     var ENEMY_TYPES = {
         bandit: {
-            name: 'Bandit',
-            hp: 30,
-            speed: 0.018,
-            damage: 5,
-            score: 100,
-            color: '#8B4513',    // brown
-            hatColor: '#654321', // dark brown hat
-            width: 0.4,
-            height: 0.6
+            name: 'Bandit', hp: 30, speed: 0.018, damage: 5, score: 100,
+            color: '#8B4513', hatColor: '#654321', width: 0.4, height: 0.6
         },
         gunslinger: {
-            name: 'Gunslinger',
-            hp: 60,
-            speed: 0.014,
-            damage: 10,
-            score: 200,
-            color: '#2F1B14',    // dark leather
-            hatColor: '#1A1A1A', // black hat
-            width: 0.5,
-            height: 0.7
+            name: 'Gunslinger', hp: 60, speed: 0.014, damage: 10, score: 200,
+            color: '#2F1B14', hatColor: '#1A1A1A', width: 0.5, height: 0.7
         },
         outlaw: {
-            name: 'Outlaw Boss',
-            hp: 120,
-            speed: 0.008,
-            damage: 20,
-            score: 500,
-            color: '#660000',    // blood red
-            hatColor: '#330000', // dark red hat
-            width: 0.7,
-            height: 0.9
+            name: 'Outlaw Boss', hp: 120, speed: 0.008, damage: 20, score: 500,
+            color: '#660000', hatColor: '#330000', width: 0.7, height: 0.9
         },
         dynamite: {
-            name: 'Dynamite Runner',
-            hp: 20,
-            speed: 0.03,
-            damage: 40,
-            score: 300,
-            color: '#CC5500',    // burnt orange
-            hatColor: '#FF6600', // bright orange
-            width: 0.35,
-            height: 0.5
+            name: 'Dynamite Runner', hp: 20, speed: 0.03, damage: 40, score: 300,
+            color: '#CC5500', hatColor: '#FF6600', width: 0.35, height: 0.5
         }
     };
 
@@ -116,11 +141,9 @@
         resize();
         window.addEventListener('resize', resize);
 
-        // Load floor texture
         floorImg.onload = function() {
             var tc = document.createElement('canvas');
-            tc.width = fTexW;
-            tc.height = fTexH;
+            tc.width = fTexW; tc.height = fTexH;
             var tctx = tc.getContext('2d');
             tctx.drawImage(floorImg, 0, 0, fTexW, fTexH);
             floorPix = tctx.getImageData(0, 0, fTexW, fTexH).data;
@@ -132,6 +155,14 @@
         document.addEventListener('keydown', function(e) {
             keys[e.key] = true;
             if (e.key === ' ' && state === 'playing') shooting = true;
+            // Weapon switching 1-4
+            if (e.key >= '1' && e.key <= '4' && state === 'playing') {
+                var idx = parseInt(e.key) - 1;
+                if (idx !== currentWeapon) {
+                    currentWeapon = idx;
+                    fireTimer = 10; // brief swap delay
+                }
+            }
         });
         document.addEventListener('keyup', function(e) {
             keys[e.key] = false;
@@ -140,32 +171,34 @@
 
         // Mouse
         canvas.addEventListener('click', function() {
-            if (state === 'playing') {
-                if (!document.pointerLockElement) {
-                    canvas.requestPointerLock();
-                }
+            if (state === 'playing' && !document.pointerLockElement) {
+                canvas.requestPointerLock();
             }
         });
-        canvas.addEventListener('mousedown', function(e) {
-            if (state === 'playing' && document.pointerLockElement === canvas) {
-                shooting = true;
-            }
+        canvas.addEventListener('mousedown', function() {
+            if (state === 'playing' && document.pointerLockElement === canvas) shooting = true;
         });
-        canvas.addEventListener('mouseup', function() {
-            shooting = false;
-        });
+        canvas.addEventListener('mouseup', function() { shooting = false; });
         document.addEventListener('mousemove', function(e) {
             if (document.pointerLockElement === canvas && state === 'playing') {
                 pa += e.movementX * 0.002;
             }
         });
 
+        // Mouse wheel weapon switch
+        canvas.addEventListener('wheel', function(e) {
+            if (state !== 'playing') return;
+            if (e.deltaY > 0) currentWeapon = (currentWeapon + 1) % 4;
+            else currentWeapon = (currentWeapon + 3) % 4;
+            fireTimer = 10;
+            e.preventDefault();
+        }, {passive: false});
+
         // Touch
         canvas.addEventListener('touchstart', handleTouchStart, {passive: false});
         canvas.addEventListener('touchmove', handleTouchMove, {passive: false});
         canvas.addEventListener('touchend', handleTouchEnd, {passive: false});
 
-        // Buttons
         document.getElementById('start-btn').addEventListener('click', startGame);
         document.getElementById('restart-btn').addEventListener('click', startGame);
 
@@ -174,28 +207,24 @@
     }
 
     function resize() {
-        W = window.innerWidth;
-        H = window.innerHeight;
-        canvas.width = W;
-        canvas.height = H;
+        W = window.innerWidth; H = window.innerHeight;
+        canvas.width = W; canvas.height = H;
         zBuf = new Array(W);
     }
 
     function updateDir() {
-        dx = Math.cos(pa);
-        dy = Math.sin(pa);
-        plX = -dy * FOV;
-        plY = dx * FOV;
+        dx = Math.cos(pa); dy = Math.sin(pa);
+        plX = -dy * FOV; plY = dx * FOV;
     }
 
     function startGame() {
         state = 'playing';
-        score = 0;
-        wave = 1;
-        health = 100;
+        score = 0; wave = 1; health = 100;
         px = 8; py = 8; pa = 0;
-        enemies = [];
-        dmgFlash = 0;
+        enemies = []; dmgFlash = 0;
+        currentWeapon = 0;
+        weaponAmmo = [Infinity, 12, 8, 3];
+        weaponKick = 0;
         updateDir();
         spawnWave();
         document.getElementById('menu-screen').style.display = 'none';
@@ -208,6 +237,9 @@
         document.getElementById('health').textContent = health;
         document.getElementById('wave').textContent = wave;
         document.getElementById('score').textContent = score;
+        var wep = WEAPONS[weaponKeys[currentWeapon]];
+        var ammoText = weaponAmmo[currentWeapon] === Infinity ? '∞' : weaponAmmo[currentWeapon];
+        document.getElementById('ammo').textContent = wep.name + ' | ' + ammoText;
     }
 
     // === TOUCH CONTROLS ===
@@ -220,7 +252,6 @@
             } else if (t.clientX > W * 2 / 3) {
                 touchLook = {startX: t.clientX, currX: t.clientX, id: t.identifier};
             } else {
-                // Middle of screen = fire
                 shooting = true;
             }
         }
@@ -231,12 +262,10 @@
         for (var i = 0; i < e.changedTouches.length; i++) {
             var t = e.changedTouches[i];
             if (touchJoy && t.identifier === touchJoy.id) {
-                touchJoy.currX = t.clientX;
-                touchJoy.currY = t.clientY;
+                touchJoy.currX = t.clientX; touchJoy.currY = t.clientY;
             }
             if (touchLook && t.identifier === touchLook.id) {
-                var deltaX = t.clientX - touchLook.currX;
-                pa += deltaX * 0.004;
+                pa += (t.clientX - touchLook.currX) * 0.004;
                 touchLook.currX = t.clientX;
             }
         }
@@ -248,7 +277,6 @@
             if (touchJoy && t.identifier === touchJoy.id) touchJoy = null;
             if (touchLook && t.identifier === touchLook.id) touchLook = null;
         }
-        // Stop firing if no middle touches active
         var midTouch = false;
         for (var j = 0; j < e.touches.length; j++) {
             if (e.touches[j].clientX > W / 3 && e.touches[j].clientX < W * 2 / 3) midTouch = true;
@@ -259,41 +287,34 @@
     // === MOVEMENT ===
     function handleInput() {
         var ms = moveSpd;
-
         if (keys['w'] || keys['W'] || keys['ArrowUp']) {
-            var nx = px + dx * ms;
-            var ny = py + dy * ms;
+            var nx = px + dx * ms, ny = py + dy * ms;
             if (map[Math.floor(py)][Math.floor(nx)] === 0) px = nx;
             if (map[Math.floor(ny)][Math.floor(px)] === 0) py = ny;
         }
         if (keys['s'] || keys['S'] || keys['ArrowDown']) {
-            var nx = px - dx * ms;
-            var ny = py - dy * ms;
+            var nx = px - dx * ms, ny = py - dy * ms;
             if (map[Math.floor(py)][Math.floor(nx)] === 0) px = nx;
             if (map[Math.floor(ny)][Math.floor(px)] === 0) py = ny;
         }
         if (keys['a'] || keys['A'] || keys['ArrowLeft']) pa -= rotSpd;
         if (keys['d'] || keys['D'] || keys['ArrowRight']) pa += rotSpd;
 
-        // Touch joystick
         if (touchJoy) {
             var jdx = Math.max(-1, Math.min(1, (touchJoy.currX - touchJoy.startX) / 50));
             var jdy = Math.max(-1, Math.min(1, (touchJoy.currY - touchJoy.startY) / 50));
             if (Math.abs(jdy) > 0.1) {
-                var nx = px - dx * jdy * ms;
-                var ny = py - dy * jdy * ms;
+                var nx = px - dx * jdy * ms, ny = py - dy * jdy * ms;
                 if (map[Math.floor(py)][Math.floor(nx)] === 0) px = nx;
                 if (map[Math.floor(ny)][Math.floor(px)] === 0) py = ny;
             }
             if (Math.abs(jdx) > 0.1) {
                 var sx = -dy, sy = dx;
-                var nx = px + sx * jdx * ms;
-                var ny = py + sy * jdx * ms;
+                var nx = px + sx * jdx * ms, ny = py + sy * jdx * ms;
                 if (map[Math.floor(py)][Math.floor(nx)] === 0) px = nx;
                 if (map[Math.floor(ny)][Math.floor(px)] === 0) py = ny;
             }
         }
-
         updateDir();
     }
         // === ENEMY SPAWNING ===
@@ -301,8 +322,12 @@
         var count = enemiesPerWave + Math.floor(wave * 1.5);
         var hpScale = 1 + (wave - 1) * 0.08;
 
+        // Refill ammo each wave
+        weaponAmmo[1] = WEAPONS.shotgun.maxAmmo;
+        weaponAmmo[2] = WEAPONS.rifle.maxAmmo;
+        weaponAmmo[3] = WEAPONS.dynamite.maxAmmo;
+
         for (var i = 0; i < count; i++) {
-            // Pick type based on wave
             var type;
             var roll = Math.random();
             if (wave < 3) {
@@ -314,8 +339,6 @@
             }
 
             var template = ENEMY_TYPES[type];
-
-            // Find open spawn position away from player
             var ex, ey, attempts = 0;
             do {
                 ex = 1.5 + Math.random() * (mapW - 3);
@@ -328,20 +351,13 @@
             );
 
             enemies.push({
-                x: ex,
-                y: ey,
-                type: type,
+                x: ex, y: ey, type: type,
                 hp: Math.floor(template.hp * hpScale),
                 maxHp: Math.floor(template.hp * hpScale),
-                speed: template.speed,
-                damage: template.damage,
-                score: template.score,
-                color: template.color,
-                hatColor: template.hatColor,
-                w: template.width,
-                h: template.height,
-                hitTimer: 0,
-                attackTimer: 0
+                speed: template.speed, damage: template.damage, score: template.score,
+                color: template.color, hatColor: template.hatColor,
+                w: template.width, h: template.height,
+                hitTimer: 0, attackTimer: 0
             });
         }
     }
@@ -350,53 +366,36 @@
     function updateEnemies() {
         for (var i = enemies.length - 1; i >= 0; i--) {
             var e = enemies[i];
-
-            // Move toward player
-            var edx = px - e.x;
-            var edy = py - e.y;
+            var edx = px - e.x, edy = py - e.y;
             var dist = Math.sqrt(edx * edx + edy * edy);
 
             if (dist > 0.6) {
                 var nx = e.x + (edx / dist) * e.speed;
                 var ny = e.y + (edy / dist) * e.speed;
-
-                // Wall collision
                 if (map[Math.floor(e.y)][Math.floor(nx)] === 0) e.x = nx;
                 if (map[Math.floor(ny)][Math.floor(e.x)] === 0) e.y = ny;
             }
 
-            // Attack player when close
             if (dist < 0.8) {
                 e.attackTimer++;
                 if (e.attackTimer >= 30) {
                     health -= e.damage;
                     dmgFlash = 10;
                     e.attackTimer = 0;
-                    if (health <= 0) {
-                        health = 0;
-                        gameOver();
-                        return;
-                    }
+                    if (health <= 0) { health = 0; gameOver(); return; }
                 }
             } else {
                 e.attackTimer = Math.max(0, e.attackTimer - 1);
             }
 
-            // Hit flash decay
             if (e.hitTimer > 0) e.hitTimer--;
-
-            // Remove dead enemies
             if (e.hp <= 0) {
                 score += e.score;
                 enemies.splice(i, 1);
             }
         }
 
-        // Next wave check
-        if (enemies.length === 0) {
-            wave++;
-            spawnWave();
-        }
+        if (enemies.length === 0) { wave++; spawnWave(); }
     }
 
     // === SHOOTING ===
@@ -404,40 +403,76 @@
         if (fireTimer > 0) { fireTimer--; return; }
         if (!shooting) return;
 
-        fireTimer = fireRate;
+        var wepKey = weaponKeys[currentWeapon];
+        var wep = WEAPONS[wepKey];
 
-        // Check hit — find closest enemy near crosshair
-        var bestDist = 999;
-        var bestEnemy = null;
-
-        for (var i = 0; i < enemies.length; i++) {
-            var e = enemies[i];
-            var edx = e.x - px;
-            var edy = e.y - py;
-            var dist = Math.sqrt(edx * edx + edy * edy);
-
-            // Transform to camera space
-            var invDet = 1.0 / (plX * dy - dx * plY);
-            var txf = invDet * (dy * edx - dx * edy);
-            var tyf = invDet * (-plY * edx + plX * edy);
-
-            if (tyf <= 0.1) continue; // behind camera
-
-            var screenX = Math.floor((W / 2) * (1 + txf / tyf));
-            var spriteH = Math.floor(Math.abs(H / tyf) * e.h);
-            var spriteW = Math.floor(Math.abs(H / tyf) * e.w);
-
-            // Check if crosshair (center screen) hits this sprite
-            var halfW = spriteW / 2;
-            if (Math.abs(screenX - W / 2) < halfW && tyf < bestDist) {
-                bestDist = tyf;
-                bestEnemy = e;
-            }
+        // Check ammo
+        if (weaponAmmo[currentWeapon] <= 0) {
+            // Auto-switch to revolver
+            currentWeapon = 0;
+            return;
         }
 
-        if (bestEnemy) {
-            bestEnemy.hp -= 25;
-            bestEnemy.hitTimer = 6;
+        fireTimer = wep.fireRate;
+        if (weaponAmmo[currentWeapon] !== Infinity) weaponAmmo[currentWeapon]--;
+        weaponKick = wep.kickback;
+
+        if (wep.aoe) {
+            // Dynamite — AOE damage to all enemies within radius
+            for (var i = 0; i < enemies.length; i++) {
+                var e = enemies[i];
+                var edx = e.x - px, edy = e.y - py;
+                var dist = Math.sqrt(edx * edx + edy * edy);
+                if (dist < wep.aoeRadius) {
+                    var falloff = 1 - (dist / wep.aoeRadius);
+                    e.hp -= Math.floor(wep.damage * falloff);
+                    e.hitTimer = 8;
+                }
+            }
+            dmgFlash = 3; // screen shake effect
+        } else {
+            // Hitscan — find enemies near crosshair within spread
+            var hits = [];
+            for (var i = 0; i < enemies.length; i++) {
+                var e = enemies[i];
+                var edx = e.x - px, edy = e.y - py;
+                var invDet = 1.0 / (plX * dy - dx * plY);
+                var txf = invDet * (dy * edx - dx * edy);
+                var tyf = invDet * (-plY * edx + plX * edy);
+
+                if (tyf <= 0.1) continue;
+
+                var screenX = Math.floor((W / 2) * (1 + txf / tyf));
+                var spriteW = Math.floor(Math.abs(H / tyf) * e.w);
+                var halfW = spriteW / 2;
+
+                // Spread check — how far from crosshair center
+                var distFromCenter = Math.abs(screenX - W / 2);
+                var spreadPx = wep.spread * (H / 4);
+
+                if (distFromCenter < halfW + spreadPx) {
+                    hits.push({enemy: e, dist: tyf});
+                }
+            }
+
+            // Sort by distance, hit closest
+            hits.sort(function(a, b) { return a.dist - b.dist; });
+
+            if (wepKey === 'shotgun') {
+                // Shotgun hits up to 3 closest enemies
+                var maxHits = Math.min(3, hits.length);
+                for (var h = 0; h < maxHits; h++) {
+                    var falloff = 1 - (h * 0.25);
+                    hits[h].enemy.hp -= Math.floor(wep.damage * falloff);
+                    hits[h].enemy.hitTimer = 6;
+                }
+            } else {
+                // Single target
+                if (hits.length > 0) {
+                    hits[0].enemy.hp -= wep.damage;
+                    hits[0].enemy.hitTimer = 6;
+                }
+            }
         }
     }
 
@@ -457,12 +492,8 @@
             var rayDX = dx + plX * camX;
             var rayDY = dy + plY * camX;
 
-            var mapX = Math.floor(px);
-            var mapY = Math.floor(py);
-
-            var ddX = Math.abs(1 / rayDX);
-            var ddY = Math.abs(1 / rayDY);
-
+            var mapX = Math.floor(px), mapY = Math.floor(py);
+            var ddX = Math.abs(1 / rayDX), ddY = Math.abs(1 / rayDY);
             var stepX, stepY, sDistX, sDistY;
 
             if (rayDX < 0) { stepX = -1; sDistX = (px - mapX) * ddX; }
@@ -481,7 +512,6 @@
             var perpDist;
             if (side === 0) perpDist = (mapX - px + (1 - stepX) / 2) / rayDX;
             else perpDist = (mapY - py + (1 - stepY) / 2) / rayDY;
-
             if (perpDist < 0.01) perpDist = 0.01;
             zBuf[x] = perpDist;
 
@@ -490,15 +520,11 @@
             var drawEnd = Math.floor(lineH / 2 + H / 2);
 
             var shade = side === 1 ? 0.7 : 1.0;
-            var r = Math.floor(180 * shade);
-            var g = Math.floor(140 * shade);
-            var b = Math.floor(90 * shade);
-
+            var r = Math.floor(180 * shade), g = Math.floor(140 * shade), b = Math.floor(90 * shade);
             var fog = Math.min(1, perpDist / 12);
-            var fogR = 60, fogG = 30, fogB = 50;
-            r = Math.floor(r * (1 - fog) + fogR * fog);
-            g = Math.floor(g * (1 - fog) + fogG * fog);
-            b = Math.floor(b * (1 - fog) + fogB * fog);
+            r = Math.floor(r * (1 - fog) + 60 * fog);
+            g = Math.floor(g * (1 - fog) + 30 * fog);
+            b = Math.floor(b * (1 - fog) + 50 * fog);
 
             ctx.fillStyle = 'rgb(' + r + ',' + g + ',' + b + ')';
             ctx.fillRect(x, Math.max(0, drawStart), 1, Math.min(H, drawEnd) - Math.max(0, drawStart));
@@ -529,48 +555,33 @@
 
         for (var y = halfH; y < H; y++) {
             var rowDist = H / (2.0 * (y - halfH) + 0.01);
-
             var floorStepX = rowDist * (2 * plX) / W;
             var floorStepY = rowDist * (2 * plY) / W;
-
             var floorX = px + rowDist * (dx - plX);
             var floorY = py + rowDist * (dy - plY);
-
             var localY = y - halfH;
-
             var fog = Math.min(1, rowDist / 12);
-            var fogR = 60, fogG = 30, fogB = 50;
 
             for (var x = 0; x < W; x++) {
                 var tx = Math.floor(fTexW * (floorX - Math.floor(floorX))) & (fTexW - 1);
                 var ty = Math.floor(fTexH * (floorY - Math.floor(floorY))) & (fTexH - 1);
-
                 var idx = (ty * fTexW + tx) * 4;
-                var r = floorPix[idx];
-                var g = floorPix[idx + 1];
-                var b = floorPix[idx + 2];
+                var r = floorPix[idx], g = floorPix[idx + 1], b = floorPix[idx + 2];
 
-                r = Math.floor(r * (1 - fog) + fogR * fog);
-                g = Math.floor(g * (1 - fog) + fogG * fog);
-                b = Math.floor(b * (1 - fog) + fogB * fog);
+                r = Math.floor(r * (1 - fog) + 60 * fog);
+                g = Math.floor(g * (1 - fog) + 30 * fog);
+                b = Math.floor(b * (1 - fog) + 50 * fog);
 
                 var bIdx = (localY * W + x) * 4;
-                buf[bIdx] = r;
-                buf[bIdx + 1] = g;
-                buf[bIdx + 2] = b;
-                buf[bIdx + 3] = 255;
-
-                floorX += floorStepX;
-                floorY += floorStepY;
+                buf[bIdx] = r; buf[bIdx + 1] = g; buf[bIdx + 2] = b; buf[bIdx + 3] = 255;
+                floorX += floorStepX; floorY += floorStepY;
             }
         }
-
         ctx.putImageData(imgData, 0, halfH);
     }
 
     // === RENDER ENEMIES ===
     function renderEnemies() {
-        // Sort back to front
         var sorted = enemies.slice().sort(function(a, b) {
             var da = (a.x - px) * (a.x - px) + (a.y - py) * (a.y - py);
             var db = (b.x - px) * (b.x - px) + (b.y - py) * (b.y - py);
@@ -579,56 +590,44 @@
 
         for (var i = 0; i < sorted.length; i++) {
             var e = sorted[i];
-
-            // Transform to camera space
-            var edx = e.x - px;
-            var edy = e.y - py;
+            var edx = e.x - px, edy = e.y - py;
             var invDet = 1.0 / (plX * dy - dx * plY);
             var txf = invDet * (dy * edx - dx * edy);
             var tyf = invDet * (-plY * edx + plX * edy);
-
-            if (tyf <= 0.1) continue; // behind camera
+            if (tyf <= 0.1) continue;
 
             var screenX = Math.floor((W / 2) * (1 + txf / tyf));
             var spriteH = Math.floor(Math.abs(H / tyf) * e.h);
             var spriteW = Math.floor(Math.abs(H / tyf) * e.w);
-
             var drawStartX = Math.floor(screenX - spriteW / 2);
             var drawEndX = drawStartX + spriteW;
             var drawStartY = Math.floor(H / 2 - spriteH / 2);
             var drawEndY = drawStartY + spriteH;
 
-            // Z-buffer clipping (per-stripe)
             for (var sx = Math.max(0, drawStartX); sx < Math.min(W, drawEndX); sx++) {
-                if (tyf >= zBuf[sx]) continue; // behind wall
+                if (tyf >= zBuf[sx]) continue;
 
-                // Hit flash — white on hit, else normal color
                 var bodyColor = e.hitTimer > 0 ? '#FFFFFF' : e.color;
                 var hatCol = e.hitTimer > 0 ? '#FFFFFF' : e.hatColor;
 
-                // Body (lower 70%)
                 var bodyTop = drawStartY + Math.floor(spriteH * 0.25);
-                var bodyBot = drawEndY;
                 ctx.fillStyle = bodyColor;
-                ctx.fillRect(sx, Math.max(0, bodyTop), 1, Math.min(H, bodyBot) - Math.max(0, bodyTop));
+                ctx.fillRect(sx, Math.max(0, bodyTop), 1, Math.min(H, drawEndY) - Math.max(0, bodyTop));
 
-                // Hat (top 25%)
                 var hatTop = drawStartY;
                 var hatBot = drawStartY + Math.floor(spriteH * 0.25);
-                // Hat is slightly wider
                 var hatPad = spriteW * 0.15;
                 if (sx >= drawStartX - hatPad && sx <= drawEndX + hatPad) {
                     ctx.fillStyle = hatCol;
                     ctx.fillRect(sx, Math.max(0, hatTop), 1, Math.min(H, hatBot) - Math.max(0, hatTop));
                 }
 
-                // Belt line
                 var beltY = drawStartY + Math.floor(spriteH * 0.55);
                 ctx.fillStyle = '#D4A017';
                 ctx.fillRect(sx, beltY, 1, Math.max(1, Math.floor(spriteH * 0.03)));
             }
 
-            // Eyes (two dots)
+            // Eyes
             var eyeY = drawStartY + Math.floor(spriteH * 0.32);
             var eyeSpacing = Math.floor(spriteW * 0.15);
             var eyeSize = Math.max(1, Math.floor(spriteW * 0.08));
@@ -638,23 +637,215 @@
                 ctx.fillRect(screenX + eyeSpacing - eyeSize, eyeY, eyeSize, eyeSize);
             }
 
-            // HP bar (above head)
+            // HP bar
             if (e.hp < e.maxHp) {
-                var barW = spriteW;
-                var barH = Math.max(2, Math.floor(spriteH * 0.04));
-                var barX = screenX - barW / 2;
-                var barY = drawStartY - barH - 4;
-
+                var barW = spriteW, barH = Math.max(2, Math.floor(spriteH * 0.04));
+                var barX = screenX - barW / 2, barY = drawStartY - barH - 4;
                 if (barY > 0) {
-                    // Background
                     ctx.fillStyle = '#330000';
                     ctx.fillRect(barX, barY, barW, barH);
-                    // Health
                     var hpPct = e.hp / e.maxHp;
                     ctx.fillStyle = hpPct > 0.5 ? '#D4A017' : hpPct > 0.25 ? '#CC5500' : '#FF0000';
                     ctx.fillRect(barX, barY, barW * hpPct, barH);
                 }
             }
+        }
+    }
+
+    // === RENDER WEAPON (first person) ===
+    function drawWeapon() {
+        var wepKey = weaponKeys[currentWeapon];
+        var wep = WEAPONS[wepKey];
+
+        // Kick animation (recoil)
+        if (weaponKick > 0) weaponKick -= 0.8;
+        if (weaponKick < 0) weaponKick = 0;
+
+        var baseX = W / 2;
+        var baseY = H - 10 + weaponKick;
+
+        ctx.save();
+
+        if (wepKey === 'revolver') {
+            // Revolver — small, angled grip + barrel
+            var gripW = 18, gripH = 50;
+            var barrelW = 8, barrelH = 35;
+
+            // Grip
+            ctx.fillStyle = '#5C3A1E';
+            ctx.fillRect(baseX - gripW / 2, baseY - gripH, gripW, gripH);
+            // Grip detail lines
+            ctx.fillStyle = '#3E2712';
+            ctx.fillRect(baseX - gripW / 2 + 3, baseY - gripH + 8, gripW - 6, 2);
+            ctx.fillRect(baseX - gripW / 2 + 3, baseY - gripH + 16, gripW - 6, 2);
+
+            // Barrel
+            ctx.fillStyle = '#6B6B6B';
+            ctx.fillRect(baseX - barrelW / 2, baseY - gripH - barrelH, barrelW, barrelH);
+            // Barrel shine
+            ctx.fillStyle = '#8A8A8A';
+            ctx.fillRect(baseX - barrelW / 2 + 1, baseY - gripH - barrelH, 2, barrelH);
+
+            // Cylinder
+            ctx.fillStyle = '#555555';
+            ctx.beginPath();
+            ctx.arc(baseX, baseY - gripH + 2, 10, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#444444';
+            ctx.beginPath();
+            ctx.arc(baseX, baseY - gripH + 2, 6, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Trigger guard
+            ctx.strokeStyle = '#6B6B6B';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(baseX, baseY - gripH + 18, 7, 0, Math.PI);
+            ctx.stroke();
+
+        } else if (wepKey === 'shotgun') {
+            // Shotgun — wide double barrel
+            var gripW = 22, gripH = 60;
+            var barrelW = 20, barrelH = 50;
+
+            // Stock
+            ctx.fillStyle = '#5C3A1E';
+            ctx.fillRect(baseX - gripW / 2, baseY - gripH, gripW, gripH);
+            ctx.fillStyle = '#3E2712';
+            ctx.fillRect(baseX - gripW / 2 + 2, baseY - gripH + 5, gripW - 4, 3);
+            ctx.fillRect(baseX - gripW / 2 + 2, baseY - gripH + 14, gripW - 4, 3);
+
+            // Double barrels
+            ctx.fillStyle = '#555555';
+            ctx.fillRect(baseX - barrelW / 2, baseY - gripH - barrelH, 8, barrelH);
+            ctx.fillRect(baseX - barrelW / 2 + 12, baseY - gripH - barrelH, 8, barrelH);
+            // Barrel shine
+            ctx.fillStyle = '#6B6B6B';
+            ctx.fillRect(baseX - barrelW / 2 + 1, baseY - gripH - barrelH, 2, barrelH);
+            ctx.fillRect(baseX - barrelW / 2 + 13, baseY - gripH - barrelH, 2, barrelH);
+
+            // Fore-end
+            ctx.fillStyle = '#8B6914';
+            ctx.fillRect(baseX - 12, baseY - gripH - 8, 24, 10);
+
+        } else if (wepKey === 'rifle') {
+            // Lever-action rifle — long barrel
+            var gripW = 16, gripH = 55;
+            var barrelW = 6, barrelH = 65;
+
+            // Stock
+            ctx.fillStyle = '#5C3A1E';
+            ctx.fillRect(baseX - gripW / 2, baseY - gripH, gripW, gripH);
+            ctx.fillStyle = '#3E2712';
+            for (var li = 0; li < 4; li++) {
+                ctx.fillRect(baseX - gripW / 2 + 2, baseY - gripH + 6 + li * 10, gripW - 4, 2);
+            }
+
+            // Long barrel
+            ctx.fillStyle = '#4A4A4A';
+            ctx.fillRect(baseX - barrelW / 2, baseY - gripH - barrelH, barrelW, barrelH);
+            ctx.fillStyle = '#5A5A5A';
+            ctx.fillRect(baseX - barrelW / 2 + 1, baseY - gripH - barrelH, 1, barrelH);
+
+            // Lever
+            ctx.strokeStyle = '#8B6914';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(baseX - 8, baseY - gripH + 20);
+            ctx.quadraticCurveTo(baseX - 14, baseY - gripH + 35, baseX - 6, baseY - gripH + 40);
+            ctx.stroke();
+
+            // Scope
+            ctx.fillStyle = '#333333';
+            ctx.fillRect(baseX - 4, baseY - gripH - barrelH + 10, 8, 6);
+            ctx.fillStyle = '#222222';
+            ctx.fillRect(baseX - 2, baseY - gripH - barrelH + 5, 4, 20);
+
+        } else if (wepKey === 'dynamite') {
+            // Dynamite stick
+            var stickW = 14, stickH = 45;
+
+            // Red stick
+            ctx.fillStyle = '#CC0000';
+            ctx.fillRect(baseX - stickW / 2, baseY - stickH, stickW, stickH);
+            // Label band
+            ctx.fillStyle = '#FFD700';
+            ctx.fillRect(baseX - stickW / 2 - 1, baseY - stickH + 10, stickW + 2, 8);
+            ctx.fillStyle = '#AA0000';
+            ctx.font = '6px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('TNT', baseX, baseY - stickH + 17);
+
+            // Dark end caps
+            ctx.fillStyle = '#8B0000';
+            ctx.fillRect(baseX - stickW / 2, baseY - stickH, stickW, 4);
+            ctx.fillRect(baseX - stickW / 2, baseY - 4, stickW, 4);
+
+            // Fuse
+            ctx.strokeStyle = '#FFD700';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(baseX, baseY - stickH);
+            ctx.quadraticCurveTo(baseX + 8, baseY - stickH - 15, baseX - 2, baseY - stickH - 25);
+            ctx.stroke();
+
+            // Fuse spark
+            var sparkSize = 3 + Math.random() * 3;
+            ctx.fillStyle = '#FF6600';
+            ctx.beginPath();
+            ctx.arc(baseX - 2, baseY - stickH - 25, sparkSize, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = '#FFFF00';
+            ctx.beginPath();
+            ctx.arc(baseX - 2, baseY - stickH - 25, sparkSize * 0.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Hand holding it
+            ctx.fillStyle = '#C4956A';
+            ctx.fillRect(baseX - stickW / 2 - 4, baseY - 20, stickW + 8, 20);
+        }
+
+        ctx.restore();
+    }
+
+    // === WEAPON SELECTOR UI ===
+    function drawWeaponBar() {
+        var barY = H - 55;
+        var slotW = 70, slotH = 45, gap = 6;
+        var totalW = weaponKeys.length * slotW + (weaponKeys.length - 1) * gap;
+        var startX = (W - totalW) / 2;
+
+        for (var i = 0; i < weaponKeys.length; i++) {
+            var wep = WEAPONS[weaponKeys[i]];
+            var sx = startX + i * (slotW + gap);
+            var active = i === currentWeapon;
+
+            // Slot background
+            ctx.fillStyle = active ? 'rgba(212, 160, 23, 0.4)' : 'rgba(0, 0, 0, 0.5)';
+            ctx.fillRect(sx, barY, slotW, slotH);
+
+            // Border
+            ctx.strokeStyle = active ? '#D4A017' : '#555555';
+            ctx.lineWidth = active ? 2 : 1;
+            ctx.strokeRect(sx, barY, slotW, slotH);
+
+            // Key number
+            ctx.fillStyle = active ? '#D4A017' : '#888888';
+            ctx.font = 'bold 10px monospace';
+            ctx.textAlign = 'left';
+            ctx.fillText('' + (i + 1), sx + 4, barY + 12);
+
+            // Weapon name
+            ctx.fillStyle = active ? '#FFFFFF' : '#AAAAAA';
+            ctx.font = '9px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText(wep.name, sx + slotW / 2, barY + 25);
+
+            // Ammo count
+            var ammoText = weaponAmmo[i] === Infinity ? '∞' : '' + weaponAmmo[i];
+            ctx.fillStyle = weaponAmmo[i] <= 0 ? '#FF0000' : active ? '#D4A017' : '#888888';
+            ctx.font = '10px monospace';
+            ctx.fillText(ammoText, sx + slotW / 2, barY + 38);
         }
     }
 
@@ -670,14 +861,27 @@
     // === CROSSHAIR ===
     function drawCrosshair() {
         var cx = W / 2, cy = H / 2;
+        var wep = WEAPONS[weaponKeys[currentWeapon]];
+
+        // Spread indicator — larger circle for wider spread
+        var spreadR = wep.spread * 15;
+        ctx.strokeStyle = 'rgba(212, 160, 23, 0.3)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(cx, cy, spreadR, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Crosshair lines
         ctx.strokeStyle = '#D4A017';
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.moveTo(cx - 10, cy); ctx.lineTo(cx + 10, cy);
-        ctx.moveTo(cx, cy - 10); ctx.lineTo(cx, cy + 10);
+        ctx.moveTo(cx - 10, cy); ctx.lineTo(cx - 4, cy);
+        ctx.moveTo(cx + 4, cy); ctx.lineTo(cx + 10, cy);
+        ctx.moveTo(cx, cy - 10); ctx.lineTo(cx, cy - 4);
+        ctx.moveTo(cx, cy + 4); ctx.lineTo(cx, cy + 10);
         ctx.stroke();
 
-        // Dot center
+        // Center dot
         ctx.fillStyle = '#CC5500';
         ctx.fillRect(cx - 1, cy - 1, 3, 3);
     }
@@ -693,7 +897,9 @@
             drawFloor();
             castRays();
             renderEnemies();
+            drawWeapon();
             drawCrosshair();
+            drawWeaponBar();
             drawDamageFlash();
             updateHUD();
         }
