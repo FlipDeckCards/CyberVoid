@@ -89,9 +89,9 @@ const ENEMY_HITBOXES = {
     { ox:-0.62, oy: 0.02,  r: 0.12, critical: false, mult: 0.333 },
     { ox: 0.62, oy: 0.02,  r: 0.12, critical: false, mult: 0.333 }
   ],
-  titan: [
-    { ox:-0.08, oy:-0.32,  r: 0.12, critical: true,  mult: 1.0   },
-    { ox: 0.12, oy:-0.32,  r: 0.12, critical: true,  mult: 1.0   },
+   titan: [
+    { ox: 0,    oy:-0.35,  r: 0.12, critical: true,  mult: 1.0   },  // headshot
+    { ox: 0,    oy:-0.12,  r: 0.14, critical: true,  mult: 1.0   },  // center mass
     { ox:-0.32, oy:-0.18,  r: 0.14, critical: false, mult: 0.333 },
     { ox: 0.32, oy:-0.18,  r: 0.14, critical: false, mult: 0.333 },
     { ox:-0.28, oy: 0.08,  r: 0.13, critical: false, mult: 0.333 },
@@ -928,7 +928,6 @@ function draw(timestamp) {
     enemies.sort((a,b) => b.z-a.z);
     enemies.forEach(e => {
       drawEnemy(e);
-      drawHitboxDebug(e);  // ← REMOVE THIS LINE when done tuning
     });
     drawParticles();
     drawDamageNumbers();
