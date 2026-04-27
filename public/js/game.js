@@ -126,7 +126,7 @@ var fireBtn = {
   x: 0, y: 0,
   radius: 42
 };
-var AIM_SPEED = 6;
+var AIM_SPEED = 3;
 
 function updateMobileLayout() {
   fireBtn.x = W - 90;
