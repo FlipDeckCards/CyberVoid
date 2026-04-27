@@ -1,5 +1,5 @@
 // ═══════════════════════════════════════════════════════════
-// DEADZONE — First-Person Cyberpunk Robot Survival
+// Mech Invasion — First-Person Cyberpunk Robot Survival
 // ═══════════════════════════════════════════════════════════
 
 const canvas = document.getElementById('game');
