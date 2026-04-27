@@ -70,6 +70,38 @@ const ENEMY_GLOW = {
   scorch:   '#f80'
 };
 
+// ── PER-ENEMY HITBOXES ──
+// ox/oy = offset from sprite center (fraction of projSize), r = radius (fraction of projSize)
+const ENEMY_HITBOXES = {
+  scorch: [
+    { ox: 0,    oy: 0,     r: 0.25, critical: true,  mult: 1.0   },
+    { ox: 0,    oy: 0,     r: 0.45, critical: false, mult: 0.333 }
+  ],
+  sentinel: [
+    { ox: 0,    oy: 0,     r: 0.22, critical: true,  mult: 1.0   },
+    { ox:-0.55, oy: 0,     r: 0.22, critical: false, mult: 0.333 },
+    { ox: 0.55, oy: 0,     r: 0.22, critical: false, mult: 0.333 }
+  ],
+  phantom: [
+    { ox: 0,    oy:-0.05,  r: 0.16, critical: true,  mult: 1.0   },
+    { ox:-0.35, oy: 0,     r: 0.15, critical: false, mult: 0.333 },
+    { ox: 0.35, oy: 0,     r: 0.15, critical: false, mult: 0.333 },
+    { ox:-0.62, oy: 0.02,  r: 0.12, critical: false, mult: 0.333 },
+    { ox: 0.62, oy: 0.02,  r: 0.12, critical: false, mult: 0.333 }
+  ],
+  titan: [
+    { ox:-0.08, oy:-0.32,  r: 0.12, critical: true,  mult: 1.0   },
+    { ox: 0.12, oy:-0.32,  r: 0.12, critical: true,  mult: 1.0   },
+    { ox:-0.32, oy:-0.18,  r: 0.14, critical: false, mult: 0.333 },
+    { ox: 0.32, oy:-0.18,  r: 0.14, critical: false, mult: 0.333 },
+    { ox:-0.28, oy: 0.08,  r: 0.13, critical: false, mult: 0.333 },
+    { ox: 0.28, oy: 0.08,  r: 0.13, critical: false, mult: 0.333 },
+    { ox:-0.22, oy: 0.30,  r: 0.14, critical: false, mult: 0.333 },
+    { ox: 0,    oy: 0.25,  r: 0.14, critical: false, mult: 0.333 },
+    { ox: 0.22, oy: 0.30,  r: 0.14, critical: false, mult: 0.333 }
+  ]
+};
+
 // ── STATE ──
 let W, H, cx, cy, horizonY, roadVPx;
 let state = 'waiting';
@@ -315,31 +347,25 @@ function collectPowerup(pu) {
 }
 
 // ═══════════════════════════════════════
-//  5-POINT DOMINO HITBOX
+//  PER-ENEMY HITBOX DETECTION
 // ═══════════════════════════════════════
-function checkHit(aimX, aimY, screenCX, screenCY, projSize) {
-  var centerRadius = projSize * 0.12;
-  var cornerRadius = projSize * 0.22;
-  var cornerOffset = projSize * 0.45;
+function checkHit(aimX, aimY, screenCX, screenCY, projSize, enemyType) {
+  var zones = ENEMY_HITBOXES[enemyType] || ENEMY_HITBOXES.sentinel;
 
-  var dx = aimX - screenCX;
-  var dy = aimY - screenCY;
-  if (Math.sqrt(dx * dx + dy * dy) < centerRadius) {
-    return { hit: true, critical: true, multiplier: 1.0 };
-  }
-
-  var corners = [
-    { cx: screenCX - cornerOffset, cy: screenCY - cornerOffset },
-    { cx: screenCX + cornerOffset, cy: screenCY - cornerOffset },
-    { cx: screenCX - cornerOffset, cy: screenCY + cornerOffset },
-    { cx: screenCX + cornerOffset, cy: screenCY + cornerOffset }
-  ];
-
-  for (var i = 0; i < corners.length; i++) {
-    dx = aimX - corners[i].cx;
-    dy = aimY - corners[i].cy;
-    if (Math.sqrt(dx * dx + dy * dy) < cornerRadius) {
-      return { hit: true, critical: false, multiplier: 0.333 };
+  // Check critical zones first, then non-critical
+  for (var pass = 0; pass < 2; pass++) {
+    var wantCritical = (pass === 0);
+    for (var i = 0; i < zones.length; i++) {
+      var z = zones[i];
+      if (z.critical !== wantCritical) continue;
+      var zx = screenCX + z.ox * projSize;
+      var zy = screenCY + z.oy * projSize;
+      var zr = z.r * projSize;
+      var dx = aimX - zx;
+      var dy = aimY - zy;
+      if (Math.sqrt(dx * dx + dy * dy) < zr) {
+        return { hit: true, critical: z.critical, multiplier: z.mult };
+      }
     }
   }
 
@@ -413,7 +439,7 @@ function shoot() {
 
       var screenCX = bp.x;
       var screenCY = (tp.y + bp.y) / 2;
-      var result = checkHit(aimX, aimY, screenCX, screenCY, sh);
+      var result = checkHit(aimX, aimY, screenCX, screenCY, sh, e.type);
 
       if (result.hit) {
         var dmg = w.dmg * result.multiplier;
@@ -590,7 +616,7 @@ function drawEnemy(e) {
 }
 
 // ========== HITBOX DEBUG OVERLAY ==========
-// Remove drawHitboxDebug calls from draw() when done tuning
+// REMOVE drawHitboxDebug calls from draw() when done tuning
 function drawHitboxDebug(e) {
   var hoverY = e.hoverBase + Math.sin(e.hoverPhase) * 0.8;
   var scaledH = ENEMY_H * (e.sizeScale || 1);
@@ -600,30 +626,20 @@ function drawHitboxDebug(e) {
   var screenCX = bp.x;
   var screenCY = (tp.y + bp.y) / 2;
 
-  var centerRadius = sh * 0.12;
-  var cornerRadius = sh * 0.22;
-  var cornerOffset = sh * 0.45;
+  var zones = ENEMY_HITBOXES[e.type] || ENEMY_HITBOXES.sentinel;
 
-  ctx.globalAlpha = 0.4;
-
-  // Center (critical) — yellow
-  ctx.strokeStyle = '#ff0';
+  ctx.globalAlpha = 0.5;
   ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.arc(screenCX, screenCY, centerRadius, 0, Math.PI * 2);
-  ctx.stroke();
 
-  // 4 Corners — red
-  ctx.strokeStyle = '#f00';
-  var corners = [
-    [screenCX - cornerOffset, screenCY - cornerOffset],
-    [screenCX + cornerOffset, screenCY - cornerOffset],
-    [screenCX - cornerOffset, screenCY + cornerOffset],
-    [screenCX + cornerOffset, screenCY + cornerOffset]
-  ];
-  for (var i = 0; i < corners.length; i++) {
+  for (var i = 0; i < zones.length; i++) {
+    var z = zones[i];
+    var zx = screenCX + z.ox * sh;
+    var zy = screenCY + z.oy * sh;
+    var zr = z.r * sh;
+
+    ctx.strokeStyle = z.critical ? '#f00' : '#ff0';
     ctx.beginPath();
-    ctx.arc(corners[i][0], corners[i][1], cornerRadius, 0, Math.PI * 2);
+    ctx.arc(zx, zy, zr, 0, Math.PI * 2);
     ctx.stroke();
   }
 
