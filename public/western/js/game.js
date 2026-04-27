@@ -725,6 +725,47 @@ var wallType = map[mapY][mapX];
             }
         }
     }
+    // === RENDER FLOOR (sand raycasting) ===
+    function renderFloor() {
+        var halfH = H / 2;
+        var rayDirX0 = dx - plX;
+        var rayDirY0 = dy - plY;
+        var rayDirX1 = dx + plX;
+        var rayDirY1 = dy + plY;
+
+        for (var y = Math.ceil(halfH); y < H; y += 2) {
+            var rowDist = halfH / (y - halfH);
+            var fog = Math.min(0.8, rowDist / 14);
+
+            var floorX = px + rowDist * rayDirX0;
+            var floorY = py + rowDist * rayDirY0;
+            var stepX = rowDist * (rayDirX1 - rayDirX0) / W * 4;
+            var stepY = rowDist * (rayDirY1 - rayDirY0) / W * 4;
+
+            for (var x = 0; x < W; x += 4) {
+                var fx = Math.floor(floorX);
+                var fy = Math.floor(floorY);
+                var checker = ((fx + fy) & 1);
+
+                var r, g, b;
+                if (checker) {
+                    r = 210; g = 180; b = 120;
+                } else {
+                    r = 185; g = 155; b = 95;
+                }
+
+                r = Math.floor(r * (1 - fog));
+                g = Math.floor(g * (1 - fog));
+                b = Math.floor(b * (1 - fog));
+
+                ctx.fillStyle = 'rgb(' + r + ',' + g + ',' + b + ')';
+                ctx.fillRect(x, y, 4, 2);
+
+                floorX += stepX;
+                floorY += stepY;
+            }
+        }
+    }
 // === RENDER WORLD SPRITES ===
     function renderWorldSprites() {
         var sorted = worldSprites.slice().sort(function(a, b) {
@@ -1073,6 +1114,7 @@ var wallType = map[mapY][mapX];
 
             drawSky();
             drawFloor();
+            renderFloor();
             castRays();
             renderEnemies();
             renderWorldSprites();
