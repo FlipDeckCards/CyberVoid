@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Western Showdown</title>
+<style>
+  * { margin: 0; padding: 0; }
+  body { overflow: hidden; background: #000; }
+  canvas { display: block; }
+  #blocker {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.7); display: flex; align-items: center;
+    justify-content: center; cursor: pointer; z-index: 10;
+  }
+  #blocker span {
+    color: #D4A017; font-family: Georgia, serif; font-size: 28px;
+    text-shadow: 2px 2px 8px rgba(0,0,0,0.8);
+  }
+  #hud {
+    position: fixed; top: 10px; left: 14px; z-index: 5;
+    font-family: 'Courier New', monospace; font-size: 16px;
+    color: #D4A017; text-shadow: 1px 1px 4px rgba(0,0,0,0.9);
+    pointer-events: none;
+  }
+  #crosshair {
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    color: #D4A017; font-size: 24px; z-index: 5; pointer-events: none;
+  }
+</style>
+</head>
+<body>
+
+<div id="blocker"><span>Click to Play</span></div>
+<div id="hud">
+  <div>HP: <span id="hp">100</span></div>
+  <div>Wave: <span id="wave">1</span></div>
+  <div>Score: <span id="score">0</span></div>
+</div>
+<div id="crosshair">+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script>
+// === MAP (same as your raycaster) ===
+var MAP = [
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,0,0,2,2,2,0,0,0,3,3,3,0,0,0,1],
+  [1,0,0,2,0,2,0,0,0,3,0,3,0,0,0,1],
+  [1,0,0,2,0,2,0,0,0,3,0,0,0,0,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,0,0,4,4,0,0,0,0,0,5,5,0,0,0,1],
+  [1,0,0,4,0,0,0,0,0,0,0,5,0,0,0,1],
+  [1,0,0,4,4,0,0,0,0,0,5,5,0,0,0,1],
+  [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+  [1,0,0,0,0,0,0,6,6,0,0,0,0,0,0,1],
+  [1,0,0,0,0,0,0,6,6,0,0,0,0,0,0,1],
+  [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+];
+
+var WALL_SIZE = 4; // each map cell = 4 units
+
+// === SCENE SETUP ===
+var scene = new THREE.Scene();
+scene.background = new THREE.Color(0x1A0A2E);
+scene.fog = new THREE.FogExp2(0x1A0A2E, 0.04);
+
+var camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 200);
+camera.position.set(6, 2, 6); // start position (adjust to your spawn)
+
+var renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+document.body.appendChild(renderer.domElement);
+
+// === LIGHTING ===
+var ambientLight = new THREE.AmbientLight(0xCC5500, 0.4);
+scene.add(ambientLight);
+
+var sunLight = new THREE.DirectionalLight(0xFFAA44, 1.2);
+sunLight.position.set(20, 30, 10);
+sunLight.castShadow = true;
+sunLight.shadow.mapSize.width = 2048;
+sunLight.shadow.mapSize.height = 2048;
+sunLight.shadow.camera.near = 0.5;
+sunLight.shadow.camera.far = 100;
+sunLight.shadow.camera.left = -40;
+sunLight.shadow.camera.right = 40;
+sunLight.shadow.camera.top = 40;
+sunLight.shadow.camera.bottom = -40;
+scene.add(sunLight);
+
+// Warm fill light from below (desert heat bounce)
+var fillLight = new THREE.HemisphereLight(0xFFAA44, 0x8B4513, 0.3);
+scene.add(fillLight);
+
+// === GROUND ===
+var groundGeo = new THREE.PlaneGeometry(MAP[0].length * WALL_SIZE, MAP.length * WALL_SIZE);
+var groundMat = new THREE.MeshStandardMaterial({
+  color: 0xC2A062,
+  roughness: 0.9,
+  metalness: 0.0
+});
+var ground = new THREE.Mesh(groundGeo, groundMat);
+ground.rotation.x = -Math.PI / 2;
+ground.position.set(MAP[0].length * WALL_SIZE / 2, 0, MAP.length * WALL_SIZE / 2);
+ground.receiveShadow = true;
+scene.add(ground);
+
+// === WALL MATERIALS ===
+var wallColors = {
+  1: 0x8B4513, // border - saddle brown
+  2: 0x654321, // saloon - dark wood
+  3: 0xD2B48C, // store - tan
+  4: 0x808080, // sheriff - grey stone
+  5: 0xA0522D, // bank - sienna
+  6: 0x2F2F2F  // jail - dark iron
+};
+
+function makeWallMaterial(type) {
+  return new THREE.MeshStandardMaterial({
+    color: wallColors[type] || 0x8B4513,
+    roughness: 0.85,
+    metalness: 0.1
+  });
+}
+
+// === BUILD WALLS ===
+var wallGeo = new THREE.BoxGeometry(WALL_SIZE, WALL_SIZE, WALL_SIZE);
+for (var y = 0; y < MAP.length; y++) {
+  for (var x = 0; x < MAP[y].length; x++) {
+    if (MAP[y][x] > 0) {
+      var wall = new THREE.Mesh(wallGeo, makeWallMaterial(MAP[y][x]));
+      wall.position.set(x * WALL_SIZE + WALL_SIZE/2, WALL_SIZE/2, y * WALL_SIZE + WALL_SIZE/2);
+      wall.castShadow = true;
+      wall.receiveShadow = true;
+      scene.add(wall);
+    }
+  }
+}
+
+// === SKY ===
+var skyGeo = new THREE.SphereGeometry(100, 32, 32);
+var skyMat = new THREE.ShaderMaterial({
+  uniforms: {
+    topColor: { value: new THREE.Color(0xFF6B35) },
+    bottomColor: { value: new THREE.Color(0xFFAA44) },
+    offset: { value: 10 },
+    exponent: { value: 0.6 }
+  },
+  vertexShader: [
+    'varying vec3 vWorldPosition;',
+    'void main() {',
+    '  vec4 worldPos = modelMatrix * vec4(position, 1.0);',
+    '  vWorldPosition = worldPos.xyz;',
+    '  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);',
+    '}'
+  ].join('\n'),
+  fragmentShader: [
+    'uniform vec3 topColor;',
+    'uniform vec3 bottomColor;',
+    'uniform float offset;',
+    'uniform float exponent;',
+    'varying vec3 vWorldPosition;',
+    'void main() {',
+    '  float h = normalize(vWorldPosition + offset).y;',
+    '  gl_FragColor = vec4(mix(bottomColor, topColor, max(pow(max(h, 0.0), exponent), 0.0)), 1.0);',
+    '}'
+  ].join('\n'),
+  side: THREE.BackSide
+});
+scene.add(new THREE.Mesh(skyGeo, skyMat));
+
+// === POINTER LOCK CONTROLS ===
+var moveForward = false, moveBackward = false, moveLeft = false, moveRight = false;
+var velocity = new THREE.Vector3();
+var direction = new THREE.Vector3();
+var euler = new THREE.Euler(0, 0, 0, 'YXZ');
+var locked = false;
+
+var blocker = document.getElementById('blocker');
+blocker.addEventListener('click', function() {
+  renderer.domElement.requestPointerLock();
+});
+
+document.addEventListener('pointerlockchange', function() {
+  locked = document.pointerLockElement === renderer.domElement;
+  blocker.style.display = locked ? 'none' : 'flex';
+});
+
+document.addEventListener('mousemove', function(e) {
+  if (!locked) return;
+  euler.setFromQuaternion(camera.quaternion);
+  euler.y -= e.movementX * 0.002;
+  euler.x -= e.movementY * 0.002;
+  euler.x = Math.max(-Math.PI/2, Math.min(Math.PI/2, euler.x));
+  camera.quaternion.setFromEuler(euler);
+});
+
+document.addEventListener('keydown', function(e) {
+  switch(e.code) {
+    case 'KeyW': case 'ArrowUp': moveForward = true; break;
+    case 'KeyS': case 'ArrowDown': moveBackward = true; break;
+    case 'KeyA': case 'ArrowLeft': moveLeft = true; break;
+    case 'KeyD': case 'ArrowRight': moveRight = true; break;
+  }
+});
+document.addEventListener('keyup', function(e) {
+  switch(e.code) {
+    case 'KeyW': case 'ArrowUp': moveForward = false; break;
+    case 'KeyS': case 'ArrowDown': moveBackward = false; break;
+    case 'KeyA': case 'ArrowLeft': moveLeft = false; break;
+    case 'KeyD': case 'ArrowRight': moveRight = false; break;
+  }
+});
+
+// === COLLISION ===
+function canMove(x, z) {
+  var mapX = Math.floor(x / WALL_SIZE);
+  var mapZ = Math.floor(z / WALL_SIZE);
+  if (mapX < 0 || mapX >= MAP[0].length || mapZ < 0 || mapZ >= MAP.length) return false;
+  return MAP[mapZ][mapX] === 0;
+}
+
+// === GAME LOOP ===
+var clock = new THREE.Clock();
+
+function animate() {
+  requestAnimationFrame(animate);
+  var delta = clock.getDelta();
+
+  if (locked) {
+    // Friction
+    velocity.x -= velocity.x * 8.0 * delta;
+    velocity.z -= velocity.z * 8.0 * delta;
+
+    direction.z = Number(moveForward) - Number(moveBackward);
+    direction.x = Number(moveRight) - Number(moveLeft);
+    direction.normalize();
+
+    var speed = 20;
+    if (moveForward || moveBackward) velocity.z -= direction.z * speed * delta;
+    if (moveLeft || moveRight) velocity.x -= direction.x * speed * delta;
+
+    // Move in camera direction
+    var forward = new THREE.Vector3();
+    camera.getWorldDirection(forward);
+    forward.y = 0;
+    forward.normalize();
+
+    var right = new THREE.Vector3();
+    right.crossVectors(forward, new THREE.Vector3(0, 1, 0)).normalize();
+
+    var newX = camera.position.x - forward.x * velocity.z * delta + right.x * velocity.x * delta;
+    var newZ = camera.position.z - forward.z * velocity.z * delta + right.z * velocity.x * delta;
+
+    // Collision check
+    var margin = 0.5;
+    if (canMove(newX + margin, camera.position.z) && canMove(newX - margin, camera.position.z)) {
+      camera.position.x = newX;
+    }
+    if (canMove(camera.position.x, newZ + margin) && canMove(camera.position.x, newZ - margin)) {
+      camera.position.z = newZ;
+    }
+  }
+
+  renderer.render(scene, camera);
+}
+animate();
+
+// === RESIZE ===
+window.addEventListener('resize', function() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+</body>
+</html>
