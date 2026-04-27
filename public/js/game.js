@@ -1113,7 +1113,7 @@ canvas.addEventListener('touchstart', function(e) {
       joystick.active = true;
       joystick.touchId = t.identifier;
       joystick.baseX = tx;
-      joystick.baseY = Math.min(ty, H - 150);
+      joystick.baseY = ty;
       joystick.thumbX = tx;
       joystick.thumbY = ty;
       joystick.dx = 0;
