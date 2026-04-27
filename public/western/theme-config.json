@@ -1,0 +1,39 @@
+{
+  "name": "Western Showdown",
+  "floorCasting": true,
+  "floorTexture": "assets/floor_sand.png",
+  "skyMode": "gradient",
+  "skyGradient": {
+    "top": "#1A0A2E",
+    "mid": "#D4763A",
+    "bottom": "#F5C77E"
+  },
+  "depthSprites": true,
+  "depthObjects": [
+    { "type": "cactus_tall", "sprite": "assets/cactus_tall.png" },
+    { "type": "cactus_short", "sprite": "assets/cactus_short.png" },
+    { "type": "barrel", "sprite": "assets/barrel.png" },
+    { "type": "wagon_wheel", "sprite": "assets/wagon_wheel.png" },
+    { "type": "rock", "sprite": "assets/rock.png" },
+    { "type": "fence_post", "sprite": "assets/fence_post.png" }
+  ],
+  "hudColor": "#D4A017",
+  "crosshairColor": "#CC5500",
+  "enemies": {
+    "phantom": { "name": "Outlaw", "sprite": "assets/enemy_outlaw.png" },
+    "sentinel": { "name": "Deputy", "sprite": "assets/enemy_deputy.png" },
+    "titan": { "name": "Iron Horse", "sprite": "assets/enemy_ironhorse.png" },
+    "kamikaze": { "name": "Dynamite Runner", "sprite": "assets/enemy_dynamite.png" }
+  },
+  "weapons": {
+    "pistol": { "name": "Six-Shooter", "sprite": "assets/weapon_revolver.png", "sfx": "sounds/revolver_fire.wav" },
+    "shotgun": { "name": "Sawed-Off", "sprite": "assets/weapon_sawedoff.png", "sfx": "sounds/shotgun_fire.wav" },
+    "rifle": { "name": "Winchester", "sprite": "assets/weapon_winchester.png", "sfx": "sounds/rifle_fire.wav" },
+    "heavy": { "name": "Gatling Gun", "sprite": "assets/weapon_gatling.png", "sfx": "sounds/gatling_fire.wav" }
+  },
+  "music": {
+    "gameplay": "sounds/western_gameplay.mp3",
+    "menu": "sounds/western_menu.mp3",
+    "gameOver": "sounds/western_gameover.mp3"
+  }
+}
