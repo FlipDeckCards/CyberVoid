@@ -83,6 +83,41 @@
     var fTexW = 64, fTexH = 64;
     var floorReady = false;
 
+// === WALL TEXTURES ===
+var wallTextures = {};
+var wallTextureCanvases = {};
+var textureSize = 64;
+var texturesLoaded = 0;
+var totalTextures = 6;
+var textureMap = {
+    1: 'wall_border',
+    2: 'wall_saloon',
+    3: 'wall_store',
+    4: 'wall_sheriff',
+    5: 'wall_bank',
+    6: 'wall_jail'
+};
+
+function loadTextures(callback) {
+    for (var key in textureMap) {
+        (function(k) {
+            var img = new Image();
+            img.onload = function() {
+                var tc = document.createElement('canvas');
+                tc.width = textureSize;
+                tc.height = textureSize;
+                var tctx = tc.getContext('2d');
+                tctx.drawImage(img, 0, 0, textureSize, textureSize);
+                wallTextureCanvases[k] = tc;
+                wallTextures[k] = tctx.getImageData(0, 0, textureSize, textureSize).data;
+                texturesLoaded++;
+                if (texturesLoaded === totalTextures && callback) callback();
+            };
+            img.src = 'assets/' + textureMap[k] + '.png';
+        })(key);
+    }
+}
+    
     // === Z-BUFFER ===
     var zBuf = [];
 
@@ -598,7 +633,7 @@
         document.getElementById('hud').style.display = 'none';
     }
 
-    // === RAYCASTING ===
+        // === RAYCASTING ===
     function castRays() {
         for (var x = 0; x < W; x++) {
             var camX = 2 * x / W - 1;
@@ -618,7 +653,7 @@
             while (!hit) {
                 if (sDistX < sDistY) { sDistX += ddX; mapX += stepX; side = 0; }
                 else { sDistY += ddY; mapY += stepY; side = 1; }
-                if (mapX < 0 || mapX >= mapW || mapY < 0 || mapY >= mapH) { hit = 1; break; }
+                if (mapX < 0 || mapX >= mapS || mapY < 0 || mapY >= mapS) { hit = 1; break; }
                 if (map[mapY][mapX] > 0) hit = 1;
             }
 
@@ -631,11 +666,36 @@
             var lineH = Math.floor(H / perpDist);
             var drawStart = Math.floor(-lineH / 2 + H / 2);
             var drawEnd = Math.floor(lineH / 2 + H / 2);
-var wallType = map[mapY][mapX];
+            var wallType = map[mapY][mapX];
+
+            var texCanvas = wallTextureCanvases[wallType];
+            if (texCanvas) {
+                var wallX;
+                if (side === 0) wallX = py + perpDist * rayDY;
+                else wallX = px + perpDist * rayDX;
+                wallX -= Math.floor(wallX);
+
+                var texX = Math.floor(wallX * textureSize);
+                if (texX >= textureSize) texX = textureSize - 1;
+
+                ctx.drawImage(texCanvas, texX, 0, 1, textureSize, x, drawStart, 1, lineH);
+
+                if (side === 1) {
+                    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+                    ctx.fillRect(x, Math.max(0, drawStart), 1, Math.min(H, drawEnd) - Math.max(0, drawStart));
+                }
+
+                var fogAmount = Math.min(0.6, perpDist / 14);
+                if (fogAmount > 0.02) {
+                    ctx.fillStyle = 'rgba(26,10,46,' + fogAmount + ')';
+                    ctx.fillRect(x, Math.max(0, drawStart), 1, Math.min(H, drawEnd) - Math.max(0, drawStart));
+                }
+            } else {
                 var colors = WALL_COLORS[wallType] || WALL_COLORS[1];
                 var wallColor = side === 0 ? colors.light : colors.dark;
                 ctx.fillStyle = fogColor(wallColor, Math.min(0.6, perpDist / 14));
-            ctx.fillRect(x, Math.max(0, drawStart), 1, Math.min(H, drawEnd) - Math.max(0, drawStart));
+                ctx.fillRect(x, Math.max(0, drawStart), 1, Math.min(H, drawEnd) - Math.max(0, drawStart));
+            }
         }
     }
         // === SKY GRADIENT ===
@@ -1158,5 +1218,7 @@ var wallType = map[mapY][mapX];
     }
 
     // === START ===
+    loadTextures(function() {
     init();
+});
 })();
