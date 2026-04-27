@@ -130,7 +130,7 @@ var AIM_SPEED = 3;
 
 function updateMobileLayout() {
   fireBtn.x = W - 90;
-  fireBtn.y = H - 160;
+  fireBtn.y = H - 100;
 }
 
 // ── STATE ──
