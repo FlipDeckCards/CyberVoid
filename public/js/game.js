@@ -752,7 +752,7 @@ function drawHUD() {
   var isMobileHUD = W < 800;
   var invW = isMobileHUD ? 56 : 42;
   var invH = isMobileHUD ? 38 : 26;
-  var invY = isMobileHD ? H - 170 : H - 95;
+  var invY = isMobileHD ? H - 110 : H - 95;
   var invStart = cx - (WEAPON_ORDER.length * invW) / 2;
   weaponBtnRects = [];
 
