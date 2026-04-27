@@ -432,7 +432,45 @@ function checkHit(aimX, aimY, screenCX, screenCY, projSize, enemyType) {
 
   return { hit: false, critical: false, multiplier: 0 };
 }
+// ── MOBILE AIM ASSIST ──
+function applyAimAssist(aimX, aimY) {
+    if (!mobileDevice) return { x: aimX, y: aimY };
 
+    var bestDist = 999999;
+    var bestEX = aimX;
+    var bestEY = aimY;
+    var assistRadius = W * 0.12; // magnetic pull range
+    var pullStrength = 0.3;      // 30% pull toward center
+
+    for (var i = 0; i < enemies.length; i++) {
+        var e = enemies[i];
+        var hoverY = e.hoverBase + Math.sin(e.hoverPhase) * 0.8;
+        var scaledH = ENEMY_H * (e.sizeScale || 1);
+        var bp = proj(e.x, hoverY, e.z);
+        var tp = proj(e.x, hoverY + scaledH, e.z);
+        var ecx = bp.x;
+        var ecy = (tp.y + bp.y) / 2;
+
+        var dx = aimX - ecx;
+        var dy = aimY - ecy;
+        var dist = Math.sqrt(dx * dx + dy * dy);
+
+        if (dist < assistRadius && dist < bestDist) {
+            bestDist = dist;
+            bestEX = ecx;
+            bestEY = ecy;
+        }
+    }
+
+    if (bestDist < assistRadius) {
+        var factor = pullStrength * (1 - bestDist / assistRadius);
+        return {
+            x: aimX + (bestEX - aimX) * factor,
+            y: aimY + (bestEY - aimY) * factor
+        };
+    }
+    return { x: aimX, y: aimY };
+}
 // ═══════════════════════════════════════
 //  FLOATING DAMAGE NUMBERS
 // ═══════════════════════════════════════
@@ -488,8 +526,9 @@ function shoot() {
   GameSound[curWeapon]();
 
   for (let p = 0; p < w.pellets; p++) {
-    const aimX = mouse.x + (Math.random()-0.5) * w.spread * W;
-    const aimY = mouse.y + (Math.random()-0.5) * w.spread * H * 0.5;
+    var raw = applyAimAssist(mouse.x, mouse.y);
+const aimX = raw.x + (Math.random()-0.5) * w.spread * W;
+const aimY = raw.y + (Math.random()-0.5) * w.spread * H * 0.5;
     const sorted = [...enemies].sort((a,b) => a.z - b.z);
     for (const e of sorted) {
       const hoverY = e.hoverBase + Math.sin(e.hoverPhase) * 0.8;
@@ -967,13 +1006,24 @@ function update(dt) {
   if (mouseDown && WEAPONS[curWeapon].auto) shoot();
 
   if (mobileDevice && joystick.active) {
-    mouse.x += joystick.dx * AIM_SPEED;
-    mouse.y += joystick.dy * AIM_SPEED;
-    if (mouse.x < 20) mouse.x = 20;           // ◄ CHANGED
-    if (mouse.x > W - 20) mouse.x = W - 20;   // ◄ CHANGED
-    if (mouse.y < 20) mouse.y = 20;            // ◄ CHANGED
-    if (mouse.y > H - 60) mouse.y = H - 60;   // ◄ CHANGED
-  }
+    var aimX = joystick.dx * AIM_SPEED;
+    var aimY = joystick.dy * AIM_SPEED;
+
+    // Dampen downward movement near bottom edge
+    var bottomLimit = H * 0.55;
+    if (mouse.y > bottomLimit && aimY > 0) {
+        var dampFactor = 1 - ((mouse.y - bottomLimit) / (H - bottomLimit));
+        aimY *= Math.max(dampFactor, 0.05);
+    }
+
+    mouse.x += aimX;
+    mouse.y += aimY;
+
+    if (mouse.x < 20) mouse.x = 20;
+    if (mouse.x > W - 20) mouse.x = W - 20;
+    if (mouse.y < 20) mouse.y = 20;
+    if (mouse.y > bottomLimit + 40) mouse.y = bottomLimit + 40;
+}
 
   spawnTimer -= dt*1000;
   if (spawnTimer <= 0 && spawnBudget > 0) {
