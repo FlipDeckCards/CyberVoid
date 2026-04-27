@@ -1011,7 +1011,7 @@ function update(dt) {
     var aimY = joystick.dy * AIM_SPEED;
 
     // Dampen downward movement near bottom edge
-    var bottomLimit = H * 0.55;
+    var bottomLimit = H * 0.80;
     if (mouse.y > bottomLimit && aimY > 0) {
         var dampFactor = 1 - ((mouse.y - bottomLimit) / (H - bottomLimit));
         aimY *= Math.max(dampFactor, 0.05);
