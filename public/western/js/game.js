@@ -663,12 +663,12 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
     var ms = moveSpd;
     var dx = Math.cos(pa), dy = Math.sin(pa);
 
-    if (keys["w"] || keys["W"] || keys["ArrowUp"]) {
+    if (keys["w"] || keys["W"] || keys["ArrowDown"]) {
       var nx = px + dx * ms, ny = py + dy * ms;
       if (canWalk(nx, py)) px = nx;
       if (canWalk(px, ny)) py = ny;
     }
-    if (keys["s"] || keys["S"] || keys["ArrowDown"]) {
+    if (keys["s"] || keys["S"] || keys["ArrowUp"]) {
       var nx = px - dx * ms, ny = py - dy * ms;
       if (canWalk(nx, py)) px = nx;
       if (canWalk(px, ny)) py = ny;
@@ -684,12 +684,11 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
         if (canWalk(nx, py)) px = nx;
         if (canWalk(px, ny)) py = ny;
       }
-      if (Math.abs(jdx) > 0.1) {
-        var sx = -dy, sy = dx;
-        var nx = px + sx * jdx * ms, ny = py + sy * jdx * ms;
-        if (canWalk(nx, py)) px = nx;
-        if (canWalk(px, ny)) py = ny;
-      }
+      if (Math.abs(jdy) > 0.1) {
+  var nx = px + dx * jdy * ms, ny = py + dy * jdy * ms;  // CHANGED: was - -
+  if (canWalk(nx, py)) px = nx;
+  if (canWalk(px, ny)) py = ny;
+}
     }
 
     camera.position.set(px * CELL, 2.0, py * CELL);
