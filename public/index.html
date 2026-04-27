@@ -76,6 +76,27 @@
       background: rgba(255, 0, 255, 0.15);
       box-shadow: 0 0 20px rgba(255, 0, 255, 0.4);
     }
+    #emailInput {
+      background: rgba(0, 255, 255, 0.03);
+      border: 1px solid rgba(0, 255, 255, 0.25);
+      color: #0ff;
+      font-family: 'Orbitron', monospace;
+      font-size: 0.85rem;
+      padding: 10px 20px;
+      text-align: center;
+      outline: none;
+      width: 280px;
+      letter-spacing: 1px;
+    }
+    #emailInput::placeholder { color: rgba(0, 255, 255, 0.25); }
+    #emailInput:focus { border-color: rgba(0, 255, 255, 0.5); }
+    #emailHint {
+      color: rgba(0, 255, 255, 0.3);
+      font-family: 'Orbitron', monospace;
+      font-size: 9px;
+      letter-spacing: 1px;
+      margin-top: -8px;
+    }
   </style>
 </head>
 <body>
@@ -93,6 +114,8 @@
       <h2 class="lb-title">▶ TOP OPERATORS</h2>
       <div id="leaderboardList"></div>
     </div>
+    <input type="email" id="emailInput" placeholder="Email (optional)" maxlength="64" />
+    <div id="emailHint">SYNC CALLSIGN ACROSS DEVICES</div>
     <input type="text" id="nameInput" placeholder="Enter callsign..." maxlength="16" />
     <div id="callsignError"></div>
     <button id="startBtn">JACK IN</button>
