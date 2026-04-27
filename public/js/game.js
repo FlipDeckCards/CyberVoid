@@ -709,6 +709,21 @@ function drawGun() {
   }
 }
 
+// ── Helper: rounded rect path ──  ◄ NEW
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
 function drawHUD() {
   const w = WEAPONS[curWeapon];
   const pad = 20;
@@ -749,34 +764,85 @@ function drawHUD() {
   ctx.fillText('SCORE: '+score+'   KILLS: '+kills+'/'+killGoal,cx,48);
   ctx.textAlign = 'left';
 
+  // ── Weapon bar — right side stacked ──  ◄ CHANGED
   var isMobileHUD = W < 800;
-  var invW = isMobileHUD ? 56 : 42;
-  var invH = isMobileHUD ? 38 : 26;
-  var invY = isMobileHUD ? H - 180 : H - 95;
-  var invStart = cx - (WEAPON_ORDER.length * invW) / 2;
+  var wpW = isMobileHUD ? 52 : 140;
+  var wpH = isMobileHUD ? 42 : 46;
+  var wpGap = isMobileHUD ? 4 : 6;
+  var wpX = W - wpW - (isMobileHUD ? 10 : 20);
+  var totalWpH = WEAPON_ORDER.length * wpH + (WEAPON_ORDER.length - 1) * wpGap;
+  var wpStartY = isMobileHUD ? 10 : (H - totalWpH) / 2;
   weaponBtnRects = [];
 
-  WEAPON_ORDER.forEach((wk, i) => {
-    var wx = invStart + i * invW;
+  WEAPON_ORDER.forEach(function(wk, i) {
+    var yy = wpStartY + i * (wpH + wpGap);
     var active = wk === curWeapon;
     var hasAmmo = weaponAmmo[wk] > 0 || weaponAmmo[wk] === Infinity;
+    var wData = WEAPONS[wk];
 
-    weaponBtnRects.push({ x: wx, y: invY, w: invW - 4, h: invH, weapon: wk });
+    weaponBtnRects.push({ x: wpX, y: yy, w: wpW, h: wpH, weapon: wk });
 
-    ctx.fillStyle = active ? 'rgba(0,255,0,0.2)' : 'rgba(0,0,0,0.5)';
-    ctx.fillRect(wx, invY, invW - 4, invH);
+    ctx.fillStyle = active ? 'rgba(0,255,255,0.1)' : 'rgba(0,0,0,0.55)';
+    roundRect(ctx, wpX, yy, wpW, wpH, 6);
+    ctx.fill();
+
+    ctx.strokeStyle = active ? wData.col : (hasAmmo ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.05)');
+    ctx.lineWidth = active ? 2 : 1;
+    if (active) { ctx.shadowColor = wData.col; ctx.shadowBlur = 14; }
+    roundRect(ctx, wpX, yy, wpW, wpH, 6);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
     if (active) {
-      ctx.strokeStyle = '#0f0'; ctx.lineWidth = 2; ctx.shadowColor = '#0f0'; ctx.shadowBlur = 6;
-      ctx.strokeRect(wx, invY, invW - 4, invH); ctx.shadowBlur = 0;
+      ctx.fillStyle = wData.col;
+      ctx.shadowColor = wData.col;
+      ctx.shadowBlur = 10;
+      roundRect(ctx, wpX, yy + 4, 3, wpH - 8, 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
     }
-    ctx.fillStyle = hasAmmo ? '#fff' : '#444';
-    ctx.font = 'bold ' + (isMobileHUD ? '14' : '11') + 'px monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText(WEAPONS[wk].name.slice(0, 3), wx + (invW - 4) / 2, invY + invH - (isMobileHUD ? 10 : 8));
-    ctx.textAlign = 'left';
-  });
 
-// Crosshair (hide on mobile — joystick controls aim)
+    if (isMobileHUD) {
+      ctx.fillStyle = hasAmmo ? (active ? '#fff' : '#888') : '#333';
+      ctx.font = 'bold 12px Orbitron';
+      ctx.textAlign = 'center';
+      ctx.fillText(wData.name.slice(0, 3), wpX + wpW / 2, yy + wpH / 2 - 3);
+      var ammo = weaponAmmo[wk] === Infinity ? '∞' : weaponAmmo[wk];
+      ctx.fillStyle = active ? wData.col : '#555';
+      ctx.font = '9px Orbitron';
+      ctx.fillText(ammo.toString(), wpX + wpW / 2, yy + wpH / 2 + 12);
+      ctx.textAlign = 'left';
+    } else {
+      ctx.fillStyle = active ? wData.col : 'rgba(255,255,255,0.2)';
+      ctx.font = 'bold 10px Orbitron';
+      ctx.textAlign = 'left';
+      ctx.fillText((i + 1).toString(), wpX + 12, yy + 20);
+      ctx.fillStyle = hasAmmo ? (active ? '#fff' : '#aaa') : '#444';
+      ctx.font = (active ? 'bold ' : '') + '11px Orbitron';
+      ctx.fillText(wData.name, wpX + 28, yy + 20);
+      var ammoTxt2 = weaponAmmo[wk] === Infinity ? '∞' : weaponAmmo[wk];
+      ctx.fillStyle = active ? wData.col : '#666';
+      ctx.font = 'bold 14px Orbitron';
+      ctx.textAlign = 'right';
+      ctx.fillText(ammoTxt2.toString(), wpX + wpW - 12, yy + 20);
+      ctx.textAlign = 'left';
+      if (weaponAmmo[wk] !== Infinity) {
+        var maxA = wk === 'shotgun' ? 24 : wk === 'rifle' ? 120 : 12;
+        var barW2 = wpW - 24;
+        var barH2 = 3;
+        var barX2 = wpX + 12;
+        var barY2 = yy + wpH - 10;
+        ctx.fillStyle = 'rgba(255,255,255,0.06)';
+        ctx.fillRect(barX2, barY2, barW2, barH2);
+        var fillR = Math.min(weaponAmmo[wk] / maxA, 1);
+        ctx.fillStyle = fillR > 0.25 ? wData.col : '#f00';
+        ctx.fillRect(barX2, barY2, barW2 * fillR, barH2);
+      }
+    }
+  });
+  // ── END weapon bar ──
+
+  // Crosshair
   if (!mobileDevice) {
     ctx.strokeStyle = 'rgba(0,255,0,0.9)'; ctx.lineWidth = 2;
     ctx.shadowColor = '#0f0'; ctx.shadowBlur = 4;
@@ -789,7 +855,6 @@ function drawHUD() {
     ctx.fillStyle = '#0f0'; ctx.beginPath();
     ctx.arc(mouse.x,mouse.y,2,0,Math.PI*2); ctx.fill();
   } else {
-    // Mobile crosshair — smaller, always visible
     ctx.strokeStyle = 'rgba(0,255,0,0.8)'; ctx.lineWidth = 2;
     ctx.shadowColor = '#0f0'; ctx.shadowBlur = 6;
     ctx.beginPath();
@@ -803,23 +868,16 @@ function drawHUD() {
   }
 }
 
-// ═══════════════════════════════════════
-//  MOBILE CONTROLS DRAWING
-// ═══════════════════════════════════════
 function drawMobileControls() {
   if (!mobileDevice || state !== 'playing') return;
 
-  // ── Joystick ──
   if (joystick.active) {
-    // Base ring
     ctx.globalAlpha = 0.25;
     ctx.strokeStyle = '#0f0';
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.arc(joystick.baseX, joystick.baseY, joystick.baseRadius, 0, Math.PI * 2);
     ctx.stroke();
-
-    // Thumb
     ctx.globalAlpha = 0.5;
     ctx.fillStyle = '#0f0';
     ctx.shadowColor = '#0f0';
@@ -829,7 +887,6 @@ function drawMobileControls() {
     ctx.fill();
     ctx.shadowBlur = 0;
   } else {
-    // Hint zone (left side)
     ctx.globalAlpha = 0.08;
     ctx.fillStyle = '#0f0';
     ctx.fillRect(0, H * 0.3, W * 0.35, H * 0.5);
@@ -841,7 +898,6 @@ function drawMobileControls() {
     ctx.textAlign = 'left';
   }
 
-  // ── Fire Button ──
   var fbAlpha = fireBtn.active ? 0.6 : 0.35;
   ctx.globalAlpha = fbAlpha;
   ctx.fillStyle = fireBtn.active ? '#f44' : '#f00';
@@ -851,7 +907,6 @@ function drawMobileControls() {
   ctx.arc(fireBtn.x, fireBtn.y, fireBtn.radius, 0, Math.PI * 2);
   ctx.fill();
   ctx.shadowBlur = 0;
-
   ctx.globalAlpha = 0.9;
   ctx.fillStyle = '#fff';
   ctx.font = 'bold 16px Orbitron';
@@ -860,7 +915,6 @@ function drawMobileControls() {
   ctx.fillText('FIRE', fireBtn.x, fireBtn.y);
   ctx.textBaseline = 'alphabetic';
   ctx.textAlign = 'left';
-
   ctx.globalAlpha = 1;
 }
 
@@ -873,9 +927,6 @@ function drawParticles() {
   ctx.globalAlpha = 1;
 }
 
-// ═══════════════════════════════════════
-//  UPDATE
-// ═══════════════════════════════════════
 function update(dt) {
   if (state !== 'playing') return;
   updateRain();
@@ -886,11 +937,9 @@ function update(dt) {
   if (enemies.length > 0) gunBob += dt*3;
   if (mouseDown && WEAPONS[curWeapon].auto) shoot();
 
-  // ── Mobile joystick aim ──
   if (mobileDevice && joystick.active) {
     mouse.x += joystick.dx * AIM_SPEED;
     mouse.y += joystick.dy * AIM_SPEED;
-    // Clamp to screen
     if (mouse.x < 0) mouse.x = 0;
     if (mouse.x > W) mouse.x = W;
     if (mouse.y < 0) mouse.y = 0;
@@ -916,10 +965,8 @@ function update(dt) {
 
   enemies.forEach(e => {
     e.z -= e.speed * dt * 60;
-
     var bobSpeed = e.type === 'phantom' ? 5 : e.type === 'scorch' ? 7 : e.type === 'titan' ? 2.5 : 3.5;
     e.hoverPhase += dt * bobSpeed;
-
     e.wobble += dt * (e.type === 'phantom' ? 12 : 6);
     if (e.z < 40) {
       var swoopFactor = 1 - ((40 - e.z) / 40);
@@ -931,9 +978,7 @@ function update(dt) {
     var driftSpeed = 0.03 * dt * 60;
     if (e.x < spreadTarget - 0.1) e.x += driftSpeed;
     else if (e.x > spreadTarget + 0.1) e.x -= driftSpeed;
-
     e.x += Math.sin(e.wobble * 0.5) * 0.015;
-
     if (e.flash > 0) e.flash -= dt;
 
     if (e.z <= ATTACK_RANGE) {
@@ -1000,9 +1045,6 @@ function update(dt) {
   }
 }
 
-// ═══════════════════════════════════════
-//  MAIN LOOP
-// ═══════════════════════════════════════
 function draw(timestamp) {
   const dt = Math.min((timestamp-lastTime)/1000, 0.05);
   lastTime = timestamp;
@@ -1036,9 +1078,6 @@ function draw(timestamp) {
   requestAnimationFrame(draw);
 }
 
-// ═══════════════════════════════════════
-//  INPUT — Desktop (Mouse + Keyboard)
-// ═══════════════════════════════════════
 canvas.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
 canvas.addEventListener('mousedown', () => {
   if (state !== 'playing') return;
@@ -1058,9 +1097,6 @@ document.addEventListener('keydown', e => {
   }
 });
 
-// ═══════════════════════════════════════
-//  INPUT — Mobile (Joystick + Fire Button)
-// ═══════════════════════════════════════
 var weaponBtnRects = [];
 
 function hitTestWeaponButton(tx, ty) {
@@ -1090,17 +1126,15 @@ canvas.addEventListener('touchstart', function(e) {
   for (var i = 0; i < e.changedTouches.length; i++) {
     var t = e.changedTouches[i];
     var rect = canvas.getBoundingClientRect();
-var tx = (t.clientX - rect.left) * (canvas.width / rect.width);
-var ty = (t.clientY - rect.top) * (canvas.height / rect.height);
+    var tx = (t.clientX - rect.left) * (canvas.width / rect.width);
+    var ty = (t.clientY - rect.top) * (canvas.height / rect.height);
 
-    // Check weapon buttons first
     var wpnHit = hitTestWeaponButton(tx, ty);
     if (wpnHit) {
       if (weaponAmmo[wpnHit] > 0 || weaponAmmo[wpnHit] === Infinity) curWeapon = wpnHit;
       continue;
     }
 
-    // Fire button
     if (hitTestFireBtn(tx, ty)) {
       fireBtn.active = true;
       fireBtn.touchId = t.identifier;
@@ -1109,7 +1143,6 @@ var ty = (t.clientY - rect.top) * (canvas.height / rect.height);
       continue;
     }
 
-    // Joystick — left side of screen
     if (isLeftSide(tx) && !joystick.active) {
       joystick.active = true;
       joystick.touchId = t.identifier;
@@ -1129,7 +1162,6 @@ canvas.addEventListener('touchmove', function(e) {
   for (var i = 0; i < e.changedTouches.length; i++) {
     var t = e.changedTouches[i];
 
-    // Joystick drag
     if (t.identifier === joystick.touchId && joystick.active) {
       var rect = canvas.getBoundingClientRect();
       var dx = (t.clientX - rect.left) * (canvas.width / rect.width) - joystick.baseX;
@@ -1142,7 +1174,6 @@ canvas.addEventListener('touchmove', function(e) {
       }
       joystick.thumbX = joystick.baseX + dx;
       joystick.thumbY = joystick.baseY + dy;
-      // Normalize to -1..1
       joystick.dx = dx / joystick.maxDist;
       joystick.dy = dy / joystick.maxDist;
     }
@@ -1153,14 +1184,12 @@ canvas.addEventListener('touchend', function(e) {
   e.preventDefault();
   for (var i = 0; i < e.changedTouches.length; i++) {
     var t = e.changedTouches[i];
-
     if (t.identifier === joystick.touchId) {
       joystick.active = false;
       joystick.touchId = null;
       joystick.dx = 0;
       joystick.dy = 0;
     }
-
     if (t.identifier === fireBtn.touchId) {
       fireBtn.active = false;
       fireBtn.touchId = null;
@@ -1179,9 +1208,6 @@ canvas.addEventListener('touchcancel', function(e) {
   mouseDown = false;
 });
 
-// ═══════════════════════════════════════
-//  HTML BUTTON WIRING
-// ═══════════════════════════════════════
 startBtn.addEventListener('click', async () => {
   const nameInput = document.getElementById('nameInput');
   const name = (nameInput && nameInput.value.trim()) || '';
