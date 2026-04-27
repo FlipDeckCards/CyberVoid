@@ -17,7 +17,7 @@ body {
   gap: 16px;
   padding: 20px;
   position: relative;
-z-index: 100;
+  z-index: 100;
 }
 
 .title {
@@ -181,4 +181,20 @@ z-index: 100;
   height: 100vh;
   z-index: 1;
   background: #000;
+}
+
+/* ── Rotate Overlay (Mobile Portrait Block) ── */
+#rotateOverlay {
+  display: none;
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: #000;
+  z-index: 99999;
+  justify-content: center;
+  align-items: center;
+}
+
+@media (orientation: portrait) and (max-width: 900px) {
+  #rotateOverlay { display: flex !important; }
 }
