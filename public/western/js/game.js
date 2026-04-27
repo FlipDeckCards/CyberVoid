@@ -653,7 +653,7 @@ function loadTextures(callback) {
             while (!hit) {
                 if (sDistX < sDistY) { sDistX += ddX; mapX += stepX; side = 0; }
                 else { sDistY += ddY; mapY += stepY; side = 1; }
-                if (mapX < 0 || mapX >= mapS || mapY < 0 || mapY >= mapS) { hit = 1; break; }
+                if (mapX < 0 || mapX >= mapW || mapY < 0 || mapY >= mapH) { hit = 1; break; }
                 if (map[mapY][mapX] > 0) hit = 1;
             }
 
