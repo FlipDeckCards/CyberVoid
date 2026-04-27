@@ -422,7 +422,7 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
       case "wheel":   buildWheel(s.x - 0.5, s.y - 0.5); break;
     }
   });
-  // ============================================================
+   // ============================================================
   //  ENEMY 3D MESHES
   // ============================================================
 
@@ -848,6 +848,10 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
   //  SHOOTING
   // ============================================================
 
+  // ============================================================
+  //  SHOOTING
+  // ============================================================
+
   function handleShooting() {
     if (fireTimer > 0) { fireTimer--; return; }
     if (!shooting) return;
@@ -922,7 +926,7 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
     document.getElementById("hud").style.display = "none";
     if (document.pointerLockElement) document.exitPointerLock();
   }
-Part 3 of 3
+
   // ============================================================
   //  2D OVERLAY — Weapon, Crosshair, Weapon Bar, Damage Flash
   // ============================================================
