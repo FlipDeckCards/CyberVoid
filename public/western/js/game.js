@@ -279,20 +279,7 @@
             }
         }
     }
-    function handleTouchMove(e) {
-        e.preventDefault();
-        for (var i = 0; i < e.changedTouches.length; i++) {
-            var t = e.changedTouches[i];
-            if (touchJoy && t.identifier === touchJoy.id) {
-                touchJoy.currX = t.clientX; touchJoy.currY = t.clientY;
-            }
-            if (touchLook && t.identifier === touchLook.id) {
-                pa += (t.clientX - touchLook.currX) * 0.004;
-                touchLook.currX = t.clientX;
-            }
-        }
-    }
-
+   
     function handleTouchMove(e) {
         e.preventDefault();
         for (var i = 0; i < e.changedTouches.length; i++) {
@@ -324,6 +311,19 @@
                 }
             }
         }
+    }
+     // === TOUCH END ===
+    function handleTouchEnd(e) {
+        for (var i = 0; i < e.changedTouches.length; i++) {
+            var t = e.changedTouches[i];
+            if (touchJoy && t.identifier === touchJoy.id) touchJoy = null;
+            if (touchLook && t.identifier === touchLook.id) touchLook = null;
+        }
+        var midTouch = false;
+        for (var j = 0; j < e.touches.length; j++) {
+            if (e.touches[j].clientX > W / 3 && e.touches[j].clientX < W * 2 / 3) midTouch = true;
+        }
+        if (!midTouch) shooting = false;
     }
     // === MOVEMENT ===
     function handleInput() {
