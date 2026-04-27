@@ -247,16 +247,38 @@
         e.preventDefault();
         for (var i = 0; i < e.changedTouches.length; i++) {
             var t = e.changedTouches[i];
+
+            // Check if tapping weapon bar area (bottom center)
+            var slotW = 70, slotH = 45, gap = 6;
+            var totalW = weaponKeys.length * slotW + (weaponKeys.length - 1) * gap;
+            var startX = (W - totalW) / 2;
+            var barY = H - 55;
+
+            if (t.clientY >= barY && t.clientY <= barY + slotH) {
+                for (var wi = 0; wi < weaponKeys.length; wi++) {
+                    var sx = startX + wi * (slotW + gap);
+                    if (t.clientX >= sx && t.clientX <= sx + slotW) {
+                        if (wi !== currentWeapon) {
+                            currentWeapon = wi;
+                            fireTimer = 10;
+                        }
+                        return; // consume this touch
+                    }
+                }
+            }
+
+            // Left third = joystick
             if (t.clientX < W / 3) {
                 touchJoy = {startX: t.clientX, startY: t.clientY, currX: t.clientX, currY: t.clientY, id: t.identifier};
+            // Right third = look + swipe weapon switch
             } else if (t.clientX > W * 2 / 3) {
-                touchLook = {startX: t.clientX, currX: t.clientX, id: t.identifier};
+                touchLook = {startX: t.clientX, startY: t.clientY, currX: t.clientX, currY: t.clientY, id: t.identifier, switched: false};
+            // Middle = fire
             } else {
                 shooting = true;
             }
         }
     }
-
     function handleTouchMove(e) {
         e.preventDefault();
         for (var i = 0; i < e.changedTouches.length; i++) {
@@ -271,19 +293,38 @@
         }
     }
 
-    function handleTouchEnd(e) {
+    function handleTouchMove(e) {
+        e.preventDefault();
         for (var i = 0; i < e.changedTouches.length; i++) {
             var t = e.changedTouches[i];
-            if (touchJoy && t.identifier === touchJoy.id) touchJoy = null;
-            if (touchLook && t.identifier === touchLook.id) touchLook = null;
-        }
-        var midTouch = false;
-        for (var j = 0; j < e.touches.length; j++) {
-            if (e.touches[j].clientX > W / 3 && e.touches[j].clientX < W * 2 / 3) midTouch = true;
-        }
-        if (!midTouch) shooting = false;
-    }
+            if (touchJoy && t.identifier === touchJoy.id) {
+                touchJoy.currX = t.clientX; touchJoy.currY = t.clientY;
+            }
+            if (touchLook && t.identifier === touchLook.id) {
+                // Horizontal = look
+                var deltaX = t.clientX - touchLook.currX;
+                pa += deltaX * 0.004;
+                touchLook.currX = t.clientX;
+                touchLook.currY = t.clientY;
 
+                // Vertical swipe = weapon switch
+                if (!touchLook.switched) {
+                    var swipeY = t.clientY - touchLook.startY;
+                    if (swipeY < -40) {
+                        // Swipe up = next weapon
+                        currentWeapon = (currentWeapon + 1) % 4;
+                        fireTimer = 10;
+                        touchLook.switched = true;
+                    } else if (swipeY > 40) {
+                        // Swipe down = prev weapon
+                        currentWeapon = (currentWeapon + 3) % 4;
+                        fireTimer = 10;
+                        touchLook.switched = true;
+                    }
+                }
+            }
+        }
+    }
     // === MOVEMENT ===
     function handleInput() {
         var ms = moveSpd;
