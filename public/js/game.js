@@ -20,6 +20,14 @@ if (!sessionToken) {
   localStorage.setItem('dz_session', sessionToken);
 }
 
+// ── MOBILE DETECTION ──
+var mobileDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
+// Try to lock landscape on mobile
+if (mobileDevice && screen.orientation && screen.orientation.lock) {
+  screen.orientation.lock('landscape').catch(function(){});
+}
+
 // ── IMAGE LOADING ──
 const IMG = {};
 const imgSources = {
@@ -71,7 +79,6 @@ const ENEMY_GLOW = {
 };
 
 // ── PER-ENEMY HITBOXES ──
-// ox/oy = offset from sprite center (fraction of projSize), r = radius (fraction of projSize)
 const ENEMY_HITBOXES = {
   scorch: [
     { ox: 0,    oy: 0,     r: 0.25, critical: true,  mult: 1.0   },
@@ -89,9 +96,9 @@ const ENEMY_HITBOXES = {
     { ox:-0.62, oy: 0.02,  r: 0.12, critical: false, mult: 0.333 },
     { ox: 0.62, oy: 0.02,  r: 0.12, critical: false, mult: 0.333 }
   ],
-   titan: [
-    { ox: 0,    oy:-0.35,  r: 0.12, critical: true,  mult: 1.0   },  // headshot
-    { ox: 0,    oy:-0.12,  r: 0.14, critical: true,  mult: 1.0   },  // center mass
+  titan: [
+    { ox: 0,    oy:-0.35,  r: 0.12, critical: true,  mult: 1.0   },
+    { ox: 0,    oy:-0.12,  r: 0.14, critical: true,  mult: 1.0   },
     { ox:-0.32, oy:-0.18,  r: 0.14, critical: false, mult: 0.333 },
     { ox: 0.32, oy:-0.18,  r: 0.14, critical: false, mult: 0.333 },
     { ox:-0.28, oy: 0.08,  r: 0.13, critical: false, mult: 0.333 },
@@ -101,6 +108,30 @@ const ENEMY_HITBOXES = {
     { ox: 0.22, oy: 0.30,  r: 0.14, critical: false, mult: 0.333 }
   ]
 };
+
+// ── MOBILE CONTROLS STATE ──
+var joystick = {
+  active: false,
+  touchId: null,
+  baseX: 0, baseY: 0,
+  thumbX: 0, thumbY: 0,
+  dx: 0, dy: 0,
+  baseRadius: 55,
+  thumbRadius: 22,
+  maxDist: 45
+};
+var fireBtn = {
+  active: false,
+  touchId: null,
+  x: 0, y: 0,
+  radius: 42
+};
+var AIM_SPEED = 14;
+
+function updateMobileLayout() {
+  fireBtn.x = W - 90;
+  fireBtn.y = H - 100;
+}
 
 // ── STATE ──
 let W, H, cx, cy, horizonY, roadVPx;
@@ -128,6 +159,7 @@ function resize() {
   cx = W / 2; cy = H / 2;
   horizonY = H * 0.55;
   roadVPx = W * 0.25;
+  updateMobileLayout();
 }
 window.addEventListener('resize', resize);
 resize();
@@ -228,6 +260,11 @@ function init() {
   spawnBudget = killGoal;
   scoreSubmitted = false;
   state = 'playing';
+  // Center crosshair on mobile
+  if (mobileDevice) {
+    mouse.x = cx;
+    mouse.y = cy;
+  }
   initRain();
 }
 
@@ -352,7 +389,6 @@ function collectPowerup(pu) {
 function checkHit(aimX, aimY, screenCX, screenCY, projSize, enemyType) {
   var zones = ENEMY_HITBOXES[enemyType] || ENEMY_HITBOXES.sentinel;
 
-  // Check critical zones first, then non-critical
   for (var pass = 0; pass < 2; pass++) {
     var wantCritical = (pass === 0);
     for (var i = 0; i < zones.length; i++) {
@@ -615,37 +651,6 @@ function drawEnemy(e) {
   }
 }
 
-// ========== HITBOX DEBUG OVERLAY ==========
-// REMOVE drawHitboxDebug calls from draw() when done tuning
-function drawHitboxDebug(e) {
-  var hoverY = e.hoverBase + Math.sin(e.hoverPhase) * 0.8;
-  var scaledH = ENEMY_H * (e.sizeScale || 1);
-  var bp = proj(e.x, hoverY, e.z);
-  var tp = proj(e.x, hoverY + scaledH, e.z);
-  var sh = bp.y - tp.y;
-  var screenCX = bp.x;
-  var screenCY = (tp.y + bp.y) / 2;
-
-  var zones = ENEMY_HITBOXES[e.type] || ENEMY_HITBOXES.sentinel;
-
-  ctx.globalAlpha = 0.5;
-  ctx.lineWidth = 2;
-
-  for (var i = 0; i < zones.length; i++) {
-    var z = zones[i];
-    var zx = screenCX + z.ox * sh;
-    var zy = screenCY + z.oy * sh;
-    var zr = z.r * sh;
-
-    ctx.strokeStyle = z.critical ? '#f00' : '#ff0';
-    ctx.beginPath();
-    ctx.arc(zx, zy, zr, 0, Math.PI * 2);
-    ctx.stroke();
-  }
-
-  ctx.globalAlpha = 1;
-}
-
 function drawPowerup(pu) {
   const p = proj(pu.x, 1.5+Math.sin(Date.now()*0.004)*0.5, pu.z);
   const sz = Math.max(4, p.s * 0.83);
@@ -744,10 +749,10 @@ function drawHUD() {
   ctx.fillText('SCORE: '+score+'   KILLS: '+kills+'/'+killGoal,cx,48);
   ctx.textAlign = 'left';
 
-  var isMobile = W < 800;
-  var invW = isMobile ? 56 : 42;
-  var invH = isMobile ? 38 : 26;
-  var invY = isMobile ? H - 110 : H - 95;
+  var isMobileHUD = W < 800;
+  var invW = isMobileHUD ? 56 : 42;
+  var invH = isMobileHUD ? 38 : 26;
+  var invY = isMobileHUD ? H - 110 : H - 95;
   var invStart = cx - (WEAPON_ORDER.length * invW) / 2;
   weaponBtnRects = [];
 
@@ -765,22 +770,98 @@ function drawHUD() {
       ctx.strokeRect(wx, invY, invW - 4, invH); ctx.shadowBlur = 0;
     }
     ctx.fillStyle = hasAmmo ? '#fff' : '#444';
-    ctx.font = 'bold ' + (isMobile ? '14' : '11') + 'px monospace';
+    ctx.font = 'bold ' + (isMobileHUD ? '14' : '11') + 'px monospace';
     ctx.textAlign = 'center';
-    ctx.fillText(WEAPONS[wk].name.slice(0, 3), wx + (invW - 4) / 2, invY + invH - (isMobile ? 10 : 8));
+    ctx.fillText(WEAPONS[wk].name.slice(0, 3), wx + (invW - 4) / 2, invY + invH - (isMobileHUD ? 10 : 8));
     ctx.textAlign = 'left';
   });
 
-  ctx.strokeStyle = 'rgba(0,255,0,0.9)'; ctx.lineWidth = 2;
-  ctx.shadowColor = '#0f0'; ctx.shadowBlur = 4;
+// Crosshair (hide on mobile — joystick controls aim)
+  if (!mobileDevice) {
+    ctx.strokeStyle = 'rgba(0,255,0,0.9)'; ctx.lineWidth = 2;
+    ctx.shadowColor = '#0f0'; ctx.shadowBlur = 4;
+    ctx.beginPath();
+    ctx.moveTo(mouse.x-16,mouse.y); ctx.lineTo(mouse.x-5,mouse.y);
+    ctx.moveTo(mouse.x+5,mouse.y); ctx.lineTo(mouse.x+16,mouse.y);
+    ctx.moveTo(mouse.x,mouse.y-16); ctx.lineTo(mouse.x,mouse.y-5);
+    ctx.moveTo(mouse.x,mouse.y+5); ctx.lineTo(mouse.x,mouse.y+16);
+    ctx.stroke(); ctx.shadowBlur = 0;
+    ctx.fillStyle = '#0f0'; ctx.beginPath();
+    ctx.arc(mouse.x,mouse.y,2,0,Math.PI*2); ctx.fill();
+  } else {
+    // Mobile crosshair — smaller, always visible
+    ctx.strokeStyle = 'rgba(0,255,0,0.8)'; ctx.lineWidth = 2;
+    ctx.shadowColor = '#0f0'; ctx.shadowBlur = 6;
+    ctx.beginPath();
+    ctx.moveTo(mouse.x-12,mouse.y); ctx.lineTo(mouse.x-4,mouse.y);
+    ctx.moveTo(mouse.x+4,mouse.y); ctx.lineTo(mouse.x+12,mouse.y);
+    ctx.moveTo(mouse.x,mouse.y-12); ctx.lineTo(mouse.x,mouse.y-4);
+    ctx.moveTo(mouse.x,mouse.y+4); ctx.lineTo(mouse.x,mouse.y+12);
+    ctx.stroke(); ctx.shadowBlur = 0;
+    ctx.fillStyle = '#0f0'; ctx.beginPath();
+    ctx.arc(mouse.x,mouse.y,2,0,Math.PI*2); ctx.fill();
+  }
+}
+
+// ═══════════════════════════════════════
+//  MOBILE CONTROLS DRAWING
+// ═══════════════════════════════════════
+function drawMobileControls() {
+  if (!mobileDevice || state !== 'playing') return;
+
+  // ── Joystick ──
+  if (joystick.active) {
+    // Base ring
+    ctx.globalAlpha = 0.25;
+    ctx.strokeStyle = '#0f0';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(joystick.baseX, joystick.baseY, joystick.baseRadius, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Thumb
+    ctx.globalAlpha = 0.5;
+    ctx.fillStyle = '#0f0';
+    ctx.shadowColor = '#0f0';
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.arc(joystick.thumbX, joystick.thumbY, joystick.thumbRadius, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  } else {
+    // Hint zone (left side)
+    ctx.globalAlpha = 0.08;
+    ctx.fillStyle = '#0f0';
+    ctx.fillRect(0, H * 0.3, W * 0.35, H * 0.5);
+    ctx.globalAlpha = 0.3;
+    ctx.font = '12px monospace';
+    ctx.fillStyle = '#0f0';
+    ctx.textAlign = 'center';
+    ctx.fillText('DRAG TO AIM', W * 0.175, H * 0.55);
+    ctx.textAlign = 'left';
+  }
+
+  // ── Fire Button ──
+  var fbAlpha = fireBtn.active ? 0.6 : 0.35;
+  ctx.globalAlpha = fbAlpha;
+  ctx.fillStyle = fireBtn.active ? '#f44' : '#f00';
+  ctx.shadowColor = '#f00';
+  ctx.shadowBlur = fireBtn.active ? 20 : 8;
   ctx.beginPath();
-  ctx.moveTo(mouse.x-16,mouse.y); ctx.lineTo(mouse.x-5,mouse.y);
-  ctx.moveTo(mouse.x+5,mouse.y); ctx.lineTo(mouse.x+16,mouse.y);
-  ctx.moveTo(mouse.x,mouse.y-16); ctx.lineTo(mouse.x,mouse.y-5);
-  ctx.moveTo(mouse.x,mouse.y+5); ctx.lineTo(mouse.x,mouse.y+16);
-  ctx.stroke(); ctx.shadowBlur = 0;
-  ctx.fillStyle = '#0f0'; ctx.beginPath();
-  ctx.arc(mouse.x,mouse.y,2,0,Math.PI*2); ctx.fill();
+  ctx.arc(fireBtn.x, fireBtn.y, fireBtn.radius, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  ctx.globalAlpha = 0.9;
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 16px Orbitron';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('FIRE', fireBtn.x, fireBtn.y);
+  ctx.textBaseline = 'alphabetic';
+  ctx.textAlign = 'left';
+
+  ctx.globalAlpha = 1;
 }
 
 function drawParticles() {
@@ -804,6 +885,17 @@ function update(dt) {
   if (screenShake < 0.01) screenShake = 0;
   if (enemies.length > 0) gunBob += dt*3;
   if (mouseDown && WEAPONS[curWeapon].auto) shoot();
+
+  // ── Mobile joystick aim ──
+  if (mobileDevice && joystick.active) {
+    mouse.x += joystick.dx * AIM_SPEED;
+    mouse.y += joystick.dy * AIM_SPEED;
+    // Clamp to screen
+    if (mouse.x < 0) mouse.x = 0;
+    if (mouse.x > W) mouse.x = W;
+    if (mouse.y < 0) mouse.y = 0;
+    if (mouse.y > H) mouse.y = H;
+  }
 
   spawnTimer -= dt*1000;
   if (spawnTimer <= 0 && spawnBudget > 0) {
@@ -926,9 +1018,7 @@ function draw(timestamp) {
     powerups.sort((a,b) => b.z-a.z);
     powerups.forEach(drawPowerup);
     enemies.sort((a,b) => b.z-a.z);
-    enemies.forEach(e => {
-      drawEnemy(e);
-    });
+    enemies.forEach(drawEnemy);
     drawParticles();
     drawDamageNumbers();
     drawFog();
@@ -939,6 +1029,7 @@ function draw(timestamp) {
       ctx.fillRect(0,0,W,H);
     }
     drawHUD();
+    drawMobileControls();
   }
 
   ctx.restore();
@@ -946,9 +1037,8 @@ function draw(timestamp) {
 }
 
 // ═══════════════════════════════════════
-//  INPUT (Mouse + Touch)
+//  INPUT — Desktop (Mouse + Keyboard)
 // ═══════════════════════════════════════
-
 canvas.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
 canvas.addEventListener('mousedown', () => {
   if (state !== 'playing') return;
@@ -959,52 +1049,6 @@ canvas.addEventListener('mouseup', () => { mouseDown = false; });
 canvas.addEventListener('mouseleave', () => { mouseDown = false; });
 canvas.addEventListener('contextmenu', e => e.preventDefault());
 
-var touchShootId = null;
-
-canvas.addEventListener('touchstart', e => {
-  e.preventDefault();
-  if (state !== 'playing') return;
-  for (var i = 0; i < e.changedTouches.length; i++) {
-    var t = e.changedTouches[i];
-    var wpnHit = hitTestWeaponButton(t.clientX, t.clientY);
-    if (wpnHit) {
-      if (weaponAmmo[wpnHit] > 0 || weaponAmmo[wpnHit] === Infinity) curWeapon = wpnHit;
-      return;
-    }
-    mouse.x = t.clientX;
-    mouse.y = t.clientY;
-    touchShootId = t.identifier;
-    mouseDown = true;
-    shoot();
-  }
-}, { passive: false });
-
-canvas.addEventListener('touchmove', e => {
-  e.preventDefault();
-  for (var i = 0; i < e.changedTouches.length; i++) {
-    var t = e.changedTouches[i];
-    if (t.identifier === touchShootId) {
-      mouse.x = t.clientX;
-      mouse.y = t.clientY;
-    }
-  }
-}, { passive: false });
-
-canvas.addEventListener('touchend', e => {
-  e.preventDefault();
-  for (var i = 0; i < e.changedTouches.length; i++) {
-    if (e.changedTouches[i].identifier === touchShootId) {
-      mouseDown = false;
-      touchShootId = null;
-    }
-  }
-}, { passive: false });
-
-canvas.addEventListener('touchcancel', e => {
-  mouseDown = false;
-  touchShootId = null;
-});
-
 document.addEventListener('keydown', e => {
   if (state !== 'playing') return;
   var num = parseInt(e.key);
@@ -1014,6 +1058,9 @@ document.addEventListener('keydown', e => {
   }
 });
 
+// ═══════════════════════════════════════
+//  INPUT — Mobile (Joystick + Fire Button)
+// ═══════════════════════════════════════
 var weaponBtnRects = [];
 
 function hitTestWeaponButton(tx, ty) {
@@ -1025,6 +1072,110 @@ function hitTestWeaponButton(tx, ty) {
   }
   return null;
 }
+
+function hitTestFireBtn(tx, ty) {
+  var dx = tx - fireBtn.x;
+  var dy = ty - fireBtn.y;
+  return Math.sqrt(dx * dx + dy * dy) < fireBtn.radius + 15;
+}
+
+function isLeftSide(tx) {
+  return tx < W * 0.4;
+}
+
+canvas.addEventListener('touchstart', function(e) {
+  e.preventDefault();
+  if (state !== 'playing') return;
+
+  for (var i = 0; i < e.changedTouches.length; i++) {
+    var t = e.changedTouches[i];
+    var tx = t.clientX;
+    var ty = t.clientY;
+
+    // Check weapon buttons first
+    var wpnHit = hitTestWeaponButton(tx, ty);
+    if (wpnHit) {
+      if (weaponAmmo[wpnHit] > 0 || weaponAmmo[wpnHit] === Infinity) curWeapon = wpnHit;
+      continue;
+    }
+
+    // Fire button
+    if (hitTestFireBtn(tx, ty)) {
+      fireBtn.active = true;
+      fireBtn.touchId = t.identifier;
+      mouseDown = true;
+      shoot();
+      continue;
+    }
+
+    // Joystick — left side of screen
+    if (isLeftSide(tx) && !joystick.active) {
+      joystick.active = true;
+      joystick.touchId = t.identifier;
+      joystick.baseX = tx;
+      joystick.baseY = ty;
+      joystick.thumbX = tx;
+      joystick.thumbY = ty;
+      joystick.dx = 0;
+      joystick.dy = 0;
+      continue;
+    }
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchmove', function(e) {
+  e.preventDefault();
+  for (var i = 0; i < e.changedTouches.length; i++) {
+    var t = e.changedTouches[i];
+
+    // Joystick drag
+    if (t.identifier === joystick.touchId && joystick.active) {
+      var dx = t.clientX - joystick.baseX;
+      var dy = t.clientY - joystick.baseY;
+      var dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist > joystick.maxDist) {
+        dx = dx / dist * joystick.maxDist;
+        dy = dy / dist * joystick.maxDist;
+        dist = joystick.maxDist;
+      }
+      joystick.thumbX = joystick.baseX + dx;
+      joystick.thumbY = joystick.baseY + dy;
+      // Normalize to -1..1
+      joystick.dx = dx / joystick.maxDist;
+      joystick.dy = dy / joystick.maxDist;
+    }
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchend', function(e) {
+  e.preventDefault();
+  for (var i = 0; i < e.changedTouches.length; i++) {
+    var t = e.changedTouches[i];
+
+    if (t.identifier === joystick.touchId) {
+      joystick.active = false;
+      joystick.touchId = null;
+      joystick.dx = 0;
+      joystick.dy = 0;
+    }
+
+    if (t.identifier === fireBtn.touchId) {
+      fireBtn.active = false;
+      fireBtn.touchId = null;
+      mouseDown = false;
+    }
+  }
+}, { passive: false });
+
+canvas.addEventListener('touchcancel', function(e) {
+  joystick.active = false;
+  joystick.touchId = null;
+  joystick.dx = 0;
+  joystick.dy = 0;
+  fireBtn.active = false;
+  fireBtn.touchId = null;
+  mouseDown = false;
+});
 
 // ═══════════════════════════════════════
 //  HTML BUTTON WIRING
@@ -1049,7 +1200,7 @@ startBtn.addEventListener('click', async () => {
   GameSound.musicStart();
   playerName = name.toUpperCase();
   startScreen.style.display = 'none';
-  canvas.style.cursor = 'none';
+  canvas.style.cursor = mobileDevice ? 'default' : 'none';
   init();
 });
 
@@ -1057,7 +1208,7 @@ restartBtn.addEventListener('click', () => {
   GameSound.gameStart();
   GameSound.musicStart();
   gameOverScreen.style.display = 'none';
-  canvas.style.cursor = 'none';
+  canvas.style.cursor = mobileDevice ? 'default' : 'none';
   init();
 });
 
