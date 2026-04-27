@@ -23,7 +23,6 @@ if (!sessionToken) {
 // ── MOBILE DETECTION ──
 var mobileDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 
-// Try to lock landscape on mobile
 if (mobileDevice && screen.orientation && screen.orientation.lock) {
   screen.orientation.lock('landscape').catch(function(){});
 }
@@ -236,6 +235,7 @@ async function checkCallsign(name) {
 }
 
 leaderboardBox.addEventListener('click', () => {
+  GameSound.menuMusicStart(); // ◄ NEW
   leaderboardList.classList.toggle('open');
   const title = leaderboardBox.querySelector('.lb-title');
   if (leaderboardList.classList.contains('open')) {
@@ -260,7 +260,6 @@ function init() {
   spawnBudget = killGoal;
   scoreSubmitted = false;
   state = 'playing';
-  // Center crosshair on mobile
   if (mobileDevice) {
     mouse.x = cx;
     mouse.y = cy;
@@ -498,7 +497,6 @@ function shoot() {
     }
   }
 }
-
 // ═══════════════════════════════════════
 //  DRAWING
 // ═══════════════════════════════════════
@@ -840,7 +838,6 @@ function drawHUD() {
       }
     }
   });
-  // ── END weapon bar ──
 
   // Crosshair
   if (!mobileDevice) {
@@ -868,6 +865,9 @@ function drawHUD() {
   }
 }
 
+// ═══════════════════════════════════════
+//  MOBILE CONTROLS DRAWING
+// ═══════════════════════════════════════
 function drawMobileControls() {
   if (!mobileDevice || state !== 'playing') return;
 
@@ -927,6 +927,9 @@ function drawParticles() {
   ctx.globalAlpha = 1;
 }
 
+// ═══════════════════════════════════════
+//  UPDATE
+// ═══════════════════════════════════════
 function update(dt) {
   if (state !== 'playing') return;
   updateRain();
@@ -1036,6 +1039,7 @@ function update(dt) {
     health = 0; state = 'dead';
     GameSound.gameOver();
     GameSound.musicStop();
+    GameSound.menuMusicStart(); // ◄ NEW — menu music on death screen
     canvas.style.cursor = 'default';
     document.getElementById('goScore').textContent = 'SCORE: '+score;
     document.getElementById('goWave').textContent = 'WAVE: '+wave;
@@ -1044,7 +1048,9 @@ function update(dt) {
     submitScore();
   }
 }
-
+// ═══════════════════════════════════════
+//  MAIN LOOP
+// ═══════════════════════════════════════
 function draw(timestamp) {
   const dt = Math.min((timestamp-lastTime)/1000, 0.05);
   lastTime = timestamp;
@@ -1078,6 +1084,9 @@ function draw(timestamp) {
   requestAnimationFrame(draw);
 }
 
+// ═══════════════════════════════════════
+//  INPUT — Desktop (Mouse + Keyboard)
+// ═══════════════════════════════════════
 canvas.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
 canvas.addEventListener('mousedown', () => {
   if (state !== 'playing') return;
@@ -1097,6 +1106,9 @@ document.addEventListener('keydown', e => {
   }
 });
 
+// ═══════════════════════════════════════
+//  INPUT — Mobile (Joystick + Fire Button)
+// ═══════════════════════════════════════
 var weaponBtnRects = [];
 
 function hitTestWeaponButton(tx, ty) {
@@ -1208,6 +1220,9 @@ canvas.addEventListener('touchcancel', function(e) {
   mouseDown = false;
 });
 
+// ═══════════════════════════════════════
+//  HTML BUTTON WIRING
+// ═══════════════════════════════════════
 startBtn.addEventListener('click', async () => {
   const nameInput = document.getElementById('nameInput');
   const name = (nameInput && nameInput.value.trim()) || '';
@@ -1224,6 +1239,7 @@ startBtn.addEventListener('click', async () => {
   }
 
   callsignError.textContent = '';
+  GameSound.menuMusicStop(); // ◄ NEW
   GameSound.gameStart();
   GameSound.musicStart();
   playerName = name.toUpperCase();
@@ -1233,6 +1249,7 @@ startBtn.addEventListener('click', async () => {
 });
 
 restartBtn.addEventListener('click', () => {
+  GameSound.menuMusicStop(); // ◄ NEW
   GameSound.gameStart();
   GameSound.musicStart();
   gameOverScreen.style.display = 'none';
@@ -1249,6 +1266,7 @@ mainMenuBtn.addEventListener('click', () => {
   leaderboardList.classList.add('open');
   const title = leaderboardBox.querySelector('.lb-title');
   title.textContent = '▼ TOP OPERATORS';
+  GameSound.menuMusicStart(); // ◄ NEW
 });
 
 fetchLeaderboard();
