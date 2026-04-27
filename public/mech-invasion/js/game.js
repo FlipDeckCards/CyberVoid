@@ -53,16 +53,16 @@ if (mobileDevice && screen.orientation && screen.orientation.lock) {
 // ── IMAGE LOADING ──
 const IMG = {};
 const imgSources = {
-  bg: '/assets/city_bg.png',
-  fog: '/assets/fog.png',
-  gun_pistol: '/assets/pistol.png',
-  gun_shotgun: '/assets/shotgun.png',
-  gun_rifle: '/assets/rifle.png',
-  gun_rocket: '/assets/rocket.png',
-  sentinel: '/assets/sentinel.png',
-  phantom: '/assets/phantom.png',
-  titan: '/assets/titan.png',
-  scorch: '/assets/scorch.png'
+  bg: 'assets/city_bg.png',
+  fog: 'assets/fog.png',
+  gun_pistol: 'assets/pistol.png',
+  gun_shotgun: 'assets/shotgun.png',
+  gun_rifle: 'assets/rifle.png',
+  gun_rocket: 'assets/rocket.png',
+  sentinel: 'assets/sentinel.png',
+  phantom: 'assets/phantom.png',
+  titan: 'assets/titan.png',
+  scorch: 'assets/scorch.png'
 };
 let imagesLoaded = 0;
 const totalImages = Object.keys(imgSources).length;
