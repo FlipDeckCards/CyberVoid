@@ -745,14 +745,7 @@ var wallType = map[mapY][mapX];
             for (var x = 0; x < W; x += 4) {
                 var fx = Math.floor(floorX);
                 var fy = Math.floor(floorY);
-                var checker = ((fx + fy) & 1);
-
-                var r, g, b;
-                if (checker) {
-                    r = 210; g = 180; b = 120;
-                } else {
-                    r = 185; g = 155; b = 95;
-                }
+                
 
                 r = Math.floor(r * (1 - fog));
                 g = Math.floor(g * (1 - fog));
