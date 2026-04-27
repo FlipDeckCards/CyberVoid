@@ -18,7 +18,7 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.5;
+  renderer.toneMappingExposure = 2.2; // CHANGED from 1.5
 
   // 2D overlay for weapon, crosshair, weapon bar, damage flash
   var overlay = document.createElement("canvas");
@@ -31,8 +31,8 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 
   // === THREE.JS SCENE ===
   var scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x1a0a2e);
-  scene.fog = new THREE.FogExp2(0x1a0a2e, 0.018);
+  scene.background = new THREE.Color(0x2a1a3e); // CHANGED from 0x1a0a2e
+  scene.fog = new THREE.FogExp2(0x2a1a3e, 0.008); // CHANGED from 0x1a0a2e, 0.018
 
   var camera = new THREE.PerspectiveCamera(
     75, window.innerWidth / window.innerHeight, 0.1, 200
@@ -44,14 +44,14 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 
   var bloomPass = new UnrealBloomPass(
     new THREE.Vector2(window.innerWidth, window.innerHeight),
-    0.45, 0.4, 0.82
+    0.3, 0.4, 0.82 // CHANGED strength from 0.45 to 0.3
   );
   composer.addPass(bloomPass);
 
   var vignettePass = new ShaderPass({
     uniforms: {
       tDiffuse: { value: null },
-      darkness: { value: 1.3 }
+      darkness: { value: 0.5 } // CHANGED from 1.3
     },
     vertexShader: [
       'varying vec2 vUv;',
@@ -83,6 +83,7 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
   var score = 0;
   var wave = 1;
   var health = 100;
+  var spawnInvincible = 0; // ADDED — frames of spawn invincibility
 
   // === MAP ===
   var map = [
@@ -248,8 +249,8 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
     var skyGeo = new THREE.SphereGeometry(120, 32, 32);
     var skyMat = new THREE.ShaderMaterial({
       uniforms: {
-        topColor:    { value: new THREE.Color(0x1a0a2e) },
-        bottomColor: { value: new THREE.Color(0xcc5500) },
+        topColor:    { value: new THREE.Color(0x2a1a3e) }, // CHANGED to match fog
+        bottomColor: { value: new THREE.Color(0xe06800) }, // CHANGED brighter sunset
         offset:   { value: 10 },
         exponent: { value: 0.6 }
       },
@@ -274,9 +275,9 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
   })();
 
   // --- Lighting ---
-  scene.add(new THREE.AmbientLight(0xffeedd, 0.6));
+  scene.add(new THREE.AmbientLight(0xffeedd, 1.4)); // CHANGED from 0.6
 
-  var sun = new THREE.DirectionalLight(0xffaa44, 1.2);
+  var sun = new THREE.DirectionalLight(0xffaa44, 1.8); // CHANGED from 1.2
   sun.position.set(20, 30, 10);
   sun.castShadow = true;
   sun.shadow.mapSize.width = 2048;
@@ -289,14 +290,14 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
   sun.shadow.camera.bottom = -40;
   scene.add(sun);
 
-  scene.add(new THREE.HemisphereLight(0xffaa44, 0x8B4513, 0.5));
+  scene.add(new THREE.HemisphereLight(0xffaa44, 0x8B4513, 0.9)); // CHANGED from 0.5
 
   // --- Torches ---
   var torchPositions = [
     [3,1],[8,1],[13,1],[1,6],[1,11],[14,6],[14,11],[6,6],[10,10],[8,14]
   ];
   torchPositions.forEach(function (pos) {
-    var tLight = new THREE.PointLight(0xff6b35, 2.0, 14);
+    var tLight = new THREE.PointLight(0xff6b35, 3.0, 22); // CHANGED from 2.0, 14
     tLight.position.set(pos[0] * CELL + CELL / 2, 3.5, pos[1] * CELL + CELL / 2);
     tLight.castShadow = true;
     tLight.shadow.mapSize.width = 256;
@@ -310,7 +311,7 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
     glow.position.copy(tLight.position);
     scene.add(glow);
 
-    torches.push({ light: tLight, base: 2.0 });
+    torches.push({ light: tLight, base: 3.0 }); // CHANGED from 2.0
   });
 
   // ============================================================
@@ -421,8 +422,7 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
       case "wheel":   buildWheel(s.x - 0.5, s.y - 0.5); break;
     }
   });
-
-   // ============================================================
+  // ============================================================
   //  ENEMY 3D MESHES
   // ============================================================
 
@@ -557,6 +557,7 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
     dmgFlash = 0; currentWeapon = 0;
     weaponAmmo = [Infinity, 12, 8, 3];
     weaponKick = 0; shooting = false; fireTimer = 0;
+    spawnInvincible = 180; // ADDED — 3 seconds of spawn protection
 
     for (var i = 0; i < enemies.length; i++) {
       if (enemies[i].mesh) removeEnemyMesh(enemies[i].mesh);
@@ -709,6 +710,8 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
     weaponAmmo[2] = WEAPONS.rifle.maxAmmo;
     weaponAmmo[3] = WEAPONS.dynamite.maxAmmo;
 
+    if (wave > 1) spawnInvincible = 120; // ADDED — 2 seconds protection on new waves
+
     for (var i = 0; i < count; i++) {
       var type;
       var roll = Math.random();
@@ -728,7 +731,7 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
         attempts++;
       } while (
         (map[Math.floor(ey)][Math.floor(ex)] !== 0 ||
-          Math.sqrt((ex - px) * (ex - px) + (ey - py) * (ey - py)) < 3) &&
+          Math.sqrt((ex - px) * (ex - px) + (ey - py) * (ey - py)) < 5) && // CHANGED from 3 to 5
         attempts < 50
       );
 
@@ -787,7 +790,8 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
         if (canWalk(e.x, ny)) e.y = ny;
       }
 
-      if (canAttack) {
+      // CHANGED — skip damage while spawn shield is active
+      if (canAttack && spawnInvincible <= 0) {
         e.attackTimer++;
         if (e.attackTimer >= attackSpeed) {
           health -= e.damage;
@@ -795,6 +799,8 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
           e.attackTimer = 0;
           if (health <= 0) { health = 0; gameOver(); return; }
         }
+      } else if (spawnInvincible > 0) {
+        e.attackTimer = 0; // ADDED — reset attack timers during shield
       } else {
         e.attackTimer = Math.max(0, e.attackTimer - 3);
       }
@@ -916,8 +922,8 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
     document.getElementById("hud").style.display = "none";
     if (document.pointerLockElement) document.exitPointerLock();
   }
-
-   // ============================================================
+Part 3 of 3
+  // ============================================================
   //  2D OVERLAY — Weapon, Crosshair, Weapon Bar, Damage Flash
   // ============================================================
 
@@ -1101,6 +1107,23 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
     }
   }
 
+  // ADDED — spawn shield visual indicator
+  function drawSpawnShield() {
+    if (spawnInvincible > 0) {
+      var alpha = Math.min(0.15, spawnInvincible / 180 * 0.15);
+      ctx.strokeStyle = "rgba(100, 200, 255, " + (alpha * 3) + ")";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(W / 2, H / 2, 80, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.fillStyle = "rgba(100, 200, 255, 0.8)";
+      ctx.font = "bold 14px monospace";
+      ctx.textAlign = "center";
+      ctx.fillText("SHIELD " + Math.ceil(spawnInvincible / 60) + "s", W / 2, H / 2 + 100);
+    }
+  }
+
   // ============================================================
   //  TORCH FLICKER
   // ============================================================
@@ -1118,6 +1141,7 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 
   function loop() {
     if (state === "playing") {
+      if (spawnInvincible > 0) spawnInvincible--; // ADDED — countdown shield
       handleInput();
       handleShooting();
       updateEnemies();
@@ -1132,6 +1156,7 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
       drawCrosshair();
       drawWeaponBar();
       drawDamageFlash();
+      drawSpawnShield(); // ADDED — draw shield indicator
       updateHUD();
     }
     requestAnimationFrame(loop);
