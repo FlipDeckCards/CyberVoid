@@ -126,11 +126,11 @@ var fireBtn = {
   x: 0, y: 0,
   radius: 42
 };
-var AIM_SPEED = 3;
+var AIM_SPEED = 1;
 
 function updateMobileLayout() {
   fireBtn.x = W - 90;
-  fireBtn.y = H - 100;
+  fireBtn.y = H - 175;
 }
 
 // ── STATE ──
@@ -752,7 +752,7 @@ function drawHUD() {
   var isMobileHUD = W < 800;
   var invW = isMobileHUD ? 56 : 42;
   var invH = isMobileHUD ? 38 : 26;
-  var invY = isMobileHUD ? H - 110 : H - 95;
+  var invY = isMobileHUD ? H - 180 : H - 95;
   var invStart = cx - (WEAPON_ORDER.length * invW) / 2;
   weaponBtnRects = [];
 
