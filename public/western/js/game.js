@@ -447,24 +447,59 @@
             var e = enemies[i];
             var edx = px - e.x, edy = py - e.y;
             var dist = Math.sqrt(edx * edx + edy * edy);
+            var ndx = dist > 0 ? edx / dist : 0;
+            var ndy = dist > 0 ? edy / dist : 0;
 
-            if (dist > 0.6) {
-                var nx = e.x + (edx / dist) * e.speed;
-                var ny = e.y + (edy / dist) * e.speed;
+            var moveX = ndx, moveY = ndy;
+            var speed = e.speed;
+            var doMove = dist > 0.6;
+            var canAttack = false;
+            var attackSpeed = 30;
+
+            if (e.type === 'gunslinger') {
+                if (dist < 3.5) {
+                    var strafe = ((i % 2) === 0) ? 1 : -1;
+                    moveX = -ndy * strafe;
+                    moveY = ndx * strafe;
+                    doMove = true;
+                } else if (dist < 6) {
+                    doMove = false;
+                }
+                if (dist < 7) { canAttack = true; attackSpeed = 25; }
+
+            } else if (e.type === 'outlaw') {
+                if (dist < 3) speed = e.speed * 2.5;
+                if (dist < 0.8) { canAttack = true; attackSpeed = 25; }
+
+            } else if (e.type === 'dynamite') {
+                if (dist < 2.5) {
+                    moveX = -ndx; moveY = -ndy; doMove = true;
+                } else if (dist < 5) {
+                    doMove = false;
+                }
+                if (dist < 6 && dist > 1.5) { canAttack = true; attackSpeed = 45; }
+
+            } else {
+                if (dist < 0.8) { canAttack = true; attackSpeed = 30; }
+            }
+
+            if (doMove) {
+                var nx = e.x + moveX * speed;
+                var ny = e.y + moveY * speed;
                 if (map[Math.floor(e.y)][Math.floor(nx)] === 0) e.x = nx;
                 if (map[Math.floor(ny)][Math.floor(e.x)] === 0) e.y = ny;
             }
 
-            if (dist < 0.8) {
+            if (canAttack) {
                 e.attackTimer++;
-                if (e.attackTimer >= 30) {
+                if (e.attackTimer >= attackSpeed) {
                     health -= e.damage;
                     dmgFlash = 10;
                     e.attackTimer = 0;
                     if (health <= 0) { health = 0; gameOver(); return; }
                 }
             } else {
-                e.attackTimer = Math.max(0, e.attackTimer - 1);
+                e.attackTimer = Math.max(0, e.attackTimer - 3);
             }
 
             if (e.hitTimer > 0) e.hitTimer--;
@@ -472,11 +507,10 @@
                 score += e.score;
                 enemies.splice(i, 1);
             }
+
+            if (enemies.length === 0) { wave++; spawnWave(); }
         }
-
-        if (enemies.length === 0) { wave++; spawnWave(); }
     }
-
     // === SHOOTING ===
     function handleShooting() {
         if (fireTimer > 0) { fireTimer--; return; }
