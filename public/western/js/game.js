@@ -51,6 +51,26 @@
         b = Math.floor(b * (1 - fog) + 50 * fog);
         return 'rgb(' + r + ',' + g + ',' + b + ')';
     }
+    // === WORLD SPRITES (depth objects) ===
+    var worldSprites = [
+        {x: 5.5, y: 5.5, type: 'barrel', w: 0.4, h: 0.5},
+        {x: 10.5, y: 5.5, type: 'barrel', w: 0.4, h: 0.5},
+        {x: 7.5, y: 10.5, type: 'barrel', w: 0.4, h: 0.5},
+        {x: 8.0, y: 6.5, type: 'barrel', w: 0.4, h: 0.5},
+        {x: 5.5, y: 1.5, type: 'barrel', w: 0.4, h: 0.5},
+        {x: 9.5, y: 11.5, type: 'barrel', w: 0.4, h: 0.5},
+        {x: 1.5, y: 1.5, type: 'cactus', w: 0.5, h: 0.9},
+        {x: 14.5, y: 1.5, type: 'cactus', w: 0.5, h: 0.9},
+        {x: 1.5, y: 14.5, type: 'cactus', w: 0.5, h: 0.9},
+        {x: 14.5, y: 14.5, type: 'cactus', w: 0.5, h: 0.9},
+        {x: 8.5, y: 1.5, type: 'cactus', w: 0.4, h: 0.8},
+        {x: 7.5, y: 14.5, type: 'cactus', w: 0.4, h: 0.8},
+        {x: 5.5, y: 2.5, type: 'hitch', w: 0.7, h: 0.5},
+        {x: 9.5, y: 4.5, type: 'trough', w: 0.7, h: 0.4},
+        {x: 11.5, y: 10.5, type: 'crate', w: 0.4, h: 0.45},
+        {x: 12.0, y: 10.8, type: 'crate', w: 0.35, h: 0.4},
+        {x: 4.5, y: 11.5, type: 'wheel', w: 0.5, h: 0.6}
+    ];
     // === PLAYER ===
     var px = 7.5, py = 5.5, pa = 0;
     var dx, dy, plX, plY;
