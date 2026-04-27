@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Western Showdown</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="rotate-message">
+        <p>Western Showdown plays best in landscape</p>
+        <p>🤠 Rotate your device 🤠</p>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+    <div id="menu-screen">
+        <h1>WESTERN SHOWDOWN</h1>
+        <p>Survive the outlaws</p>
+        <button id="start-btn">START</button>
+    </div>
+    <div id="game-over-screen" style="display:none;">
+        <h1>GAME OVER</h1>
+        <p>Wave: <span id="final-wave">0</span></p>
+        <p>Score: <span id="final-score">0</span></p>
+        <button id="restart-btn">PLAY AGAIN</button>
+    </div>
+    <div id="hud" style="display:none;">
+        <div id="hud-health">HP: <span id="health">100</span></div>
+        <div id="hud-wave">Wave: <span id="wave">1</span></div>
+        <div id="hud-score">Score: <span id="score">0</span></div>
+        <div id="hud-ammo">Ammo: <span id="ammo">∞</span></div>
+    </div>
+    <script src="js/game.js"></script>
+</body>
+</html>
