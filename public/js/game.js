@@ -126,7 +126,7 @@ var fireBtn = {
   x: 0, y: 0,
   radius: 42
 };
-var AIM_SPEED = 1;
+var AIM_SPEED = 1.5;
 
 function updateMobileLayout() {
   fireBtn.x = W - 90;
@@ -1089,8 +1089,9 @@ canvas.addEventListener('touchstart', function(e) {
 
   for (var i = 0; i < e.changedTouches.length; i++) {
     var t = e.changedTouches[i];
-    var tx = t.clientX;
-    var ty = t.clientY;
+    var rect = canvas.getBoundingClientRect();
+var tx = (t.clientX - rect.left) * (canvas.width / rect.width);
+var ty = (t.clientY - rect.top) * (canvas.height / rect.height);
 
     // Check weapon buttons first
     var wpnHit = hitTestWeaponButton(tx, ty);
@@ -1130,8 +1131,9 @@ canvas.addEventListener('touchmove', function(e) {
 
     // Joystick drag
     if (t.identifier === joystick.touchId && joystick.active) {
-      var dx = t.clientX - joystick.baseX;
-      var dy = t.clientY - joystick.baseY;
+      var rect = canvas.getBoundingClientRect();
+      var dx = (t.clientX - rect.left) * (canvas.width / rect.width) - joystick.baseX;
+      var dy = (t.clientY - rect.top) * (canvas.height / rect.height) - joystick.baseY;
       var dist = Math.sqrt(dx * dx + dy * dy);
       if (dist > joystick.maxDist) {
         dx = dx / dist * joystick.maxDist;
