@@ -18,7 +18,7 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.1;
+  renderer.toneMappingExposure = 1.5;
 
   // 2D overlay for weapon, crosshair, weapon bar, damage flash
   var overlay = document.createElement("canvas");
@@ -32,7 +32,7 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
   // === THREE.JS SCENE ===
   var scene = new THREE.Scene();
   scene.background = new THREE.Color(0x1a0a2e);
-  scene.fog = new THREE.FogExp2(0x1a0a2e, 0.032);
+  scene.fog = new THREE.FogExp2(0x1a0a2e, 0.018);
 
   var camera = new THREE.PerspectiveCamera(
     75, window.innerWidth / window.innerHeight, 0.1, 200
@@ -274,7 +274,7 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
   })();
 
   // --- Lighting ---
-  scene.add(new THREE.AmbientLight(0xcc5500, 0.35));
+  scene.add(new THREE.AmbientLight(0xffeedd, 0.6));
 
   var sun = new THREE.DirectionalLight(0xffaa44, 1.2);
   sun.position.set(20, 30, 10);
@@ -289,7 +289,7 @@ import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
   sun.shadow.camera.bottom = -40;
   scene.add(sun);
 
-  scene.add(new THREE.HemisphereLight(0xffaa44, 0x8B4513, 0.25));
+  scene.add(new THREE.HemisphereLight(0xffaa44, 0x8B4513, 0.5));
 
   // --- Torches ---
   var torchPositions = [
