@@ -14,27 +14,45 @@
 
     // === MAP ===
     var map = [
-        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-        [1,0,0,1,1,0,0,0,0,0,0,1,1,0,0,1],
-        [1,0,0,1,0,0,0,0,0,0,0,0,1,0,0,1],
-        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-        [1,0,0,0,0,0,1,0,0,1,0,0,0,0,0,1],
-        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-        [1,0,0,0,0,0,1,0,0,1,0,0,0,0,0,1],
-        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-        [1,0,0,1,0,0,0,0,0,0,0,0,1,0,0,1],
-        [1,0,0,1,1,0,0,0,0,0,0,1,1,0,0,1],
-        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-        [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+        1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+        1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+        1,0,2,2,2,0,0,0,0,0,3,3,3,3,0,1,
+        1,0,2,2,2,0,0,0,0,0,3,3,3,3,0,1,
+        1,0,2,2,2,0,0,0,0,0,3,3,3,3,0,1,
+        1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+        1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+        1,0,4,4,4,4,0,0,0,0,0,5,5,5,0,1,
+        1,0,4,4,4,4,0,0,0,0,0,5,5,5,0,1,
+        1,0,4,4,4,4,0,0,0,0,0,5,5,5,0,1,
+        1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+        1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+        1,0,6,6,0,0,0,0,0,0,0,2,2,2,0,1,
+        1,0,6,6,0,0,0,0,0,0,0,2,2,2,0,1,
+        1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,
+        1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1
     ];
     var mapW = 16, mapH = 16;
+// === WALL COLORS BY BUILDING TYPE ===
+    var WALL_COLORS = {
+        1: {light: '#8B7355', dark: '#6B5335'},
+        2: {light: '#5C3A1E', dark: '#3E2712'},
+        3: {light: '#808080', dark: '#5A5A5A'},
+        4: {light: '#D4B896', dark: '#A89070'},
+        5: {light: '#8B3A1A', dark: '#6B2A0A'},
+        6: {light: '#B8956A', dark: '#8B7040'}
+    };
 
+    function fogColor(hex, fog) {
+        var r = parseInt(hex.substr(1, 2), 16);
+        var g = parseInt(hex.substr(3, 2), 16);
+        var b = parseInt(hex.substr(5, 2), 16);
+        r = Math.floor(r * (1 - fog) + 60 * fog);
+        g = Math.floor(g * (1 - fog) + 30 * fog);
+        b = Math.floor(b * (1 - fog) + 50 * fog);
+        return 'rgb(' + r + ',' + g + ',' + b + ')';
+    }
     // === PLAYER ===
-    var px = 8, py = 8, pa = 0;
+    var px = 7.5, py = 5.5, pa = 0;
     var dx, dy, plX, plY;
     var FOV = 0.66;
     var moveSpd = 0.05, rotSpd = 0.03;
@@ -559,15 +577,10 @@
             var lineH = Math.floor(H / perpDist);
             var drawStart = Math.floor(-lineH / 2 + H / 2);
             var drawEnd = Math.floor(lineH / 2 + H / 2);
-
-            var shade = side === 1 ? 0.7 : 1.0;
-            var r = Math.floor(180 * shade), g = Math.floor(140 * shade), b = Math.floor(90 * shade);
-            var fog = Math.min(1, perpDist / 12);
-            r = Math.floor(r * (1 - fog) + 60 * fog);
-            g = Math.floor(g * (1 - fog) + 30 * fog);
-            b = Math.floor(b * (1 - fog) + 50 * fog);
-
-            ctx.fillStyle = 'rgb(' + r + ',' + g + ',' + b + ')';
+var wallType = map[mapY * mapW + mapX];
+                var colors = WALL_COLORS[wallType] || WALL_COLORS[1];
+                var wallColor = side === 0 ? colors.light : colors.dark;
+                ctx.fillStyle = fogColor(wallColor, Math.min(0.6, perpDist / 14));
             ctx.fillRect(x, Math.max(0, drawStart), 1, Math.min(H, drawEnd) - Math.max(0, drawStart));
         }
     }
@@ -692,7 +705,111 @@
             }
         }
     }
+// === RENDER WORLD SPRITES ===
+    function renderWorldSprites() {
+        var sorted = worldSprites.slice().sort(function(a, b) {
+            var da = (a.x - px) * (a.x - px) + (a.y - py) * (a.y - py);
+            var db = (b.x - px) * (b.x - px) + (b.y - py) * (b.y - py);
+            return db - da;
+        });
 
+        for (var i = 0; i < sorted.length; i++) {
+            var s = sorted[i];
+            var sdx = s.x - px, sdy = s.y - py;
+            var invDet = 1.0 / (plX * dy - dx * plY);
+            var txf = invDet * (dy * sdx - dx * sdy);
+            var tyf = invDet * (-plY * sdx + plX * sdy);
+            if (tyf <= 0.2) continue;
+
+            var screenX = Math.floor((W / 2) * (1 + txf / tyf));
+            var unitH = H / tyf;
+            var spriteH = Math.floor(unitH * s.h);
+            var spriteW = Math.floor(unitH * s.w);
+
+            var baseY = Math.floor(H / 2 + unitH / 2);
+            var topY = baseY - spriteH;
+            var leftX = Math.floor(screenX - spriteW / 2);
+
+            if (screenX >= 0 && screenX < W && tyf >= zBuf[screenX]) continue;
+
+            var fog = Math.min(0.7, tyf / 15);
+            drawWorldSprite(s.type, leftX, topY, spriteW, spriteH, fog);
+        }
+    }
+
+    function drawWorldSprite(type, x, y, w, h, fog) {
+        if (type === 'barrel') {
+            ctx.fillStyle = fogColor('#8B6914', fog);
+            ctx.fillRect(x, y, w, h);
+            ctx.fillStyle = fogColor('#555555', fog);
+            ctx.fillRect(x, y + h * 0.2, w, Math.max(1, h * 0.06));
+            ctx.fillRect(x, y + h * 0.7, w, Math.max(1, h * 0.06));
+            ctx.fillStyle = fogColor('#A07B30', fog);
+            ctx.fillRect(x + 2, y, w - 4, Math.max(1, h * 0.05));
+
+        } else if (type === 'cactus') {
+            var trunkW = w * 0.3;
+            var tx = x + w / 2 - trunkW / 2;
+            ctx.fillStyle = fogColor('#2D5A1E', fog);
+            ctx.fillRect(tx, y, trunkW, h);
+            ctx.fillRect(x, y + h * 0.35, w * 0.35, trunkW);
+            ctx.fillRect(x, y + h * 0.15, trunkW, h * 0.2 + trunkW);
+            ctx.fillRect(x + w * 0.65, y + h * 0.5, w * 0.35, trunkW);
+            ctx.fillRect(x + w - trunkW, y + h * 0.3, trunkW, h * 0.2 + trunkW);
+            ctx.fillStyle = fogColor('#3D7A2E', fog);
+            ctx.fillRect(tx + 1, y, Math.max(1, trunkW * 0.3), h);
+
+        } else if (type === 'hitch') {
+            var postW = Math.max(2, w * 0.12);
+            ctx.fillStyle = fogColor('#8B7355', fog);
+            ctx.fillRect(x + w * 0.15, y, postW, h);
+            ctx.fillRect(x + w * 0.75, y, postW, h);
+            ctx.fillStyle = fogColor('#A08B60', fog);
+            ctx.fillRect(x, y + h * 0.2, w, Math.max(2, h * 0.1));
+
+        } else if (type === 'trough') {
+            ctx.fillStyle = fogColor('#6B5335', fog);
+            ctx.fillRect(x, y, w, h);
+            ctx.fillStyle = fogColor('#2244AA', fog);
+            ctx.fillRect(x + w * 0.1, y + h * 0.25, w * 0.8, h * 0.5);
+            ctx.fillStyle = fogColor('#8B7355', fog);
+            ctx.fillRect(x, y, w, Math.max(1, h * 0.12));
+
+        } else if (type === 'crate') {
+            ctx.fillStyle = fogColor('#A08050', fog);
+            ctx.fillRect(x, y, w, h);
+            ctx.strokeStyle = fogColor('#6B5335', fog);
+            ctx.lineWidth = Math.max(1, w * 0.06);
+            ctx.beginPath();
+            ctx.moveTo(x, y); ctx.lineTo(x + w, y + h);
+            ctx.moveTo(x + w, y); ctx.lineTo(x, y + h);
+            ctx.stroke();
+            ctx.strokeStyle = fogColor('#5A4030', fog);
+            ctx.lineWidth = Math.max(1, w * 0.04);
+            ctx.strokeRect(x, y, w, h);
+
+        } else if (type === 'wheel') {
+            var cx = x + w / 2, cy = y + h / 2;
+            var r = Math.min(w, h) / 2;
+            ctx.strokeStyle = fogColor('#8B6914', fog);
+            ctx.lineWidth = Math.max(1, r * 0.15);
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.lineWidth = Math.max(1, r * 0.08);
+            for (var s = 0; s < 8; s++) {
+                var angle = s * Math.PI / 4;
+                ctx.beginPath();
+                ctx.moveTo(cx, cy);
+                ctx.lineTo(cx + Math.cos(angle) * r, cy + Math.sin(angle) * r);
+                ctx.stroke();
+            }
+            ctx.fillStyle = fogColor('#555555', fog);
+            ctx.beginPath();
+            ctx.arc(cx, cy, r * 0.2, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
     // === RENDER WEAPON (first person) ===
     function drawWeapon() {
         var wepKey = weaponKeys[currentWeapon];
@@ -938,6 +1055,7 @@
             drawFloor();
             castRays();
             renderEnemies();
+            renderWorldSprites();
             drawWeapon();
             drawCrosshair();
             drawWeaponBar();
