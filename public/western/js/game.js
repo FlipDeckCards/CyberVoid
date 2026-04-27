@@ -743,8 +743,8 @@ var wallType = map[mapY][mapX];
             var stepY = rowDist * (rayDirY1 - rayDirY0) / W * 4;
 
             for (var x = 0; x < W; x += 4) {
-                var fx = Math.floor(floorX * 8);
-                var fy = Math.floor(floorY * 8);
+                var fx = Math.floor(floorX * 64);
+                var fy = Math.floor(floorY * 64);
                 var hash = ((fx * 374761 + fy * 668265) >> 2) & 7;
                 var r = 190 + hash * 3;
                 var g = 160 + hash * 2;
