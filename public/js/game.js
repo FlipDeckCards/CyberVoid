@@ -943,10 +943,10 @@ function update(dt) {
   if (mobileDevice && joystick.active) {
     mouse.x += joystick.dx * AIM_SPEED;
     mouse.y += joystick.dy * AIM_SPEED;
-    if (mouse.x < 0) mouse.x = 0;
-    if (mouse.x > W) mouse.x = W;
-    if (mouse.y < 0) mouse.y = 0;
-    if (mouse.y > H) mouse.y = H;
+    if (mouse.x < 20) mouse.x = 20;
+    if (mouse.x > W - 20) mouse.x = W - 20;
+    if (mouse.y < 20) mouse.y = 20;
+    if (mouse.y > H - 60) mouse.y = H - 60;
   }
 
   spawnTimer -= dt*1000;
