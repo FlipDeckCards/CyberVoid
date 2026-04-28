@@ -477,7 +477,11 @@
 
         const cfg = CONFIG.enemies[type];
         const group = skeletonClone(models[type]);
-        
+        group.traverse((child) => {
+    if (child.isMesh) {
+        child.material = child.material.clone();
+    }
+});
         group.scale.setScalar(cfg.scale);
 
         // Spawn at random position on circle
