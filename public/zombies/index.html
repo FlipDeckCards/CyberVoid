@@ -201,6 +201,7 @@
     <script type="module">
     import * as THREE from 'three';
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { clone as skeletonClone } from 'three/addons/utils/SkeletonUtils.js';
 
     // ═══════════════════════════════════════
     // CONFIG
@@ -258,15 +259,15 @@
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 0.5;
+    renderer.toneMappingExposure = 1.2;
     document.body.appendChild(renderer.domElement);
 
     // ═══════════════════════════════════════
     // LIGHTING
     // ═══════════════════════════════════════
-    scene.add(new THREE.AmbientLight(0x1a3a1a, 0.4));
+    scene.add(new THREE.AmbientLight(0x334433, 1.2));
 
-    const moon = new THREE.DirectionalLight(0x4488aa, 0.6);
+    const moon = new THREE.DirectionalLight(0x6699bb, 1.5);
     moon.position.set(-10, 20, -10);
     moon.castShadow = true;
     moon.shadow.mapSize.set(2048, 2048);
@@ -475,7 +476,7 @@
         if (!models[type]) return;
 
         const cfg = CONFIG.enemies[type];
-        const group = models[type].clone();
+        const group = skeletonClone(models[type]);
         group.scale.setScalar(cfg.scale);
 
         // Spawn at random position on circle
