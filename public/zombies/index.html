@@ -213,11 +213,11 @@
             { name: 'Shotgun', damage: 15, rate: 0.8,  ammo: 8,        spread: 0.08, pellets: 6 },
             { name: 'Rifle',   damage: 35, rate: 0.12, ammo: 30,       spread: 0.02, pellets: 1 }
         ],
-       enemies: {
+        enemies: {
             shambler: { speed: 1.8, health: 100, damage: 10, points: 10, scale: 1.2 },
-            runner:   { speed: 4.5, health: 60, damage: 8, points: 25, scale: 1.0 },
+            runner:   { speed: 4.5, health: 60,  damage: 8,  points: 25, scale: 1.0 },
             brute:    { speed: 1.3, health: 180, damage: 25, points: 50, scale: 1.5 },
-            crawler:  { speed: 3.0, health: 40, damage: 5, points: 15, scale: 0.6 },
+            crawler:  { speed: 3.0, health: 40,  damage: 5,  points: 15, scale: 0.6 },
         },
         spawnRadius: 60,
         meleeRange: 2.0,
@@ -241,6 +241,7 @@
 
     const activeEnemies = [];
     const activePowerups = [];
+    const activeDamageNumbers = [];
     const clock = new THREE.Clock();
 
     // ═══════════════════════════════════════
@@ -332,7 +333,6 @@
             loadZombie('brute'),
             loadZombie('crawler')
         ]);
-        // DEBUG: log model sizes
         for (const [name, model] of Object.entries(models)) {
             if (model) {
                 const box = new THREE.Box3().setFromObject(model);
@@ -346,6 +346,99 @@
         document.getElementById('loading-bar').style.display = 'none';
     }
     init();
+
+    // ═══════════════════════════════════════
+    // FLOATING DAMAGE NUMBERS
+    // ═══════════════════════════════════════
+    function spawnDamageNumber(position, damage, isCritical) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 256;
+        canvas.height = 128;
+        const ctx = canvas.getContext('2d');
+        ctx.font = isCritical ? 'bold 90px Arial' : 'bold 64px Arial';
+        ctx.fillStyle = isCritical ? '#ff2222' : '#ffdd00';
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 5;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const text = Math.round(damage).toString();
+        ctx.strokeText(text, 128, 64);
+        ctx.fillText(text, 128, 64);
+
+        const texture = new THREE.CanvasTexture(canvas);
+        const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+            map: texture, transparent: true, depthTest: false
+        }));
+        sprite.position.copy(position);
+        sprite.position.x += (Math.random() - 0.5) * 0.5;
+        sprite.scale.set(isCritical ? 2.2 : 1.5, isCritical ? 1.1 : 0.75, 1);
+        scene.add(sprite);
+        activeDamageNumbers.push({ sprite, life: 1.0, age: 0 });
+    }
+
+    function updateDamageNumbers(dt) {
+        for (let i = activeDamageNumbers.length - 1; i >= 0; i--) {
+            const dn = activeDamageNumbers[i];
+            dn.age += dt;
+            dn.sprite.position.y += 2.5 * dt;
+            dn.sprite.material.opacity = 1 - (dn.age / dn.life);
+            if (dn.age >= dn.life) {
+                scene.remove(dn.sprite);
+                dn.sprite.material.map.dispose();
+                dn.sprite.material.dispose();
+                activeDamageNumbers.splice(i, 1);
+            }
+        }
+    }
+
+    // ═══════════════════════════════════════
+    // ENEMY HEALTH BARS + NAME LABELS
+    // ═══════════════════════════════════════
+    function createHealthBar(typeName) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 256;
+        canvas.height = 64;
+        const texture = new THREE.CanvasTexture(canvas);
+        const sprite = new THREE.Sprite(new THREE.SpriteMaterial({
+            map: texture, transparent: true, depthTest: false
+        }));
+        sprite.scale.set(2.5, 0.6, 1);
+        return { sprite, canvas, texture, typeName };
+    }
+
+    function updateHealthBar(enemy) {
+        const hb = enemy.healthBar;
+        if (!hb) return;
+        const ctx = hb.canvas.getContext('2d');
+        const pct = Math.max(0, enemy.health / enemy.maxHealth);
+        ctx.clearRect(0, 0, 256, 64);
+
+        // Name
+        ctx.font = 'bold 22px Courier New';
+        ctx.fillStyle = '#ff4444';
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 3;
+        ctx.textAlign = 'center';
+        ctx.strokeText(hb.typeName.toUpperCase(), 128, 20);
+        ctx.fillText(hb.typeName.toUpperCase(), 128, 20);
+
+        // Bar background
+        ctx.fillStyle = 'rgba(0,0,0,0.6)';
+        ctx.fillRect(28, 34, 200, 18);
+        // Bar fill
+        ctx.fillStyle = pct > 0.5 ? '#39FF14' : pct > 0.25 ? '#ffaa00' : '#ff2222';
+        ctx.fillRect(30, 36, 196 * pct, 14);
+
+        hb.texture.needsUpdate = true;
+
+        // Position above enemy
+        const box = new THREE.Box3().setFromObject(enemy.group);
+        hb.sprite.position.set(
+            enemy.group.position.x,
+            box.max.y + 0.5,
+            enemy.group.position.z
+        );
+    }
 
     // ═══════════════════════════════════════
     // AIM CONTROLS
@@ -385,13 +478,10 @@
     renderer.domElement.addEventListener('touchend', e => {
         for (const t of e.changedTouches) {
             if (t.identifier === aimTouchId) aimTouchId = null;
+            
         }
     }, { passive: true });
-
-    // ═══════════════════════════════════════
-    // — END PART 1 — paste Part 2 below ——
-    // ═══════════════════════════════════════
-          // ═══════════════════════════════════════
+       // ═══════════════════════════════════════
     // SHOOTING
     // ═══════════════════════════════════════
     const raycaster = new THREE.Raycaster();
@@ -428,6 +518,7 @@
             }
             raycaster.set(camera.position, d);
 
+            // Check enemies
             const meshes = [];
             activeEnemies.forEach(e => {
                 if (e.dead) return;
@@ -447,27 +538,31 @@
                     }
                 }
             }
-        }
-    }
 
-    // Hit particles
-    function spawnHitParticles(pos) {
-        const count = 6;
-        const geo = new THREE.BufferGeometry();
-        const positions = new Float32Array(count * 3);
-        for (let i = 0; i < count; i++) {
-            positions[i * 3]     = pos.x + (Math.random() - 0.5) * 0.3;
-            positions[i * 3 + 1] = pos.y + (Math.random() - 0.5) * 0.3;
-            positions[i * 3 + 2] = pos.z + (Math.random() - 0.5) * 0.3;
+            // Check power-ups
+            const powerupMeshes = activePowerups.map(pu => pu.mesh);
+            const puHits = raycaster.intersectObjects(powerupMeshes, false);
+            if (puHits.length > 0) {
+                const hitMesh = puHits[0].object;
+                for (let pi = activePowerups.length - 1; pi >= 0; pi--) {
+                    if (activePowerups[pi].mesh === hitMesh) {
+                        const pu = activePowerups[pi];
+                        if (pu.isHealth) {
+                            hp = Math.min(hp + 25, CONFIG.player.health);
+                            updateHealthHUD();
+                        } else {
+                            ammo[1] = Math.min(ammo[1] + 4, maxAmmo[1]);
+                            ammo[2] = Math.min(ammo[2] + 10, maxAmmo[2]);
+                            updateAmmoHUD();
+                        }
+                        scene.remove(pu.mesh);
+                        activePowerups.splice(pi, 1);
+                        break;
+                    }
+                }
+            }
         }
-        geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-        const mat = new THREE.PointsMaterial({ color: 0xff2222, size: 0.15, transparent: true });
-        const pts = new THREE.Points(geo, mat);
-        pts.userData.life = 0.4;
-        scene.add(pts);
-        particles.push(pts);
     }
-    const particles = [];
 
     // ═══════════════════════════════════════
     // ENEMIES
@@ -478,10 +573,10 @@
         const cfg = CONFIG.enemies[type];
         const group = skeletonClone(models[type]);
         group.traverse((child) => {
-    if (child.isMesh) {
-        child.material = child.material.clone();
-    }
-});
+            if (child.isMesh) {
+                child.material = child.material.clone();
+            }
+        });
         group.scale.setScalar(cfg.scale);
 
         // Spawn at random position on circle
@@ -509,7 +604,8 @@
                 }
             }
         }
-const hitBox = new THREE.Mesh(
+
+        const hitBox = new THREE.Mesh(
             new THREE.CylinderGeometry(0.5, 0.5, 2, 8),
             new THREE.MeshBasicMaterial({ visible: false })
         );
@@ -517,23 +613,34 @@ const hitBox = new THREE.Mesh(
         group.add(hitBox);
         scene.add(group);
 
+        // Health bar + name label
+        const hb = createHealthBar(type);
+        scene.add(hb.sprite);
+
         activeEnemies.push({
             type, group, mixer,
             walkAction, deadAction,
             health: cfg.health,
+            maxHealth: cfg.health,
             speed: cfg.speed,
             damage: cfg.damage,
             points: cfg.points,
             dead: false,
             despawnTimer: 0,
-            hitFlashTimer: 0
+            hitFlashTimer: 0,
+            healthBar: hb
         });
     }
 
-    function damageEnemy(enemy, dmg, hitPoint) {
+    function damageEnemy(enemy, baseDmg, hitPoint) {
+        // Critical hit = upper body (head area)
+        const isCritical = hitPoint.y > (enemy.group.position.y + 1.2);
+        const dmg = isCritical ? baseDmg * 2 : baseDmg;
+
         enemy.health -= dmg;
         enemy.hitFlashTimer = 0.1;
-        spawnHitParticles(hitPoint);
+        spawnDamageNumber(hitPoint, dmg, isCritical);
+        updateHealthBar(enemy);
 
         if (enemy.health <= 0 && !enemy.dead) {
             killEnemy(enemy);
@@ -546,6 +653,11 @@ const hitBox = new THREE.Mesh(
         score += enemy.points;
         waveEnemiesLeft--;
         updateHUD();
+
+        // Remove health bar
+        if (enemy.healthBar) {
+            scene.remove(enemy.healthBar.sprite);
+        }
 
         // Play death animation
         if (enemy.walkAction) enemy.walkAction.stop();
@@ -565,28 +677,33 @@ const hitBox = new THREE.Mesh(
             const e = activeEnemies[i];
             e.mixer.update(dt);
 
-           // Hit flash
-if (e.hitFlashTimer > 0) {
-    e.hitFlashTimer -= dt;
-    e.group.traverse(c => {
-        if (c.isMesh) {
-            if (!c.userData.originalEmissive) {
-                c.userData.originalEmissive = c.material.emissive.getHex();
+            // Hit flash
+            if (e.hitFlashTimer > 0) {
+                e.hitFlashTimer -= dt;
+                e.group.traverse(c => {
+                    if (c.isMesh) {
+                        if (!c.userData.originalEmissive) {
+                            c.userData.originalEmissive = c.material.emissive.getHex();
+                        }
+                        c.material.emissive.set(
+                            e.hitFlashTimer > 0 ? 0xff0000 : c.userData.originalEmissive
+                        );
+                    }
+                });
             }
-            c.material.emissive.set(
-                e.hitFlashTimer > 0 ? 0xff0000 : c.userData.originalEmissive
-            );
-        }
-    });
-}
+
             if (e.dead) {
                 e.despawnTimer += dt;
                 if (e.despawnTimer > CONFIG.despawnTime) {
                     scene.remove(e.group);
+                    if (e.healthBar) scene.remove(e.healthBar.sprite);
                     activeEnemies.splice(i, 1);
                 }
                 continue;
             }
+
+            // Update health bar position
+            updateHealthBar(e);
 
             // Move toward player
             const dir = new THREE.Vector3(
@@ -631,7 +748,6 @@ if (e.hitFlashTimer > 0) {
         updateHUD();
         showWaveAnnounce(`WAVE ${wave}`);
 
-        // Stagger spawns
         let spawned = 0;
         const spawnInterval = setInterval(() => {
             if (spawned >= totalEnemies || state !== 'playing') {
@@ -645,7 +761,6 @@ if (e.hitFlashTimer > 0) {
     }
 
     function pickEnemyType() {
-        // Early waves: mostly shamblers. Later: mix in harder types
         const r = Math.random();
         if (wave <= 2) {
             return r < 0.7 ? 'shambler' : 'runner';
@@ -665,9 +780,8 @@ if (e.hitFlashTimer > 0) {
     function checkWaveComplete() {
         if (waveEnemiesLeft <= 0 && !betweenWaves && state === 'playing') {
             betweenWaves = true;
-            waveTimer = 4; // seconds between waves
+            waveTimer = 4;
 
-            // Refill some ammo between waves
             ammo[1] = Math.min(ammo[1] + 4, maxAmmo[1]);
             ammo[2] = Math.min(ammo[2] + 15, maxAmmo[2]);
             updateAmmoHUD();
@@ -697,7 +811,7 @@ if (e.hitFlashTimer > 0) {
             p.life -= dt;
             p.mesh.rotation.y += dt * 2;
 
-            // Pickup range
+            // Pickup range (walk over)
             const dist = camera.position.distanceTo(p.mesh.position);
             if (dist < 1.5) {
                 if (p.isHealth) {
@@ -719,11 +833,7 @@ if (e.hitFlashTimer > 0) {
             }
         }
     }
-
-    // ═══════════════════════════════════════
-    // — END PART 2 — paste Part 3 below ——
-    // ═══════════════════════════════════════
-          // ═══════════════════════════════════════
+         // ═══════════════════════════════════════
     // HUD UPDATES
     // ═══════════════════════════════════════
     function updateHUD() {
@@ -773,12 +883,19 @@ if (e.hitFlashTimer > 0) {
         pitch = 0; yaw = 0;
 
         // Clear leftovers
-        for (const e of activeEnemies) scene.remove(e.group);
+        for (const e of activeEnemies) {
+            scene.remove(e.group);
+            if (e.healthBar) scene.remove(e.healthBar.sprite);
+        }
         activeEnemies.length = 0;
         for (const p of activePowerups) scene.remove(p.mesh);
         activePowerups.length = 0;
-        for (const pt of particles) scene.remove(pt);
-        particles.length = 0;
+        for (const dn of activeDamageNumbers) {
+            scene.remove(dn.sprite);
+            dn.sprite.material.map.dispose();
+            dn.sprite.material.dispose();
+        }
+        activeDamageNumbers.length = 0;
 
         document.getElementById('blocker').style.display = 'none';
         document.getElementById('game-over').style.display = 'none';
@@ -808,8 +925,6 @@ if (e.hitFlashTimer > 0) {
     // ═══════════════════════════════════════
     // INPUT EVENTS
     // ═══════════════════════════════════════
-
-    // Click/tap to start or shoot
     document.getElementById('blocker').addEventListener('click', () => {
         if (state === 'menu') startGame();
     });
@@ -826,15 +941,12 @@ if (e.hitFlashTimer > 0) {
         if (state === 'gameover') startGame();
     });
 
-    // Desktop: click to shoot
     renderer.domElement.addEventListener('mousedown', e => {
         if (e.button === 0) shoot();
     });
 
-    // Mobile: tap to shoot (only if not aim touch)
     renderer.domElement.addEventListener('touchstart', e => {
         if (state !== 'playing') return;
-        // Shoot on any new touch that isn't the aim drag
         for (const t of e.changedTouches) {
             if (t.identifier !== aimTouchId) {
                 shoot();
@@ -842,7 +954,6 @@ if (e.hitFlashTimer > 0) {
         }
     }, { passive: true });
 
-    // Keyboard: weapon switch + number keys
     document.addEventListener('keydown', e => {
         if (state !== 'playing') return;
         if (e.key === '1') { curWeapon = 0; updateWeaponHUD(); }
@@ -854,7 +965,6 @@ if (e.hitFlashTimer > 0) {
         }
     });
 
-    // Weapon bar tap (mobile)
     document.querySelectorAll('.weapon-slot').forEach(el => {
         el.addEventListener('click', () => {
             if (state !== 'playing') return;
@@ -878,7 +988,6 @@ if (e.hitFlashTimer > 0) {
 
         const dt = Math.min(clock.getDelta(), 0.1);
 
-        // Camera rotation
         camera.rotation.order = 'YXZ';
         camera.rotation.y = yaw;
         camera.rotation.x = pitch;
@@ -886,22 +995,13 @@ if (e.hitFlashTimer > 0) {
         if (state === 'playing') {
             updateEnemies(dt);
             updatePowerups(dt);
+            updateDamageNumbers(dt);
             checkWaveComplete();
 
             // Muzzle flash decay
             if (muzzleTimer > 0) {
                 muzzleTimer -= dt;
                 if (muzzleTimer <= 0) muzzleFlash.intensity = 0;
-            }
-
-            // Particles decay
-            for (let i = particles.length - 1; i >= 0; i--) {
-                particles[i].userData.life -= dt;
-                particles[i].material.opacity = Math.max(0, particles[i].userData.life / 0.4);
-                if (particles[i].userData.life <= 0) {
-                    scene.remove(particles[i]);
-                    particles.splice(i, 1);
-                }
             }
 
             // Between waves countdown
