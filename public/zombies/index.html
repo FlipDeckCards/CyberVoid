@@ -409,14 +409,14 @@
     // rotY: rotation to point barrel forward (-Z in camera space)
     // scale: resize to fit screen. Meshy models vary wildly in size.
     const FP = {
-        pistol:  { scale: 0.08, rotY: -Math.PI / 2 },
-        shotgun: { scale: 0.06, rotY: -Math.PI / 2 },
-        rifle:   { scale: 0.06, rotY: -Math.PI / 2 }
+  pistol:  { scale: 0.18, rotY: -Math.PI / 2 },
+  shotgun: { scale: 0.22, rotY: -Math.PI / 2 },
+  rifle:   { scale: 0.22, rotY: -Math.PI / 2 },
     };
 
     // Rested = low-right idle. Aimed = raised to crosshair on fire.
-    const REST_POS = new THREE.Vector3(0.28, -0.35, -0.45);
-    const REST_ROT_BASE = new THREE.Vector3(-0.1, 0.15, 0.05); // euler xyz
+    const REST_POS = new THREE.Vector3(0.2, -0.25, -0.45);
+const REST_ROT_BASE = new THREE.Vector3(-0.08, -0.08, 0.03);
     const AIM_POS  = new THREE.Vector3(0.05, -0.2, -0.4);
     const AIM_ROT_BASE  = new THREE.Vector3(0, 0, 0);
 
