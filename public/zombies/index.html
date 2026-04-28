@@ -253,6 +253,7 @@
 
     const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.1, 100);
     camera.position.set(0, CONFIG.player.height, 0);
+    scene.add(camera); // REQUIRED — so weapon models parented to camera render
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(innerWidth, innerHeight);
@@ -294,12 +295,20 @@
     scene.add(ground);
 
     // ═══════════════════════════════════════
-    // LOAD ZOMBIE GLBS
+    // ASSET LOADING
     // ═══════════════════════════════════════
     const gltfLoader = new GLTFLoader();
     const models = {};
     const anims = {};
+    const weaponGLBs = {};
     let loaded = 0;
+    const TOTAL_ASSETS = 7; // 4 zombies + 3 weapons
+
+    function updateLoadBar() {
+        loaded++;
+        document.getElementById('loading-fill').style.width =
+            (loaded / TOTAL_ASSETS * 100) + '%';
+    }
 
     function loadZombie(name) {
         return new Promise(resolve => {
@@ -312,15 +321,34 @@
                 const center = box.getCenter(new THREE.Vector3());
                 gltf.scene.position.set(-center.x, 0, -center.z);
                 anims[name] = gltf.animations;
-                loaded++;
-                document.getElementById('loading-fill').style.width =
-                    (loaded / 4 * 100) + '%';
+                updateLoadBar();
                 resolve();
             }, undefined, () => {
                 console.warn(`Missing: ${name}.glb`);
-                loaded++;
-                document.getElementById('loading-fill').style.width =
-                    (loaded / 4 * 100) + '%';
+                updateLoadBar();
+                resolve();
+            });
+        });
+    }
+
+    function loadWeapon(name) {
+        return new Promise(resolve => {
+            gltfLoader.load(`assets/${name}.glb`, gltf => {
+                const model = gltf.scene;
+                model.traverse(c => {
+                    if (c.isMesh) {
+                        c.castShadow = false;
+                        c.receiveShadow = false;
+                        c.material = c.material.clone();
+                        c.material.fog = false; // weapons ignore scene fog
+                    }
+                });
+                weaponGLBs[name] = model;
+                updateLoadBar();
+                resolve();
+            }, undefined, () => {
+                console.warn(`Missing weapon: ${name}.glb`);
+                updateLoadBar();
                 resolve();
             });
         });
@@ -331,8 +359,13 @@
             loadZombie('shambler'),
             loadZombie('runner'),
             loadZombie('brute'),
-            loadZombie('crawler')
+            loadZombie('crawler'),
+            loadWeapon('pistol'),
+            loadWeapon('shotgun'),
+            loadWeapon('rifle')
         ]);
+
+        // Debug: log zombie sizes
         for (const [name, model] of Object.entries(models)) {
             if (model) {
                 const box = new THREE.Box3().setFromObject(model);
@@ -341,11 +374,255 @@
                 console.log(`${name}: ${size.x.toFixed(1)} x ${size.y.toFixed(1)} x ${size.z.toFixed(1)}`);
             }
         }
+
+        // Debug: log weapon sizes
+        for (const [name, model] of Object.entries(weaponGLBs)) {
+            if (model) {
+                const box = new THREE.Box3().setFromObject(model);
+                const size = new THREE.Vector3();
+                box.getSize(size);
+                console.log(`weapon ${name}: ${size.x.toFixed(1)} x ${size.y.toFixed(1)} x ${size.z.toFixed(1)}`);
+            }
+        }
+
+        // Set initial weapon
+        equipWeapon(0);
+
         state = 'menu';
         document.getElementById('start-text').textContent = 'TAP TO START';
         document.getElementById('loading-bar').style.display = 'none';
     }
     init();
+            // ═══════════════════════════════════════
+    // FIRST-PERSON WEAPON SYSTEM
+    // ═══════════════════════════════════════
+    const weaponHolder = new THREE.Group();
+    camera.add(weaponHolder);
+
+    const WEAPON_NAMES = ['pistol', 'shotgun', 'rifle'];
+
+    // ── Tune these per weapon if models look off ──
+    // rotY: rotation to point barrel forward (-Z in camera space)
+    // scale: resize to fit screen. Meshy models vary wildly in size.
+    const FP = {
+        pistol:  { scale: 0.08, rotY: -Math.PI / 2 },
+        shotgun: { scale: 0.06, rotY: -Math.PI / 2 },
+        rifle:   { scale: 0.06, rotY: -Math.PI / 2 }
+    };
+
+    // Rested = low-right idle. Aimed = raised to crosshair on fire.
+    const REST_POS = new THREE.Vector3(0.28, -0.35, -0.45);
+    const REST_ROT_BASE = new THREE.Vector3(-0.1, 0.15, 0.05); // euler xyz
+    const AIM_POS  = new THREE.Vector3(0.05, -0.2, -0.4);
+    const AIM_ROT_BASE  = new THREE.Vector3(0, 0, 0);
+
+    let wpnLerp = 0;        // 0 = rested, 1 = aimed
+    let wpnState = 'rest';  // rest | raising | aimed | lowering | swapDown | swapUp
+    let lastFiredAt = 0;
+    let recoilKick = 0;
+    let wpnBobTime = 0;
+    let pendingSwap = -1;
+
+    const RAISE_SPD    = 10;
+    const LOWER_SPD    = 5;
+    const RECOIL_AMT   = 0.035;
+    const RECOIL_RECOVER = 8;
+    const HOLD_TIME    = 0.45; // stay aimed after last shot
+
+    // ── Casings ──
+    const activeCasings = [];
+    const casingGeo = new THREE.CylinderGeometry(0.008, 0.008, 0.03, 6);
+    const casingMat = new THREE.MeshStandardMaterial({
+        color: 0xccaa44, metalness: 0.8, roughness: 0.3
+    });
+
+    // ── Muzzle flash sprite (lives on weaponHolder) ──
+    const mFlashSprite = new THREE.Sprite(new THREE.SpriteMaterial({
+        color: 0xffaa00, transparent: true,
+        blending: THREE.AdditiveBlending, opacity: 0.9
+    }));
+    mFlashSprite.scale.set(0.15, 0.15, 0.15);
+    mFlashSprite.visible = false;
+    mFlashSprite.position.set(0, 0.02, -0.35); // barrel tip offset
+    weaponHolder.add(mFlashSprite);
+    let mFlashVis = 0;
+
+    function equipWeapon(index) {
+        const name = WEAPON_NAMES[index];
+        const model = weaponGLBs[name];
+        if (!model) return;
+
+        // Remove old
+        while (weaponHolder.children.length > 1) { // keep mFlashSprite
+            const child = weaponHolder.children[0];
+            if (child === mFlashSprite) {
+                if (weaponHolder.children.length > 1)
+                    weaponHolder.remove(weaponHolder.children[1]);
+                else break;
+            } else {
+                weaponHolder.remove(child);
+            }
+        }
+
+        const wpn = model.clone();
+        const cfg = FP[name];
+        wpn.scale.setScalar(cfg.scale);
+        wpn.rotation.y = cfg.rotY;
+
+        // Center the model on its own bounding box
+        const box = new THREE.Box3().setFromObject(wpn);
+        const center = box.getCenter(new THREE.Vector3());
+        wpn.position.sub(center);
+
+        weaponHolder.add(wpn);
+
+        // Start at rest position
+        weaponHolder.position.copy(REST_POS);
+        weaponHolder.rotation.set(REST_ROT_BASE.x, REST_ROT_BASE.y, REST_ROT_BASE.z);
+    }
+
+    function swapWeapon(newIndex) {
+        if (newIndex === curWeapon) return;
+        if (wpnState === 'swapDown' || wpnState === 'swapUp') return;
+        pendingSwap = newIndex;
+        wpnState = 'swapDown';
+    }
+
+    function triggerFire() {
+        lastFiredAt = performance.now() / 1000;
+        recoilKick = RECOIL_AMT;
+
+        if (wpnState === 'rest' || wpnState === 'lowering') {
+            wpnState = 'raising';
+        }
+
+        // Muzzle flash
+        mFlashSprite.visible = true;
+        mFlashSprite.material.rotation = Math.random() * Math.PI * 2;
+        mFlashVis = 0.05;
+
+        // Spawn casing
+        spawnCasing();
+    }
+
+    function spawnCasing() {
+        const casing = new THREE.Mesh(casingGeo, casingMat);
+
+        // Get weapon world position for spawn point
+        const worldPos = new THREE.Vector3();
+        weaponHolder.getWorldPosition(worldPos);
+        casing.position.copy(worldPos);
+
+        scene.add(casing);
+
+        // Eject right + up relative to camera
+        const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+        const up = new THREE.Vector3(0, 1, 0);
+        const vel = new THREE.Vector3();
+        vel.addScaledVector(right, 1.5 + Math.random());
+        vel.addScaledVector(up, 1.5 + Math.random() * 1.5);
+        vel.z += (Math.random() - 0.5) * 0.3;
+
+        activeCasings.push({
+            mesh: casing, velocity: vel,
+            spin: new THREE.Vector3(
+                Math.random() * 12, Math.random() * 12, Math.random() * 12
+            ),
+            age: 0
+        });
+    }
+
+    function updateWeaponSystem(dt) {
+        const now = performance.now() / 1000;
+        const timeSinceShot = now - lastFiredAt;
+
+        // ── State machine ──
+        switch (wpnState) {
+            case 'rest':
+                wpnLerp = Math.max(0, wpnLerp - LOWER_SPD * dt);
+                break;
+            case 'raising':
+                wpnLerp = Math.min(1, wpnLerp + RAISE_SPD * dt);
+                if (wpnLerp >= 1) wpnState = 'aimed';
+                break;
+            case 'aimed':
+                if (timeSinceShot > HOLD_TIME) wpnState = 'lowering';
+                break;
+            case 'lowering':
+                wpnLerp = Math.max(0, wpnLerp - LOWER_SPD * dt);
+                if (wpnLerp <= 0) wpnState = 'rest';
+                break;
+            case 'swapDown':
+                wpnLerp = Math.max(-0.5, wpnLerp - RAISE_SPD * dt);
+                if (wpnLerp <= -0.5) {
+                    // Swap the model
+                    curWeapon = pendingSwap;
+                    pendingSwap = -1;
+                    equipWeapon(curWeapon);
+                    updateWeaponHUD();
+                    wpnState = 'swapUp';
+                }
+                break;
+            case 'swapUp':
+                wpnLerp = Math.min(0, wpnLerp + RAISE_SPD * dt);
+                if (wpnLerp >= 0) {
+                    wpnLerp = 0;
+                    wpnState = 'rest';
+                }
+                break;
+        }
+
+        // ── Recoil recovery ──
+        recoilKick = Math.max(0, recoilKick - RECOIL_RECOVER * dt);
+
+        // ── Idle bob ──
+        wpnBobTime += dt;
+        const bobX = Math.sin(wpnBobTime * 1.5) * 0.002;
+        const bobY = Math.sin(wpnBobTime * 2.0) * 0.002;
+
+        // ── Interpolate position + rotation ──
+        const t = Math.max(0, Math.min(1, wpnLerp));
+        const px = REST_POS.x + (AIM_POS.x - REST_POS.x) * t + bobX;
+        const py = REST_POS.y + (AIM_POS.y - REST_POS.y) * t + bobY + recoilKick * 0.5;
+        const pz = REST_POS.z + (AIM_POS.z - REST_POS.z) * t + recoilKick;
+
+        weaponHolder.position.set(px, py, pz);
+
+        const rx = REST_ROT_BASE.x + (AIM_ROT_BASE.x - REST_ROT_BASE.x) * t - recoilKick * 2;
+        const ry = REST_ROT_BASE.y + (AIM_ROT_BASE.y - REST_ROT_BASE.y) * t;
+        const rz = REST_ROT_BASE.z + (AIM_ROT_BASE.z - REST_ROT_BASE.z) * t;
+        weaponHolder.rotation.set(rx, ry, rz);
+
+        // ── Muzzle flash timer ──
+        if (mFlashVis > 0) {
+            mFlashVis -= dt;
+            if (mFlashVis <= 0) mFlashSprite.visible = false;
+        }
+    }
+
+    function updateCasings(dt) {
+        for (let i = activeCasings.length - 1; i >= 0; i--) {
+            const c = activeCasings[i];
+            c.age += dt;
+            c.velocity.y -= 9.8 * dt;
+            c.mesh.position.addScaledVector(c.velocity, dt);
+            c.mesh.rotation.x += c.spin.x * dt;
+            c.mesh.rotation.z += c.spin.z * dt;
+
+            // Floor bounce
+            if (c.mesh.position.y < 0.02) {
+                c.mesh.position.y = 0.02;
+                c.velocity.y *= -0.3;
+                c.velocity.x *= 0.5;
+                c.velocity.z *= 0.5;
+            }
+
+            if (c.age >= 1.2) {
+                scene.remove(c.mesh);
+                activeCasings.splice(i, 1);
+            }
+        }
+    }
 
     // ═══════════════════════════════════════
     // FLOATING DAMAGE NUMBERS
@@ -413,7 +690,6 @@
         const pct = Math.max(0, enemy.health / enemy.maxHealth);
         ctx.clearRect(0, 0, 256, 64);
 
-        // Name
         ctx.font = 'bold 22px Courier New';
         ctx.fillStyle = '#ff4444';
         ctx.strokeStyle = '#000';
@@ -422,16 +698,13 @@
         ctx.strokeText(hb.typeName.toUpperCase(), 128, 20);
         ctx.fillText(hb.typeName.toUpperCase(), 128, 20);
 
-        // Bar background
         ctx.fillStyle = 'rgba(0,0,0,0.6)';
         ctx.fillRect(28, 34, 200, 18);
-        // Bar fill
         ctx.fillStyle = pct > 0.5 ? '#39FF14' : pct > 0.25 ? '#ffaa00' : '#ff2222';
         ctx.fillRect(30, 36, 196 * pct, 14);
 
         hb.texture.needsUpdate = true;
 
-        // Position above enemy
         const box = new THREE.Box3().setFromObject(enemy.group);
         hb.sprite.position.set(
             enemy.group.position.x,
@@ -478,10 +751,10 @@
     renderer.domElement.addEventListener('touchend', e => {
         for (const t of e.changedTouches) {
             if (t.identifier === aimTouchId) aimTouchId = null;
-            
         }
     }, { passive: true });
-       // ═══════════════════════════════════════
+
+    // ═══════════════════════════════════════
     // SHOOTING
     // ═══════════════════════════════════════
     const raycaster = new THREE.Raycaster();
@@ -506,6 +779,9 @@
         muzzleFlash.intensity = 3;
         muzzleTimer = 0.06;
 
+        // ── Trigger weapon raise + recoil + casing ──
+        triggerFire();
+
         const dir = new THREE.Vector3(0, 0, -1);
         dir.applyEuler(camera.rotation);
 
@@ -518,7 +794,6 @@
             }
             raycaster.set(camera.position, d);
 
-            // Check enemies
             const meshes = [];
             activeEnemies.forEach(e => {
                 if (e.dead) return;
@@ -539,7 +814,6 @@
                 }
             }
 
-            // Check power-ups
             const powerupMeshes = activePowerups.map(pu => pu.mesh);
             const puHits = raycaster.intersectObjects(powerupMeshes, false);
             if (puHits.length > 0) {
@@ -579,7 +853,6 @@
         });
         group.scale.setScalar(cfg.scale);
 
-        // Spawn at random position on circle
         const angle = Math.random() * Math.PI * 2;
         group.position.set(
             Math.cos(angle) * CONFIG.spawnRadius,
@@ -613,7 +886,6 @@
         group.add(hitBox);
         scene.add(group);
 
-        // Health bar + name label
         const hb = createHealthBar(type);
         scene.add(hb.sprite);
 
@@ -633,7 +905,6 @@
     }
 
     function damageEnemy(enemy, baseDmg, hitPoint) {
-        // Critical hit = upper body (head area)
         const isCritical = hitPoint.y > (enemy.group.position.y + 1.2);
         const dmg = isCritical ? baseDmg * 2 : baseDmg;
 
@@ -654,19 +925,16 @@
         waveEnemiesLeft--;
         updateHUD();
 
-        // Remove health bar
         if (enemy.healthBar) {
             scene.remove(enemy.healthBar.sprite);
         }
 
-        // Play death animation
         if (enemy.walkAction) enemy.walkAction.stop();
         if (enemy.deadAction) {
             enemy.deadAction.reset();
             enemy.deadAction.play();
         }
 
-        // Random power-up drop
         if (Math.random() < CONFIG.dropChance) {
             spawnPowerup(enemy.group.position.clone());
         }
@@ -677,7 +945,6 @@
             const e = activeEnemies[i];
             e.mixer.update(dt);
 
-            // Hit flash
             if (e.hitFlashTimer > 0) {
                 e.hitFlashTimer -= dt;
                 e.group.traverse(c => {
@@ -702,10 +969,8 @@
                 continue;
             }
 
-            // Update health bar position
             updateHealthBar(e);
 
-            // Move toward player
             const dir = new THREE.Vector3(
                 camera.position.x - e.group.position.x,
                 0,
@@ -714,7 +979,6 @@
             const dist = dir.length();
             dir.normalize();
 
-            // Face player
             e.group.lookAt(
                 camera.position.x,
                 e.group.position.y,
@@ -724,7 +988,6 @@
             if (dist > CONFIG.meleeRange) {
                 e.group.position.addScaledVector(dir, e.speed * dt);
             } else {
-                // Melee attack — damage player
                 hp -= e.damage * dt;
                 updateHealthHUD();
                 if (hp <= 0) {
@@ -734,8 +997,7 @@
             }
         }
     }
-
-    // ═══════════════════════════════════════
+     // ═══════════════════════════════════════
     // WAVE SYSTEM
     // ═══════════════════════════════════════
     function startWave() {
@@ -811,7 +1073,6 @@
             p.life -= dt;
             p.mesh.rotation.y += dt * 2;
 
-            // Pickup range (walk over)
             const dist = camera.position.distanceTo(p.mesh.position);
             if (dist < 1.5) {
                 if (p.isHealth) {
@@ -833,7 +1094,8 @@
             }
         }
     }
-         // ═══════════════════════════════════════
+
+    // ═══════════════════════════════════════
     // HUD UPDATES
     // ═══════════════════════════════════════
     function updateHUD() {
@@ -882,20 +1144,36 @@
         ammo = [Infinity, 8, 30];
         pitch = 0; yaw = 0;
 
-        // Clear leftovers
+        // Clear enemies
         for (const e of activeEnemies) {
             scene.remove(e.group);
             if (e.healthBar) scene.remove(e.healthBar.sprite);
         }
         activeEnemies.length = 0;
+
+        // Clear power-ups
         for (const p of activePowerups) scene.remove(p.mesh);
         activePowerups.length = 0;
+
+        // Clear damage numbers
         for (const dn of activeDamageNumbers) {
             scene.remove(dn.sprite);
             dn.sprite.material.map.dispose();
             dn.sprite.material.dispose();
         }
         activeDamageNumbers.length = 0;
+
+        // Clear casings
+        for (const c of activeCasings) scene.remove(c.mesh);
+        activeCasings.length = 0;
+
+        // Reset weapon system
+        wpnLerp = 0;
+        wpnState = 'rest';
+        recoilKick = 0;
+        lastFiredAt = 0;
+        pendingSwap = -1;
+        equipWeapon(0);
 
         document.getElementById('blocker').style.display = 'none';
         document.getElementById('game-over').style.display = 'none';
@@ -956,27 +1234,24 @@
 
     document.addEventListener('keydown', e => {
         if (state !== 'playing') return;
-        if (e.key === '1') { curWeapon = 0; updateWeaponHUD(); }
-        if (e.key === '2') { curWeapon = 1; updateWeaponHUD(); }
-        if (e.key === '3') { curWeapon = 2; updateWeaponHUD(); }
+        if (e.key === '1') swapWeapon(0);
+        if (e.key === '2') swapWeapon(1);
+        if (e.key === '3') swapWeapon(2);
         if (e.key === 'q' || e.key === 'Q') {
-            curWeapon = (curWeapon + 1) % CONFIG.weapons.length;
-            updateWeaponHUD();
+            swapWeapon((curWeapon + 1) % CONFIG.weapons.length);
         }
     });
 
     document.querySelectorAll('.weapon-slot').forEach(el => {
         el.addEventListener('click', () => {
             if (state !== 'playing') return;
-            curWeapon = parseInt(el.dataset.weapon);
-            updateWeaponHUD();
+            swapWeapon(parseInt(el.dataset.weapon));
         });
         el.addEventListener('touchend', e => {
             e.preventDefault();
             e.stopPropagation();
             if (state !== 'playing') return;
-            curWeapon = parseInt(el.dataset.weapon);
-            updateWeaponHUD();
+            swapWeapon(parseInt(el.dataset.weapon));
         });
     });
 
@@ -996,9 +1271,11 @@
             updateEnemies(dt);
             updatePowerups(dt);
             updateDamageNumbers(dt);
+            updateWeaponSystem(dt);
+            updateCasings(dt);
             checkWaveComplete();
 
-            // Muzzle flash decay
+            // Muzzle flash decay (scene point light)
             if (muzzleTimer > 0) {
                 muzzleTimer -= dt;
                 if (muzzleTimer <= 0) muzzleFlash.intensity = 0;
@@ -1026,4 +1303,4 @@
 
     </script>
 </body>
-</html>
+</html>       
