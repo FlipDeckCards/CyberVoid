@@ -504,7 +504,12 @@
                 }
             }
         }
-
+const hitBox = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.5, 0.5, 2, 8),
+            new THREE.MeshBasicMaterial({ visible: false })
+        );
+        hitBox.position.y = 1;
+        group.add(hitBox);
         scene.add(group);
 
         activeEnemies.push({
