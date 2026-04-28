@@ -248,7 +248,7 @@
     // ═══════════════════════════════════════
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x060a06);
-    scene.fog = new THREE.FogExp2(0x0a1a0a, 0.012);
+    scene.fog = new THREE.FogExp2(0x1a1a2e, 0.005);
 
     const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.1, 100);
     camera.position.set(0, CONFIG.player.height, 0);
@@ -265,7 +265,7 @@
     // ═══════════════════════════════════════
     // LIGHTING
     // ═══════════════════════════════════════
-    scene.add(new THREE.AmbientLight(0x334433, 1.2));
+    scene.add(new THREE.AmbientLight(0xffffff, 2.0));
 
     const moon = new THREE.DirectionalLight(0x6699bb, 1.5);
     moon.position.set(-10, 20, -10);
@@ -277,7 +277,7 @@
     sc.right = sc.top = 30;
     scene.add(moon);
 
-    const glow = new THREE.PointLight(0x39FF14, 0.3, 15);
+    const glow = new THREE.PointLight(0x99FF14, 1.5, 40);
     glow.position.set(0, 3, 0);
     scene.add(glow);
 
@@ -477,6 +477,11 @@
 
         const cfg = CONFIG.enemies[type];
         const group = skeletonClone(models[type]);
+        group.traverse((child) => {
+            if (child.isMesh) {
+                child.material = child.material.clone();
+            }
+        });
         group.scale.setScalar(cfg.scale);
 
         // Spawn at random position on circle
