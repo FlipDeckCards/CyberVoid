@@ -337,7 +337,7 @@
 
     function loadWeapon(name) {
         return new Promise(resolve => {
-            gltfLoader.load(`zombies/${name}.glb`, gltf => {
+            gltfLoader.load(`${name}.glb`, gltf => {
                 const model = gltf.scene;
                 model.traverse(c => {
                     if (c.isMesh) {
