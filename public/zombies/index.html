@@ -565,16 +565,20 @@ const hitBox = new THREE.Mesh(
             const e = activeEnemies[i];
             e.mixer.update(dt);
 
-            // Hit flash
-            if (e.hitFlashTimer > 0) {
-                e.hitFlashTimer -= dt;
-                e.group.traverse(c => {
-                    if (c.isMesh) c.material.emissive?.setHex(
-                        e.hitFlashTimer > 0 ? 0xff0000 : 0x000000
-                    );
-                });
+           // Hit flash
+if (e.hitFlashTimer > 0) {
+    e.hitFlashTimer -= dt;
+    e.group.traverse(c => {
+        if (c.isMesh) {
+            if (!c.userData.originalEmissive) {
+                c.userData.originalEmissive = c.material.emissive.getHex();
             }
-
+            c.material.emissive.set(
+                e.hitFlashTimer > 0 ? 0xff0000 : c.userData.originalEmissive
+            );
+        }
+    });
+}
             if (e.dead) {
                 e.despawnTimer += dt;
                 if (e.despawnTimer > CONFIG.despawnTime) {
