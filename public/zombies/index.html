@@ -218,7 +218,7 @@
             brute:    { speed: 1.2, health: 300, damage: 25, points: 50, scale: 4.0 },
             crawler:  { speed: 3.0, health: 40,  damage: 5,  points: 15, scale: 1.0 }
         },
-        spawnRadius: 35,
+        spawnRadius: 60,
         meleeRange: 2.0,
         despawnTime: 3,
         dropChance: 0.3
@@ -247,7 +247,7 @@
     // ═══════════════════════════════════════
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x060a06);
-    scene.fog = new THREE.FogExp2(0x0a1a0a, 0.022);
+    scene.fog = new THREE.FogExp2(0x0a1a0a, 0.012);
 
     const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.1, 100);
     camera.position.set(0, CONFIG.player.height, 0);
