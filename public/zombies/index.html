@@ -328,6 +328,15 @@
             loadZombie('brute'),
             loadZombie('crawler')
         ]);
+        // DEBUG: log model sizes
+        for (const [name, model] of Object.entries(models)) {
+            if (model) {
+                const box = new THREE.Box3().setFromObject(model);
+                const size = new THREE.Vector3();
+                box.getSize(size);
+                console.log(`${name}: ${size.x.toFixed(1)} x ${size.y.toFixed(1)} x ${size.z.toFixed(1)}`);
+            }
+        }
         state = 'menu';
         document.getElementById('start-text').textContent = 'TAP TO START';
         document.getElementById('loading-bar').style.display = 'none';
