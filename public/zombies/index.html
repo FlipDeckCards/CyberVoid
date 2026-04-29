@@ -1253,35 +1253,21 @@
         const clips = anims[modelKey] || anims['brute'] || [];
         let walkAction = null, deadAction = null;
 
-        if (clips.length > 0) {
-            console.log(`${type} animations:`, clips.map(c => c.name));
-            
-            for (const clip of clips) {
-                const n = clip.name.toLowerCase();
-                if (!walkAction && (n.includes('walk') || n.includes('run') || n.includes('move') || n.includes('idle') || n.includes('action'))) {
-                    walkAction = mixer.clipAction(clip);
-                    walkAction.play();
-                } else if (!deadAction && (n.includes('dead') || n.includes('death') || n.includes('die') || n.includes('fall'))) {
-                    deadAction = mixer.clipAction(clip);
-                    deadAction.loop = THREE.LoopOnce;
-                    deadAction.clampWhenFinished = true;
-                }
-            }
-            if (!walkAction && clips.length >= 1) {
-                walkAction = mixer.clipAction(clips[0]);
+        for (const clip of clips) {
+            const n = clip.name.toLowerCase();
+            if (n.includes('walk') || n.includes('run')) {
+                walkAction = mixer.clipAction(clip);
                 walkAction.play();
-            }
-            if (!deadAction && clips.length >= 2) {
-                deadAction = mixer.clipAction(clips[clips.length - 1]);
-                deadAction.loop = THREE.LoopOnce;
-                deadAction.clampWhenFinished = true;
-            }
+        } else if (n.includes('dead') || n.includes('death')) {
+            deadAction = mixer.clipAction(clip);
+            deadAction.loop = THREE.LoopOnce;
+            deadAction.clampWhenFinished = true;
         }
-        }
+    }
 
-        const hitBox = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.5, 0.5, 2, 8),
-            new THREE.MeshBasicMaterial({ visible: false })
+    const hitBox = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.5, 0.5, 2, 8),
+        new THREE.MeshBasicMaterial({ visible: false })
         );
         hitBox.position.y = 1;
         group.add(hitBox);
