@@ -519,12 +519,25 @@
     });
     const CASING_Y_OFFSET = { pistol: 0.07, shotgun: 0, rifle: 0 };
 
-    // ── Muzzle flash — bigger, brighter ──
+    // Muzzle flash — small bright burst, not a billboard
+    const mFlashCanvas = document.createElement('canvas');
+    mFlashCanvas.width = 64;
+    mFlashCanvas.height = 64;
+    const mfCtx = mFlashCanvas.getContext('2d');
+    const grad = mfCtx.createRadialGradient(32, 32, 0, 32, 32, 32);
+    grad.addColorStop(0, 'rgba(255,255,200,1)');
+    grad.addColorStop(0.3, 'rgba(255,180,50,0.8)');
+    grad.addColorStop(0.7, 'rgba(255,100,0,0.3)');
+    grad.addColorStop(1, 'rgba(255,60,0,0)');
+    mfCtx.fillStyle = grad;
+    mfCtx.fillRect(0, 0, 64, 64);
+
+    const mFlashTex = new THREE.CanvasTexture(mFlashCanvas);
     const mFlashSprite = new THREE.Sprite(new THREE.SpriteMaterial({
-        color: 0xffaa00, transparent: true,
-        blending: THREE.AdditiveBlending, opacity: 1.0
+        map: mFlashTex, transparent: true,
+        blending: THREE.AdditiveBlending, opacity: 0.9
     }));
-    mFlashSprite.scale.set(0.35, 0.35, 0.35);
+    mFlashSprite.scale.set(0.08, 0.08, 0.08);
     mFlashSprite.visible = false;
     mFlashSprite.position.set(0, 0.02, -0.55);
     weaponHolder.add(mFlashSprite);
@@ -577,7 +590,9 @@
 
         mFlashSprite.visible = true;
         mFlashSprite.material.rotation = Math.random() * Math.PI * 2;
-        mFlashVis = 0.06;
+        const flashSize = 0.06 + Math.random() * 0.04; // slight size variation
+        mFlashSprite.scale.set(flashSize, flashSize, flashSize);
+        mFlashVis = 0.04;
 
         spawnCasing();
     }
