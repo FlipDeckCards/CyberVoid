@@ -541,8 +541,8 @@
     mFlashSprite.visible = false;
     const MUZZLE_POS = {
         pistol:  { x: 0,    y: 0.02, z: -0.35 },
-        shotgun: { x: 0,    y: 0.02, z: -0.85 },
-        rifle:   { x: 0,    y: 0.02, z: -0.80 }
+        shotgun: { x: 0,    y: 0.02, z: -0.95 },
+        rifle:   { x: 0,    y: 0.02, z: -0.90 }
     };
     mFlashSprite.position.set(0, 0.02, -0.35); // default to pistol
     weaponHolder.add(mFlashSprite);
@@ -861,9 +861,6 @@
     const raycaster = new THREE.Raycaster();
     raycaster.far = 80;
 
-    const muzzleFlash = new THREE.PointLight(0xffaa00, 0, 8);
-    muzzleFlash.position.set(0, CONFIG.player.height, 0);
-    scene.add(muzzleFlash);
     let muzzleTimer = 0;
 
     function shoot() {
@@ -876,9 +873,6 @@
         lastShotTime = now;
         if (ammo[curWeapon] !== Infinity) ammo[curWeapon]--;
         updateAmmoHUD();
-
-        muzzleFlash.intensity = 5;
-        muzzleTimer = 0.07;
 
         triggerFire();
 
@@ -1442,11 +1436,6 @@
             updateCasings(dt);
             updateThreatIndicators();
             checkWaveComplete();
-
-            if (muzzleTimer > 0) {
-                muzzleTimer -= dt;
-                if (muzzleTimer <= 0) muzzleFlash.intensity = 0;
-            }
 
             if (betweenWaves) {
                 waveTimer -= dt;
