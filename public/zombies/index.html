@@ -1145,30 +1145,19 @@
                 ammo[2] = maxAmmo[2];
                 updateAmmoHUD();
                 break;
-    }
-        
+        }  
         scene.remove(pu.group);
         activePowerups.splice(index, 1);
     }
 
-    function spawnPowerup(pos) {
-        const puType = pickPowerupType();
-        const group = puType.create();
-        group.position.copy(pos);
-        group.position.y = 0.5;
-        group.scale.setScalar(2.5);
-
-        // Invisible hitbox for raycasting
-        const hitbox = new THREE.Mesh(
-            new THREE.SphereGeometry(0.4, 8, 8),
-            new THREE.MeshBasicMaterial({ visible: false })
-        );
-        hitbox.position.y = 0.15;
-        group.add(hitbox);
-
-        scene.add(group);
-        activePowerups.push({ group, type: puType.id, life: 15 });
-    }
+        function spawnPowerup(pos) {
+            const puType = pickPowerupType();
+            const group = puType.create();
+            group.position.copy(pos);
+            group.position.y = 0.3;
+            scene.add(group);
+            activePowerups.psh({ group, type: puType.id, life: 15 });
+    }        
 
     function updatePowerups(dt) {
         if (speedBoostTimer > 0) speedBoostTimer -= dt;
