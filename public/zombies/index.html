@@ -539,11 +539,11 @@
     }));
     mFlashSprite.scale.set(0.08, 0.08, 0.08);
     mFlashSprite.visible = false;
-    const MUZZLE_POS = {
-        pistol:  { x: 0,    y: 0.02, z: -0.35 },
-        shotgun: { x: 0,    y: 0.02, z: -0.95 },
-        rifle:   { x: 0,    y: 0.02, z: -0.90 }
-    };
+    const MUZZLE_OFFSETS = [
+        { x: 0, y: 0.02, z: -0.30 },  // 0 = pistol
+        { x: 0, y: 0.04, z: -0.95 },  // 1 = shotgun
+        { x: 0, y: 0.03, z: -0.90 }   // 2 = rifle
+    ];
     mFlashSprite.position.set(0, 0.02, -0.35); // default to pistol
     weaponHolder.add(mFlashSprite);
     let mFlashVis = 0;
@@ -593,13 +593,13 @@
             wpnState = 'raising';
         }
 
-        const mPos = MUZZLE_POS[WEAPON_NAMES[curWeapon]];
+        const mPos = MUZZLE_OFFSETS[curWeapon];
         mFlashSprite.position.set(mPos.x, mPos.y, mPos.z);
         mFlashSprite.visible = true;
         mFlashSprite.material.rotation = Math.random() * Math.PI * 2;
-        const flashSize = 0.06 + Math.random() * 0.04;
+        const flashSize = 0.18 + Math.random() * 0.08;
         mFlashSprite.scale.set(flashSize, flashSize, flashSize);
-        mFlashVis = 0.04;
+        mFlashVis = 0.06;
 
         spawnCasing();
     }
@@ -674,7 +674,16 @@
                 }
                 break;
         }
-
+        
+// Muzzle flash visibility countdown
+        if (mFlashVis > 0) {
+            mFlashVis -= dt;
+            if (mFlashVis <= 0) {
+                mFlashVis = 0;
+                mFlashSprite.visible = false;
+            }
+        }
+        
         recoilKick = Math.max(0, recoilKick - RECOIL_RECOVER * dt);
 
         wpnBobTime += dt;
