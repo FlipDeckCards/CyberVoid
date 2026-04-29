@@ -124,6 +124,25 @@
             z-index: 60; display: none; pointer-events: none;
         }
 
+        /* Boss health bar */
+        #boss-bar {
+            position: absolute; top: 45px; left: 50%;
+            transform: translateX(-50%); width: 300px;
+            display: none; pointer-events: none;
+        }
+        #boss-name {
+            color: #ff4444; font-size: 0.7rem; text-align: center;
+            letter-spacing: 3px; margin-bottom: 4px;
+        }
+        #boss-bar-bg {
+            width: 100%; height: 8px; background: #333;
+            border-radius: 4px; overflow: hidden;
+        }
+        #boss-health-fill {
+            width: 100%; height: 100%; background: #ff4444;
+            transition: width 0.3s;
+        }
+
         #game-over {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.9);
@@ -147,7 +166,6 @@
             animation: pulse 2s ease-in-out infinite;
         }
 
-        /* ── Threat direction indicators ── */
         .threat-edge {
             position: absolute; background: #ff4444; opacity: 0;
             transition: opacity 0.1s; pointer-events: none;
@@ -166,6 +184,7 @@
             #ammo-display { left: 160px; }
             #ammo-label { left: 160px; }
             #wave-announce { font-size: 3rem; }
+            #boss-bar { width: 200px; }
         }
     </style>
 </head>
@@ -184,6 +203,10 @@
             <div id="score-display">0</div>
             <div id="kills-display">KILLS: 0</div>
         </div>
+        <div id="boss-bar">
+            <div id="boss-name">TITAN</div>
+            <div id="boss-bar-bg"><div id="boss-health-fill"></div></div>
+        </div>
         <div id="health-label">HEALTH</div>
         <div id="health-bar-bg"><div id="health-bar"></div></div>
         <div id="ammo-display">∞</div>
@@ -193,7 +216,6 @@
             <div class="weapon-slot" data-weapon="1">2 SHOTGUN</div>
             <div class="weapon-slot" data-weapon="2">3 RIFLE</div>
         </div>
-        <!-- Threat direction indicators -->
         <div class="threat-edge" id="threat-left"></div>
         <div class="threat-edge" id="threat-right"></div>
         <div class="threat-edge" id="threat-top"></div>
@@ -228,15 +250,16 @@
     const CONFIG = {
         player: { height: 1.6, health: 100 },
         weapons: [
-            { name: 'Pistol',  damage: 25, rate: 0.3,  ammo: Infinity, spread: 0,    pellets: 1 },
-            { name: 'Shotgun', damage: 15, rate: 0.8,  ammo: 8,        spread: 0.08, pellets: 6 },
-            { name: 'Rifle',   damage: 35, rate: 0.12, ammo: 30,       spread: 0.02, pellets: 1 }
+            { name: 'Pistol',  damage: 25, rate: 0.3,  ammo: Infinity, spread: 0,    pellets: 1, auto: false },
+            { name: 'Shotgun', damage: 15, rate: 0.8,  ammo: 8,        spread: 0.08, pellets: 6, auto: false },
+            { name: 'Rifle',   damage: 35, rate: 0.12, ammo: 30,       spread: 0.02, pellets: 1, auto: true  }
         ],
         enemies: {
-            shambler: { speed: 1.8, health: 100, damage: 10, points: 10, scale: 1.2 },
-            runner:   { speed: 4.5, health: 60,  damage: 8,  points: 25, scale: 1.0 },
-            brute:    { speed: 1.3, health: 180, damage: 25, points: 50, scale: 1.5 },
-            crawler:  { speed: 3.0, health: 40,  damage: 5,  points: 15, scale: 0.6 },
+            shambler: { speed: 1.8, health: 100, damage: 10, points: 10,  scale: 1.2 },
+            runner:   { speed: 4.5, health: 60,  damage: 8,  points: 25,  scale: 1.0 },
+            brute:    { speed: 1.3, health: 180, damage: 25, points: 50,  scale: 1.5 },
+            tank:     { speed: 1.5, health: 250, damage: 20, points: 40,  scale: 1.4 },
+            boss:     { speed: 1.0, health: 800, damage: 30, points: 500, scale: 2.5 }
         },
         spawnRadius: 60,
         meleeRange: 2.0,
@@ -260,10 +283,15 @@
     let fireHeld = false;
     let fireTouchId = null;
     let pendingFire = false;
+    let hasFiredThisClick = false;
+    let activeBoss = null;
+    let screenShake = 0;
+    let speedBoostTimer = 0;
 
     const activeEnemies = [];
     const activePowerups = [];
     const activeDamageNumbers = [];
+    const activeShockwaves = [];
     const clock = new THREE.Clock();
 
     // ═══════════════════════════════════════
@@ -305,7 +333,6 @@
     glow.position.set(0, 3, 0);
     scene.add(glow);
 
-    // Floodlights — 4 corners
     const floodPositions = [
         [-35, 12, -35], [35, 12, -35], [-35, 12, 35], [35, 12, 35]
     ];
@@ -316,7 +343,6 @@
         scene.add(fl);
         scene.add(fl.target);
 
-        // Visible pole
         const pole = new THREE.Mesh(
             new THREE.CylinderGeometry(0.15, 0.15, 12, 6),
             new THREE.MeshStandardMaterial({ color: 0x444444, metalness: 0.8, roughness: 0.3 })
@@ -328,7 +354,6 @@
     // ═══════════════════════════════════════
     // ARENA ENVIRONMENT
     // ═══════════════════════════════════════
-    // Ground — dark concrete with grid
     const ground = new THREE.Mesh(
         new THREE.PlaneGeometry(80, 80),
         new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.95 })
@@ -337,12 +362,10 @@
     ground.receiveShadow = true;
     scene.add(ground);
 
-    // Grid lines on floor
     const gridHelper = new THREE.GridHelper(80, 40, 0x333333, 0x222222);
     gridHelper.position.y = 0.01;
     scene.add(gridHelper);
 
-    // Perimeter walls
     const wallMat = new THREE.MeshStandardMaterial({
         color: 0x2a2a2a, roughness: 0.8, metalness: 0.2
     });
@@ -361,7 +384,6 @@
         scene.add(wall);
     }
 
-    // Sky gradient sphere
     const skyGeo = new THREE.SphereGeometry(150, 32, 32);
     const skyMat = new THREE.ShaderMaterial({
         side: THREE.BackSide,
@@ -400,7 +422,7 @@
     const anims = {};
     const weaponGLBs = {};
     let loaded = 0;
-    const TOTAL_ASSETS = 7;
+    const TOTAL_ASSETS = 8;
 
     function updateLoadBar() {
         loaded++;
@@ -410,7 +432,7 @@
 
     function loadZombie(name) {
         return new Promise(resolve => {
-            gltfLoader.load(`assets/${name}.glb`, gltf => {
+            gltfLoader.load(`Zombies/${name}.glb`, gltf => {
                 gltf.scene.traverse(c => {
                     if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; }
                 });
@@ -457,7 +479,8 @@
             loadZombie('shambler'),
             loadZombie('runner'),
             loadZombie('brute'),
-            loadZombie('crawler'),
+            loadZombie('tank'),
+            loadZombie('boss'),
             loadWeapon('pistol'),
             loadWeapon('shotgun'),
             loadWeapon('rifle')
@@ -478,7 +501,8 @@
         document.getElementById('loading-bar').style.display = 'none';
     }
     init();
-// ═══════════════════════════════════════
+
+    // ═══════════════════════════════════════
     // FIRST-PERSON WEAPON SYSTEM
     // ═══════════════════════════════════════
     const weaponHolder = new THREE.Group();
@@ -492,7 +516,6 @@
         rifle:   { scale: 0.55, rotY: -Math.PI / 2 },
     };
 
-    // ADS: weapon centers on screen and raises to sights
     const REST_POS = new THREE.Vector3(0.2, -0.25, -0.45);
     const REST_ROT_BASE = new THREE.Vector3(-0.08, -0.08, 0.03);
     const AIM_POS  = new THREE.Vector3(0.0, -0.18, -0.38);
@@ -511,7 +534,7 @@
     const RECOIL_RECOVER = 8;
     const HOLD_TIME    = 0.45;
 
-    // ── Casings with per-weapon Y offset ──
+    // ── Casings ──
     const activeCasings = [];
     const casingGeo = new THREE.CylinderGeometry(0.008, 0.008, 0.03, 6);
     const casingMat = new THREE.MeshStandardMaterial({
@@ -519,7 +542,7 @@
     });
     const CASING_Y_OFFSET = { pistol: 0.07, shotgun: 0, rifle: 0 };
 
-    // Muzzle flash — small bright burst, not a billboard
+    // ── Muzzle flash ──
     const mFlashCanvas = document.createElement('canvas');
     mFlashCanvas.width = 64;
     mFlashCanvas.height = 64;
@@ -540,9 +563,9 @@
     mFlashSprite.scale.set(0.08, 0.08, 0.08);
     mFlashSprite.visible = false;
     const MUZZLE_OFFSETS = [
-        { x: 0, y: 0.06, z: -0.30 },  // 0 = pistol
-        { x: 0, y: 0.04, z: -0.95 },  // 1 = shotgun
-        { x: 0, y: 0.07, z: -0.90 }   // 2 = rifle
+        { x: 0, y: 0.06, z: -0.30 },
+        { x: 0, y: 0.04, z: -0.95 },
+        { x: 0, y: 0.07, z: -0.90 }
     ];
     mFlashSprite.position.set(0, 0.02, -0.35);
     weaponHolder.add(mFlashSprite);
@@ -581,22 +604,19 @@
     function swapWeapon(newIndex) {
         if (newIndex === curWeapon) return;
         if (wpnState === 'swapDown' || wpnState === 'swapUp') return;
-        pendingFire = false; // cancel any pending shot on swap
+        pendingFire = false;
         pendingSwap = newIndex;
         wpnState = 'swapDown';
     }
 
-    // triggerFire — ONLY sets the flag; actual shot waits for weapon to arrive
     function triggerFire() {
-        if (pendingFire) return; // already waiting
+        if (pendingFire) return;
         pendingFire = true;
-
         if (wpnState === 'rest' || wpnState === 'lowering') {
             wpnState = 'raising';
         }
     }
 
-    // executeShot — fires the actual round (flash, casing, raycast, everything)
     function executeShot() {
         lastFiredAt = performance.now() / 1000;
         recoilKick = RECOIL_AMT;
@@ -638,7 +658,6 @@
         });
     }
 
-    // ── Crosshair ADS tightening ──
     function updateCrosshairADS(t) {
         const ch = document.getElementById('crosshair');
         const size = 30 - (t * 16);
@@ -650,7 +669,6 @@
         const now = performance.now() / 1000;
         const timeSinceShot = now - lastFiredAt;
 
-        // Use 3x raise speed when a shot is pending
         const raiseSpeed = pendingFire ? RAISE_SPD * 3 : RAISE_SPD;
 
         switch (wpnState) {
@@ -687,13 +705,11 @@
                 break;
         }
 
-        // Fire only after weapon reaches fire position
         if (pendingFire && wpnLerp >= 0.95) {
             pendingFire = false;
             executeShot();
         }
 
-        // Muzzle flash visibility countdown
         if (mFlashVis > 0) {
             mFlashVis -= dt;
             if (mFlashVis <= 0) {
@@ -720,7 +736,6 @@
         const rz = REST_ROT_BASE.z + (AIM_ROT_BASE.z - REST_ROT_BASE.z) * t;
         weaponHolder.rotation.set(rx, ry, rz);
 
-        // Crosshair tightens with ADS
         updateCrosshairADS(t);
     }
 
@@ -878,7 +893,7 @@
     }, { passive: true });
 
     // ═══════════════════════════════════════
-    // SHOOTING
+    // SHOOTING — semi-auto gated
     // ═══════════════════════════════════════
     const raycaster = new THREE.Raycaster();
     raycaster.far = 80;
@@ -928,26 +943,281 @@
                 }
             }
 
-            const powerupMeshes = activePowerups.map(pu => pu.mesh);
-            const puHits = raycaster.intersectObjects(powerupMeshes, false);
+            // Shoot power-ups too
+            const puMeshes = [];
+            activePowerups.forEach(pu => {
+                pu.mesh.traverse(c => { if (c.isMesh) puMeshes.push(c); });
+            });
+            const puHits = raycaster.intersectObjects(puMeshes, false);
             if (puHits.length > 0) {
                 const hitMesh = puHits[0].object;
                 for (let pi = activePowerups.length - 1; pi >= 0; pi--) {
-                    if (activePowerups[pi].mesh === hitMesh) {
-                        const pu = activePowerups[pi];
-                        if (pu.isHealth) {
-                            hp = Math.min(hp + 25, CONFIG.player.health);
-                            updateHealthHUD();
-                        } else {
-                            ammo[1] = Math.min(ammo[1] + 4, maxAmmo[1]);
-                            ammo[2] = Math.min(ammo[2] + 10, maxAmmo[2]);
-                            updateAmmoHUD();
-                        }
-                        scene.remove(pu.mesh);
-                        activePowerups.splice(pi, 1);
+                    let found = false;
+                    activePowerups[pi].mesh.traverse(c => { if (c === hitMesh) found = true; });
+                    if (found) {
+                        collectPowerup(activePowerups[pi], pi);
                         break;
                     }
                 }
+            }
+        }
+    }
+
+ // ═══════════════════════════════════════
+    // PROCEDURAL POWER-UP MODELS
+    // ═══════════════════════════════════════
+    function createBulletModel(color, length, radius) {
+        const group = new THREE.Group();
+        const mat = new THREE.MeshStandardMaterial({
+            color, emissive: color, emissiveIntensity: 0.6, metalness: 0.7, roughness: 0.3
+        });
+        // Shell casing
+        const shell = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, length, 8), mat);
+        shell.position.y = length / 2;
+        group.add(shell);
+        // Bullet tip
+        const tip = new THREE.Mesh(new THREE.ConeGeometry(radius, length * 0.4, 8), mat.clone());
+        tip.material.color.set(0xddaa44);
+        tip.material.emissive.set(0xddaa44);
+        tip.position.y = length + length * 0.2;
+        group.add(tip);
+        return group;
+    }
+
+    function createShotgunShellModel() {
+        const group = new THREE.Group();
+        const bodyMat = new THREE.MeshStandardMaterial({
+            color: 0xff3333, emissive: 0xff3333, emissiveIntensity: 0.5, metalness: 0.3, roughness: 0.5
+        });
+        const baseMat = new THREE.MeshStandardMaterial({
+            color: 0xccaa44, emissive: 0xccaa44, emissiveIntensity: 0.4, metalness: 0.8, roughness: 0.3
+        });
+        const body = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.25, 8), bodyMat);
+        body.position.y = 0.175;
+        group.add(body);
+        const base = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.05, 8), baseMat);
+        base.position.y = 0.025;
+        group.add(base);
+        return group;
+    }
+
+    function createMedkitModel() {
+        const group = new THREE.Group();
+        const boxMat = new THREE.MeshStandardMaterial({
+            color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.3, metalness: 0.2, roughness: 0.6
+        });
+        const crossMat = new THREE.MeshStandardMaterial({
+            color: 0xff2222, emissive: 0xff2222, emissiveIntensity: 0.6
+        });
+        const box = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.3, 0.15), boxMat);
+        box.position.y = 0.15;
+        group.add(box);
+        // Red cross — horizontal bar
+        const h = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.06, 0.16), crossMat);
+        h.position.y = 0.15;
+        group.add(h);
+        // Red cross — vertical bar
+        const v = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.22, 0.16), crossMat);
+        v.position.y = 0.15;
+        group.add(v);
+        return group;
+    }
+
+    function createNukeModel() {
+        const group = new THREE.Group();
+        const mat = new THREE.MeshStandardMaterial({
+            color: 0x39FF14, emissive: 0x39FF14, emissiveIntensity: 0.8, metalness: 0.5, roughness: 0.3
+        });
+        const sphere = new THREE.Mesh(new THREE.SphereGeometry(0.15, 12, 12), mat);
+        sphere.position.y = 0.15;
+        group.add(sphere);
+        const ring = new THREE.Mesh(
+            new THREE.TorusGeometry(0.25, 0.03, 8, 24), mat
+        );
+        ring.position.y = 0.15;
+        ring.rotation.x = Math.PI / 2;
+        group.add(ring);
+        return group;
+    }
+
+    function createSpeedModel() {
+        const group = new THREE.Group();
+        const mat = new THREE.MeshStandardMaterial({
+            color: 0x4488ff, emissive: 0x4488ff, emissiveIntensity: 0.7
+        });
+        // Lightning bolt — 3 stacked wedges
+        const bolt1 = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.15, 0.04), mat);
+        bolt1.position.set(0.03, 0.3, 0);
+        bolt1.rotation.z = 0.3;
+        group.add(bolt1);
+        const bolt2 = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.15, 0.04), mat);
+        bolt2.position.set(-0.03, 0.15, 0);
+        bolt2.rotation.z = -0.3;
+        group.add(bolt2);
+        const bolt3 = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.12, 0.04), mat);
+        bolt3.position.set(0.02, 0.03, 0);
+        bolt3.rotation.z = 0.3;
+        group.add(bolt3);
+        return group;
+    }
+
+    function createMaxAmmoModel() {
+        const group = new THREE.Group();
+        const mat = new THREE.MeshStandardMaterial({
+            color: 0xaa44ff, emissive: 0xaa44ff, emissiveIntensity: 0.6, metalness: 0.4, roughness: 0.5
+        });
+        // Ammo crate
+        const crate = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.25, 0.25), mat);
+        crate.position.y = 0.125;
+        group.add(crate);
+        // Lid
+        const lidMat = mat.clone();
+        lidMat.color.set(0x7722cc);
+        lidMat.emissive.set(0x7722cc);
+        const lid = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.04, 0.28), lidMat);
+        lid.position.y = 0.27;
+        group.add(lid);
+        return group;
+    }
+
+    // Power-up glow light helper
+    function addGlow(group, color) {
+        const light = new THREE.PointLight(color, 1.5, 5);
+        light.position.y = 0.3;
+        group.add(light);
+    }
+
+    const POWERUP_TYPES = [
+        { id: 'pistol_ammo', weight: 20, create: () => { const g = createBulletModel(0xffcc44, 0.2, 0.04); addGlow(g, 0xffcc44); return g; } },
+        { id: 'rifle_ammo',  weight: 20, create: () => { const g = createBulletModel(0xff8833, 0.3, 0.05); addGlow(g, 0xff8833); return g; } },
+        { id: 'shotgun_ammo',weight: 15, create: () => { const g = createShotgunShellModel(); addGlow(g, 0xff3333); return g; } },
+        { id: 'health',      weight: 25, create: () => { const g = createMedkitModel(); addGlow(g, 0x39FF14); return g; } },
+        { id: 'nuke',        weight: 5,  create: () => { const g = createNukeModel(); addGlow(g, 0x39FF14); return g; } },
+        { id: 'speed',       weight: 8,  create: () => { const g = createSpeedModel(); addGlow(g, 0x4488ff); return g; } },
+        { id: 'max_ammo',    weight: 7,  create: () => { const g = createMaxAmmoModel(); addGlow(g, 0xaa44ff); return g; } },
+    ];
+
+    const TOTAL_PU_WEIGHT = POWERUP_TYPES.reduce((s, p) => s + p.weight, 0);
+
+    function pickPowerupType() {
+        let r = Math.random() * TOTAL_PU_WEIGHT;
+        for (const pu of POWERUP_TYPES) {
+            r -= pu.weight;
+            if (r <= 0) return pu;
+        }
+        return POWERUP_TYPES[0];
+    }
+
+    let speedBoostTimer = 0;
+
+    function collectPowerup(pu, index) {
+        switch (pu.type) {
+            case 'health':
+                hp = Math.min(hp + 25, CONFIG.player.health);
+                updateHealthHUD();
+                break;
+            case 'pistol_ammo':
+                // Pistol is infinite — give bonus score instead
+                score += 50;
+                updateHUD();
+                break;
+            case 'rifle_ammo':
+                ammo[2] = Math.min(ammo[2] + 15, maxAmmo[2]);
+                updateAmmoHUD();
+                break;
+            case 'shotgun_ammo':
+                ammo[1] = Math.min(ammo[1] + 6, maxAmmo[1]);
+                updateAmmoHUD();
+                break;
+            case 'nuke':
+                // Kill all non-boss enemies
+                for (const e of activeEnemies) {
+                    if (!e.dead && e.type !== 'boss') {
+                        killEnemy(e);
+                    }
+                }
+                screenShake = 0.4;
+                spawnShockwave(camera.position.clone());
+                break;
+            case 'speed':
+                speedBoostTimer = 8; // 8 seconds of faster fire rate
+                break;
+            case 'max_ammo':
+                ammo[1] = maxAmmo[1];
+                ammo[2] = maxAmmo[2];
+                updateAmmoHUD();
+                break;
+        }
+        scene.remove(pu.group);
+        activePowerups.splice(index, 1);
+    }
+
+    function spawnPowerup(pos) {
+        const puType = pickPowerupType();
+        const group = puType.create();
+        group.position.copy(pos);
+        group.position.y = 0.3;
+        scene.add(group);
+        activePowerups.push({ group, type: puType.id, life: 15 });
+    }
+
+    function updatePowerups(dt) {
+        if (speedBoostTimer > 0) speedBoostTimer -= dt;
+
+        for (let i = activePowerups.length - 1; i >= 0; i--) {
+            const p = activePowerups[i];
+            p.life -= dt;
+            p.group.rotation.y += dt * 2;
+            // Gentle float
+            p.group.position.y = 0.3 + Math.sin(performance.now() / 1000 * 2 + i) * 0.08;
+
+            // Walk-over pickup
+            const dist = camera.position.distanceTo(p.group.position);
+            if (dist < 1.5) {
+                collectPowerup(p, i);
+                continue;
+            }
+
+            // Blink when about to expire
+            if (p.life <= 3) {
+                p.group.visible = Math.sin(p.life * 10) > 0;
+            }
+
+            if (p.life <= 0) {
+                scene.remove(p.group);
+                activePowerups.splice(i, 1);
+            }
+        }
+    }
+
+    // ═══════════════════════════════════════
+    // SHOCKWAVE (nuke visual)
+    // ═══════════════════════════════════════
+    function spawnShockwave(pos) {
+        const geo = new THREE.RingGeometry(0.5, 1.5, 32);
+        const mat = new THREE.MeshBasicMaterial({
+            color: 0x39FF14, transparent: true, opacity: 0.8, side: THREE.DoubleSide
+        });
+        const ring = new THREE.Mesh(geo, mat);
+        ring.position.copy(pos);
+        ring.position.y = 0.5;
+        ring.rotation.x = -Math.PI / 2;
+        scene.add(ring);
+        activeShockwaves.push({ mesh: ring, age: 0 });
+    }
+
+    function updateShockwaves(dt) {
+        for (let i = activeShockwaves.length - 1; i >= 0; i--) {
+            const sw = activeShockwaves[i];
+            sw.age += dt;
+            const s = 1 + sw.age * 40;
+            sw.mesh.scale.set(s, s, s);
+            sw.mesh.material.opacity = Math.max(0, 0.8 - sw.age * 2);
+            if (sw.age > 0.5) {
+                scene.remove(sw.mesh);
+                sw.mesh.geometry.dispose();
+                sw.mesh.material.dispose();
+                activeShockwaves.splice(i, 1);
             }
         }
     }
@@ -956,10 +1226,17 @@
     // ENEMIES
     // ═══════════════════════════════════════
     function spawnEnemy(type) {
-        if (!models[type]) return;
+        const modelKey = type === 'boss' ? 'boss' : type;
+        if (!models[modelKey]) {
+            // Fallback: if boss model missing, use brute scaled up
+            if (type === 'boss' && models['brute']) {
+                // Continue with brute as fallback
+            } else return;
+        }
 
         const cfg = CONFIG.enemies[type];
-        const group = skeletonClone(models[type]);
+        const sourceModel = models[modelKey] || models['brute'];
+        const group = skeletonClone(sourceModel);
         group.traverse((child) => {
             if (child.isMesh) {
                 child.material = child.material.clone();
@@ -975,20 +1252,18 @@
         );
 
         const mixer = new THREE.AnimationMixer(group);
-        const clips = anims[type];
+        const clips = anims[modelKey] || anims['brute'] || [];
         let walkAction = null, deadAction = null;
 
-        if (clips) {
-            for (const clip of clips) {
-                const n = clip.name.toLowerCase();
-                if (n.includes('walk') || n.includes('run')) {
-                    walkAction = mixer.clipAction(clip);
-                    walkAction.play();
-                } else if (n.includes('dead') || n.includes('death')) {
-                    deadAction = mixer.clipAction(clip);
-                    deadAction.loop = THREE.LoopOnce;
-                    deadAction.clampWhenFinished = true;
-                }
+        for (const clip of clips) {
+            const n = clip.name.toLowerCase();
+            if (n.includes('walk') || n.includes('run')) {
+                walkAction = mixer.clipAction(clip);
+                walkAction.play();
+            } else if (n.includes('dead') || n.includes('death')) {
+                deadAction = mixer.clipAction(clip);
+                deadAction.loop = THREE.LoopOnce;
+                deadAction.clampWhenFinished = true;
             }
         }
 
@@ -1000,32 +1275,92 @@
         group.add(hitBox);
         scene.add(group);
 
-        const hb = createHealthBar(type);
-        scene.add(hb.sprite);
+        // Health bar (not for boss — boss uses HUD bar)
+        let hb = null;
+        if (type !== 'boss') {
+            hb = createHealthBar(type);
+            scene.add(hb.sprite);
+        }
 
-        activeEnemies.push({
+        // Scale health by wave
+        const waveScale = 1 + (wave - 1) * 0.15;
+        const scaledHealth = Math.round(cfg.health * waveScale);
+
+        const bossWaveNum = Math.floor(wave / 10);
+
+        const enemy = {
             type, group, mixer,
             walkAction, deadAction,
-            health: cfg.health,
-            maxHealth: cfg.health,
+            health: scaledHealth,
+            maxHealth: scaledHealth,
             speed: cfg.speed,
             damage: cfg.damage,
             points: cfg.points,
             dead: false,
             despawnTimer: 0,
             hitFlashTimer: 0,
-            healthBar: hb
-        });
+            healthBar: hb,
+            isBoss: type === 'boss',
+            bossWaveNum: type === 'boss' ? bossWaveNum : 0,
+            enraged: false,
+            slamCooldown: 0,
+            redPulseTimer: 0
+        };
+
+        activeEnemies.push(enemy);
+
+        if (type === 'boss') {
+            activeBoss = enemy;
+            showWaveAnnounce('⚠ TITAN ⚠');
+            const bossBar = document.getElementById('boss-bar');
+            bossBar.style.display = 'block';
+            updateBossHUD();
+
+            const entourageCount = 2 + bossWaveNum * 2;
+            for (let ei = 0; ei < entourageCount; ei++) {
+                setTimeout(() => {
+                    if (state === 'playing') spawnEnemy('brute');
+                }, 800 + ei * 400);
+            }
+            waveEnemiesLeft += entourageCount;
+        }
     }
 
-    function damageEnemy(enemy, baseDmg, hitPoint) {
+    function updateBossHUD() {
+        if (!activeBoss || activeBoss.dead) {
+            document.getElementById('boss-bar').style.display = 'none';
+            return;
+        }
+        const pct = Math.max(0, activeBoss.health / activeBoss.maxHealth * 100);
+        document.getElementById('boss-health-fill').style.width = pct + '%';
+    }
+function damageEnemy(enemy, baseDmg, hitPoint) {
         const isCritical = hitPoint.y > (enemy.group.position.y + 1.2);
         const dmg = isCritical ? baseDmg * 2 : baseDmg;
 
         enemy.health -= dmg;
         enemy.hitFlashTimer = 0.1;
         spawnDamageNumber(hitPoint, dmg, isCritical);
-        updateHealthBar(enemy);
+
+        if (enemy.isBoss) {
+            updateBossHUD();
+
+            if (enemy.bossWaveNum >= 4 && !enemy.enraged &&
+                enemy.health < enemy.maxHealth * 0.25) {
+                enemy.enraged = true;
+                enemy.speed *= 2.5;
+                enemy.slamCooldown = 0;
+                showWaveAnnounce('⚠ ENRAGED ⚠');
+            }
+            else if (enemy.bossWaveNum < 4 && !enemy.enraged &&
+                enemy.health < enemy.maxHealth * 0.3) {
+                enemy.enraged = true;
+                enemy.speed *= 2;
+                showWaveAnnounce('⚠ ENRAGED ⚠');
+            }
+        } else {
+            updateHealthBar(enemy);
+        }
 
         if (enemy.health <= 0 && !enemy.dead) {
             killEnemy(enemy);
@@ -1039,8 +1374,39 @@
         waveEnemiesLeft--;
         updateHUD();
 
-        if (enemy.healthBar) {
-            scene.remove(enemy.healthBar.sprite);
+        if (enemy.isBoss) {
+            activeBoss = null;
+            document.getElementById('boss-bar').style.display = 'none';
+            screenShake = 0.5;
+            spawnShockwave(enemy.group.position.clone());
+
+            for (let i = 0; i < 3; i++) {
+                const dropPos = enemy.group.position.clone();
+                dropPos.x += (Math.random() - 0.5) * 3;
+                dropPos.z += (Math.random() - 0.5) * 3;
+                spawnPowerup(dropPos);
+            }
+
+            if (enemy.bossWaveNum >= 3) {
+                const boomRadius = 12;
+                const boomDamage = 100;
+                for (const e of activeEnemies) {
+                    if (e.dead || e === enemy) continue;
+                    const dist = e.group.position.distanceTo(enemy.group.position);
+                    if (dist < boomRadius) {
+                        const falloff = 1 - (dist / boomRadius);
+                        const chainDmg = boomDamage * falloff;
+                        e.health -= chainDmg;
+                        e.hitFlashTimer = 0.2;
+                        spawnDamageNumber(e.group.position.clone().setY(1.5), chainDmg, false);
+                        if (e.health <= 0 && !e.dead) killEnemy(e);
+                    }
+                }
+                spawnShockwave(enemy.group.position.clone());
+                screenShake = 0.8;
+            }
+        } else {
+            if (enemy.healthBar) scene.remove(enemy.healthBar.sprite);
         }
 
         if (enemy.walkAction) enemy.walkAction.stop();
@@ -1049,7 +1415,7 @@
             enemy.deadAction.play();
         }
 
-        if (Math.random() < CONFIG.dropChance) {
+        if (!enemy.isBoss && Math.random() < CONFIG.dropChance) {
             spawnPowerup(enemy.group.position.clone());
         }
     }
@@ -1083,7 +1449,7 @@
                 continue;
             }
 
-            updateHealthBar(e);
+            if (!e.isBoss) updateHealthBar(e);
 
             const dir = new THREE.Vector3(
                 camera.position.x - e.group.position.x,
@@ -1104,6 +1470,30 @@
             } else {
                 hp -= e.damage * dt;
                 updateHealthHUD();
+
+                if (e.isBoss && e.bossWaveNum >= 2) {
+                    e.slamCooldown -= dt;
+                    if (e.slamCooldown <= 0) {
+                        const slamDmg = e.enraged ? 20 : 12;
+                        hp -= slamDmg;
+                        updateHealthHUD();
+                        screenShake = 0.3;
+                        spawnShockwave(e.group.position.clone());
+                        e.slamCooldown = e.enraged ? 1.5 : 3.0;
+                    }
+                }
+
+                if (e.isBoss && e.enraged && e.bossWaveNum >= 4) {
+                    e.redPulseTimer += dt;
+                    const pulse = Math.sin(e.redPulseTimer * 8) * 0.5 + 0.5;
+                    e.group.traverse(c => {
+                        if (c.isMesh) {
+                            c.material.emissive.setRGB(pulse * 0.8, 0, 0);
+                        }
+                    });
+                }
+
+                if (e.isBoss) screenShake = Math.max(screenShake, 0.05);
                 if (hp <= 0) {
                     hp = 0;
                     gameOver();
@@ -1120,7 +1510,8 @@
         betweenWaves = false;
 
         const totalEnemies = 4 + wave * 3;
-        waveEnemiesLeft = totalEnemies;
+        const isBossWave = (wave % 5 === 0);
+        waveEnemiesLeft = totalEnemies + (isBossWave ? 1 : 0);
 
         updateHUD();
         showWaveAnnounce(`WAVE ${wave}`);
@@ -1129,6 +1520,10 @@
         const spawnInterval = setInterval(() => {
             if (spawned >= totalEnemies || state !== 'playing') {
                 clearInterval(spawnInterval);
+                // Spawn boss after regular enemies
+                if (isBossWave && state === 'playing') {
+                    setTimeout(() => spawnEnemy('boss'), 1500);
+                }
                 return;
             }
             const type = pickEnemyType();
@@ -1142,14 +1537,14 @@
         if (wave <= 2) {
             return r < 0.7 ? 'shambler' : 'runner';
         } else if (wave <= 5) {
-            if (r < 0.35) return 'shambler';
-            if (r < 0.6) return 'runner';
-            if (r < 0.85) return 'crawler';
+            if (r < 0.30) return 'shambler';
+            if (r < 0.55) return 'runner';
+            if (r < 0.80) return 'tank';
             return 'brute';
         } else {
-            if (r < 0.2) return 'shambler';
-            if (r < 0.45) return 'runner';
-            if (r < 0.7) return 'crawler';
+            if (r < 0.15) return 'shambler';
+            if (r < 0.40) return 'runner';
+            if (r < 0.65) return 'tank';
             return 'brute';
         }
     }
@@ -1162,51 +1557,6 @@
             ammo[1] = Math.min(ammo[1] + 4, maxAmmo[1]);
             ammo[2] = Math.min(ammo[2] + 15, maxAmmo[2]);
             updateAmmoHUD();
-        }
-    }
-
-    // ═══════════════════════════════════════
-    // POWER-UPS
-    // ═══════════════════════════════════════
-    function spawnPowerup(pos) {
-        const isHealth = Math.random() < 0.5;
-        const color = isHealth ? 0x39FF14 : 0xffaa00;
-        const geo = new THREE.BoxGeometry(0.4, 0.4, 0.4);
-        const mat = new THREE.MeshStandardMaterial({
-            color, emissive: color, emissiveIntensity: 0.5
-        });
-        const mesh = new THREE.Mesh(geo, mat);
-        mesh.position.copy(pos);
-        mesh.position.y = 0.3;
-        scene.add(mesh);
-        activePowerups.push({ mesh, isHealth, life: 15 });
-    }
-
-    function updatePowerups(dt) {
-        for (let i = activePowerups.length - 1; i >= 0; i--) {
-            const p = activePowerups[i];
-            p.life -= dt;
-            p.mesh.rotation.y += dt * 2;
-
-            const dist = camera.position.distanceTo(p.mesh.position);
-            if (dist < 1.5) {
-                if (p.isHealth) {
-                    hp = Math.min(hp + 25, CONFIG.player.health);
-                    updateHealthHUD();
-                } else {
-                    ammo[1] = Math.min(ammo[1] + 4, maxAmmo[1]);
-                    ammo[2] = Math.min(ammo[2] + 10, maxAmmo[2]);
-                    updateAmmoHUD();
-                }
-                scene.remove(p.mesh);
-                activePowerups.splice(i, 1);
-                continue;
-            }
-
-            if (p.life <= 0) {
-                scene.remove(p.mesh);
-                activePowerups.splice(i, 1);
-            }
         }
     }
 
@@ -1242,9 +1592,6 @@
 
             if (cross < -0.3) maxL = Math.max(maxL, intensity);
             if (cross > 0.3)  maxR = Math.max(maxR, intensity);
-            if (dot > 0.3 && Math.abs(cross) < 0.5) {
-                // In front — no indicator needed
-            }
             if (dot < -0.2) maxB = Math.max(maxB, intensity);
         }
 
@@ -1253,7 +1600,8 @@
         threatEls.top.style.opacity = maxT;
         threatEls.bottom.style.opacity = maxB;
     }
-        // ═══════════════════════════════════════
+
+    // ═══════════════════════════════════════
     // HUD UPDATES
     // ═══════════════════════════════════════
     function updateHUD() {
@@ -1292,6 +1640,22 @@
     }
 
     // ═══════════════════════════════════════
+    // SCREEN SHAKE
+    // ═══════════════════════════════════════
+    function updateScreenShake(dt) {
+        if (screenShake > 0) {
+            screenShake -= dt;
+            const intensity = Math.min(screenShake, 0.3) * 0.15;
+            camera.position.x = (Math.random() - 0.5) * intensity;
+            camera.position.z = (Math.random() - 0.5) * intensity;
+        } else {
+            camera.position.x = 0;
+            camera.position.z = 0;
+        }
+        camera.position.y = CONFIG.player.height;
+    }
+
+    // ═══════════════════════════════════════
     // START / RESTART / GAME OVER
     // ═══════════════════════════════════════
     function startGame() {
@@ -1304,6 +1668,10 @@
         fireHeld = false;
         fireTouchId = null;
         pendingFire = false;
+        hasFiredThisClick = false;
+        activeBoss = null;
+        screenShake = 0;
+        speedBoostTimer = 0;
 
         for (const e of activeEnemies) {
             scene.remove(e.group);
@@ -1311,7 +1679,7 @@
         }
         activeEnemies.length = 0;
 
-        for (const p of activePowerups) scene.remove(p.mesh);
+        for (const p of activePowerups) scene.remove(p.group);
         activePowerups.length = 0;
 
         for (const dn of activeDamageNumbers) {
@@ -1323,6 +1691,15 @@
 
         for (const c of activeCasings) scene.remove(c.mesh);
         activeCasings.length = 0;
+
+        for (const sw of activeShockwaves) {
+            scene.remove(sw.mesh);
+            sw.mesh.geometry.dispose();
+            sw.mesh.material.dispose();
+        }
+        activeShockwaves.length = 0;
+
+        document.getElementById('boss-bar').style.display = 'none';
 
         wpnLerp = 0;
         wpnState = 'rest';
@@ -1351,6 +1728,9 @@
         fireHeld = false;
         fireTouchId = null;
         pendingFire = false;
+        hasFiredThisClick = false;
+        activeBoss = null;
+        document.getElementById('boss-bar').style.display = 'none';
         document.getElementById('hud').style.display = 'none';
         document.getElementById('game-over').style.display = 'flex';
         document.getElementById('final-stats').innerHTML =
@@ -1360,7 +1740,7 @@
     }
 
     // ═══════════════════════════════════════
-    // INPUT EVENTS — hold-to-fire for rifle
+    // INPUT EVENTS — semi-auto + full-auto
     // ═══════════════════════════════════════
     document.getElementById('blocker').addEventListener('click', () => {
         if (state === 'menu') startGame();
@@ -1378,15 +1758,19 @@
         if (state === 'gameover') startGame();
     });
 
-    // Desktop: hold mouse = hold fire
+    // Desktop: mousedown = fire, mouseup = release
     renderer.domElement.addEventListener('mousedown', e => {
         if (e.button === 0) {
             fireHeld = true;
+            hasFiredThisClick = false;
             shoot();
         }
     });
     renderer.domElement.addEventListener('mouseup', e => {
-        if (e.button === 0) fireHeld = false;
+        if (e.button === 0) {
+            fireHeld = false;
+            hasFiredThisClick = false;
+        }
     });
 
     // Mobile: track fire touch separately from aim touch
@@ -1396,6 +1780,7 @@
             if (t.identifier !== aimTouchId) {
                 fireTouchId = t.identifier;
                 fireHeld = true;
+                hasFiredThisClick = false;
                 shoot();
             }
         }
@@ -1406,6 +1791,7 @@
             if (t.identifier === fireTouchId) {
                 fireHeld = false;
                 fireTouchId = null;
+                hasFiredThisClick = false;
             }
         }
     }, { passive: true });
@@ -1446,15 +1832,17 @@
         camera.rotation.x = pitch;
 
         if (state === 'playing') {
-            // Hold-to-fire: auto-shoot while held (rifle benefits most)
-            if (fireHeld) shoot();
+            // Hold-to-fire: only auto weapons fire continuously
+            if (fireHeld && CONFIG.weapons[curWeapon].auto) shoot();
 
             updateEnemies(dt);
             updatePowerups(dt);
             updateDamageNumbers(dt);
             updateWeaponSystem(dt);
             updateCasings(dt);
+            updateShockwaves(dt);
             updateThreatIndicators();
+            updateScreenShake(dt);
             checkWaveComplete();
 
             if (betweenWaves) {
@@ -1479,3 +1867,4 @@
     </script>
 </body>
 </html>
+        
