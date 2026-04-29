@@ -283,8 +283,10 @@
     let fireHeld = false;
     let fireTouchId = null;
     let pendingFire = false;
+    let hasFiredThisClick = false;
     let activeBoss = null;
     let screenShake = 0;
+    let speedBoostTimer = 0;
 
     const activeEnemies = [];
     const activePowerups = [];
