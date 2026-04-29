@@ -597,7 +597,8 @@
         mFlashSprite.position.set(mPos.x, mPos.y, mPos.z);
         mFlashSprite.visible = true;
         mFlashSprite.material.rotation = Math.random() * Math.PI * 2;
-        const flashSize = 0.18 + Math.random() * 0.08;
+        const FLASH_SIZES = [0.20, 0.32, 0.22];
+        const flashSize = FLASH_SIZES[curWeapon] + Math.random() * 0.08;
         mFlashSprite.scale.set(flashSize, flashSize, flashSize);
         mFlashVis = 0.06;
 
