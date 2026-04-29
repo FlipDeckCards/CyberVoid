@@ -1284,6 +1284,8 @@
         const waveScale = 1 + (wave - 1) * 0.15;
         const scaledHealth = Math.round(cfg.health * waveScale);
 
+        const bossWaveNum = Math.floor(wave / 10);
+
         const enemy = {
             type, group, mixer,
             walkAction, deadAction,
@@ -1297,7 +1299,10 @@
             hitFlashTimer: 0,
             healthBar: hb,
             isBoss: type === 'boss',
-            enrageTimer: 0
+            bossWaveNum: type === 'boss' ? bossWaveNum : 0,
+            enraged: false,
+            slamCooldown: 0,
+            redPulseTimer: 0
         };
 
         activeEnemies.push(enemy);
@@ -1308,6 +1313,14 @@
             const bossBar = document.getElementById('boss-bar');
             bossBar.style.display = 'block';
             updateBossHUD();
+
+            const entourageCount = 2 + bossWaveNum * 2;
+            for (let ei = 0; ei < entourageCount; ei++) {
+                setTimeout(() => {
+                    if (state === 'playing') spawnEnemy('brute');
+                }, 800 + ei * 400);
+            }
+            waveEnemiesLeft += entourageCount;
         }
     }
 
@@ -1319,8 +1332,7 @@
         const pct = Math.max(0, activeBoss.health / activeBoss.maxHealth * 100);
         document.getElementById('boss-health-fill').style.width = pct + '%';
     }
-
-    function damageEnemy(enemy, baseDmg, hitPoint) {
+function damageEnemy(enemy, baseDmg, hitPoint) {
         const isCritical = hitPoint.y > (enemy.group.position.y + 1.2);
         const dmg = isCritical ? baseDmg * 2 : baseDmg;
 
@@ -1330,10 +1342,18 @@
 
         if (enemy.isBoss) {
             updateBossHUD();
-            // Boss enrages below 30% HP — speed doubles
-            if (enemy.health < enemy.maxHealth * 0.3 && enemy.enrageTimer === 0) {
+
+            if (enemy.bossWaveNum >= 4 && !enemy.enraged &&
+                enemy.health < enemy.maxHealth * 0.25) {
+                enemy.enraged = true;
+                enemy.speed *= 2.5;
+                enemy.slamCooldown = 0;
+                showWaveAnnounce('⚠ ENRAGED ⚠');
+            }
+            else if (enemy.bossWaveNum < 4 && !enemy.enraged &&
+                enemy.health < enemy.maxHealth * 0.3) {
+                enemy.enraged = true;
                 enemy.speed *= 2;
-                enemy.enrageTimer = 1;
                 showWaveAnnounce('⚠ ENRAGED ⚠');
             }
         } else {
@@ -1357,12 +1377,31 @@
             document.getElementById('boss-bar').style.display = 'none';
             screenShake = 0.5;
             spawnShockwave(enemy.group.position.clone());
-            // Boss drops 3 power-ups
+
             for (let i = 0; i < 3; i++) {
                 const dropPos = enemy.group.position.clone();
                 dropPos.x += (Math.random() - 0.5) * 3;
                 dropPos.z += (Math.random() - 0.5) * 3;
                 spawnPowerup(dropPos);
+            }
+
+            if (enemy.bossWaveNum >= 3) {
+                const boomRadius = 12;
+                const boomDamage = 100;
+                for (const e of activeEnemies) {
+                    if (e.dead || e === enemy) continue;
+                    const dist = e.group.position.distanceTo(enemy.group.position);
+                    if (dist < boomRadius) {
+                        const falloff = 1 - (dist / boomRadius);
+                        const chainDmg = boomDamage * falloff;
+                        e.health -= chainDmg;
+                        e.hitFlashTimer = 0.2;
+                        spawnDamageNumber(e.group.position.clone().setY(1.5), chainDmg, false);
+                        if (e.health <= 0 && !e.dead) killEnemy(e);
+                    }
+                }
+                spawnShockwave(enemy.group.position.clone());
+                screenShake = 0.8;
             }
         } else {
             if (enemy.healthBar) scene.remove(enemy.healthBar.sprite);
@@ -1429,6 +1468,29 @@
             } else {
                 hp -= e.damage * dt;
                 updateHealthHUD();
+
+                if (e.isBoss && e.bossWaveNum >= 2) {
+                    e.slamCooldown -= dt;
+                    if (e.slamCooldown <= 0) {
+                        const slamDmg = e.enraged ? 20 : 12;
+                        hp -= slamDmg;
+                        updateHealthHUD();
+                        screenShake = 0.3;
+                        spawnShockwave(e.group.position.clone());
+                        e.slamCooldown = e.enraged ? 1.5 : 3.0;
+                    }
+                }
+
+                if (e.isBoss && e.enraged && e.bossWaveNum >= 4) {
+                    e.redPulseTimer += dt;
+                    const pulse = Math.sin(e.redPulseTimer * 8) * 0.5 + 0.5;
+                    e.group.traverse(c => {
+                        if (c.isMesh) {
+                            c.material.emissive.setRGB(pulse * 0.8, 0, 0);
+                        }
+                    });
+                }
+
                 if (e.isBoss) screenShake = Math.max(screenShake, 0.05);
                 if (hp <= 0) {
                     hp = 0;
