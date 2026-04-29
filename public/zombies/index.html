@@ -56,9 +56,10 @@
             position: absolute; top: 50%; left: 50%;
             transform: translate(-50%, -50%);
             width: 30px; height: 30px;
+            transition: transform 0.1s, opacity 0.1s;
         }
         #crosshair::before, #crosshair::after {
-            content: ''; position: absolute; background: rgba(57,255,20,0.8);
+            content: ''; position: absolute; background: rgba(255,255,255,0.85);
         }
         #crosshair::before {
             top: 50%; left: 0; width: 100%; height: 2px;
@@ -146,6 +147,18 @@
             animation: pulse 2s ease-in-out infinite;
         }
 
+        /* ── Threat direction indicators ── */
+        .threat-edge {
+            position: absolute; background: #ff4444; opacity: 0;
+            transition: opacity 0.1s; pointer-events: none;
+            box-shadow: 0 0 20px rgba(255,68,68,0.7);
+            border-radius: 2px;
+        }
+        #threat-left   { top: 25%; left: 0; width: 3px; height: 50%; }
+        #threat-right  { top: 25%; right: 0; width: 3px; height: 50%; }
+        #threat-top    { top: 0; left: 25%; width: 50%; height: 3px; }
+        #threat-bottom { bottom: 70px; left: 25%; width: 50%; height: 3px; }
+
         @media (max-width: 768px) {
             #blocker h1 { font-size: 2.5rem; letter-spacing: 8px; }
             #blocker .mode { font-size: 1rem; }
@@ -180,6 +193,11 @@
             <div class="weapon-slot" data-weapon="1">2 SHOTGUN</div>
             <div class="weapon-slot" data-weapon="2">3 RIFLE</div>
         </div>
+        <!-- Threat direction indicators -->
+        <div class="threat-edge" id="threat-left"></div>
+        <div class="threat-edge" id="threat-right"></div>
+        <div class="threat-edge" id="threat-top"></div>
+        <div class="threat-edge" id="threat-bottom"></div>
     </div>
 
     <div id="wave-announce"></div>
@@ -239,6 +257,8 @@
     let waveEnemiesLeft = 0;
     let waveTimer = 0;
     let betweenWaves = false;
+    let fireHeld = false;
+    let fireTouchId = null;
 
     const activeEnemies = [];
     const activePowerups = [];
@@ -249,12 +269,12 @@
     // SCENE
     // ═══════════════════════════════════════
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x060a06);
-    scene.fog = new THREE.FogExp2(0x1a1a2e, 0.005);
+    scene.background = new THREE.Color(0x0d1117);
+    scene.fog = new THREE.FogExp2(0x0d1117, 0.006);
 
-    const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.1, 100);
+    const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.1, 200);
     camera.position.set(0, CONFIG.player.height, 0);
-    scene.add(camera); // REQUIRED — so weapon models parented to camera render
+    scene.add(camera);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(innerWidth, innerHeight);
@@ -265,8 +285,8 @@
     renderer.toneMappingExposure = 1.2;
     document.body.appendChild(renderer.domElement);
 
-    // ═══════════════════════════════════════
-    // LIGHTING
+// ═══════════════════════════════════════
+    // LIGHTING — bright floodlit arena
     // ═══════════════════════════════════════
     scene.add(new THREE.AmbientLight(0xffffff, 2.0));
 
@@ -284,9 +304,30 @@
     glow.position.set(0, 3, 0);
     scene.add(glow);
 
+    // Floodlights — 4 corners
+    const floodPositions = [
+        [-35, 12, -35], [35, 12, -35], [-35, 12, 35], [35, 12, 35]
+    ];
+    for (const pos of floodPositions) {
+        const fl = new THREE.SpotLight(0xffeedd, 3.0, 80, Math.PI / 4, 0.5, 1);
+        fl.position.set(pos[0], pos[1], pos[2]);
+        fl.target.position.set(0, 0, 0);
+        scene.add(fl);
+        scene.add(fl.target);
+
+        // Visible pole
+        const pole = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.15, 0.15, 12, 6),
+            new THREE.MeshStandardMaterial({ color: 0x444444, metalness: 0.8, roughness: 0.3 })
+        );
+        pole.position.set(pos[0], 6, pos[2]);
+        scene.add(pole);
+    }
+
     // ═══════════════════════════════════════
-    // GROUND
+    // ARENA ENVIRONMENT
     // ═══════════════════════════════════════
+    // Ground — dark concrete with grid
     const ground = new THREE.Mesh(
         new THREE.PlaneGeometry(80, 80),
         new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.95 })
@@ -294,6 +335,58 @@
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
     scene.add(ground);
+
+    // Grid lines on floor
+    const gridHelper = new THREE.GridHelper(80, 40, 0x333333, 0x222222);
+    gridHelper.position.y = 0.01;
+    scene.add(gridHelper);
+
+    // Perimeter walls
+    const wallMat = new THREE.MeshStandardMaterial({
+        color: 0x2a2a2a, roughness: 0.8, metalness: 0.2
+    });
+    const wallGeo = new THREE.BoxGeometry(80, 4, 0.5);
+    const wallPositions = [
+        { pos: [0, 2, -40], rot: 0 },
+        { pos: [0, 2, 40], rot: 0 },
+        { pos: [-40, 2, 0], rot: Math.PI / 2 },
+        { pos: [40, 2, 0], rot: Math.PI / 2 }
+    ];
+    for (const w of wallPositions) {
+        const wall = new THREE.Mesh(wallGeo, wallMat);
+        wall.position.set(w.pos[0], w.pos[1], w.pos[2]);
+        wall.rotation.y = w.rot;
+        wall.receiveShadow = true;
+        scene.add(wall);
+    }
+
+    // Sky gradient sphere
+    const skyGeo = new THREE.SphereGeometry(150, 32, 32);
+    const skyMat = new THREE.ShaderMaterial({
+        side: THREE.BackSide,
+        uniforms: {
+            topColor: { value: new THREE.Color(0x0a0a15) },
+            bottomColor: { value: new THREE.Color(0x1a1a2e) }
+        },
+        vertexShader: `
+            varying vec3 vWorldPosition;
+            void main() {
+                vec4 worldPos = modelMatrix * vec4(position, 1.0);
+                vWorldPosition = worldPos.xyz;
+                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            }
+        `,
+        fragmentShader: `
+            uniform vec3 topColor;
+            uniform vec3 bottomColor;
+            varying vec3 vWorldPosition;
+            void main() {
+                float h = normalize(vWorldPosition).y;
+                gl_FragColor = vec4(mix(bottomColor, topColor, max(h, 0.0)), 1.0);
+            }
+        `
+    });
+    scene.add(new THREE.Mesh(skyGeo, skyMat));
 
     // ═══════════════════════════════════════
     // ASSET LOADING
@@ -306,7 +399,7 @@
     const anims = {};
     const weaponGLBs = {};
     let loaded = 0;
-    const TOTAL_ASSETS = 7; // 4 zombies + 3 weapons
+    const TOTAL_ASSETS = 7;
 
     function updateLoadBar() {
         loaded++;
@@ -344,7 +437,7 @@
                         c.castShadow = false;
                         c.receiveShadow = false;
                         c.material = c.material.clone();
-                        c.material.fog = false; // weapons ignore scene fog
+                        c.material.fog = false;
                     }
                 });
                 weaponGLBs[name] = model;
@@ -369,7 +462,6 @@
             loadWeapon('rifle')
         ]);
 
-        // Debug: log zombie sizes
         for (const [name, model] of Object.entries(models)) {
             if (model) {
                 const box = new THREE.Box3().setFromObject(model);
@@ -379,25 +471,14 @@
             }
         }
 
-        // Debug: log weapon sizes
-        for (const [name, model] of Object.entries(weaponGLBs)) {
-            if (model) {
-                const box = new THREE.Box3().setFromObject(model);
-                const size = new THREE.Vector3();
-                box.getSize(size);
-                console.log(`weapon ${name}: ${size.x.toFixed(1)} x ${size.y.toFixed(1)} x ${size.z.toFixed(1)}`);
-            }
-        }
-
-        // Set initial weapon
         equipWeapon(0);
-
         state = 'menu';
         document.getElementById('start-text').textContent = 'TAP TO START';
         document.getElementById('loading-bar').style.display = 'none';
     }
     init();
-            // ═══════════════════════════════════════
+
+    // ═══════════════════════════════════════
     // FIRST-PERSON WEAPON SYSTEM
     // ═══════════════════════════════════════
     const weaponHolder = new THREE.Group();
@@ -405,23 +486,20 @@
 
     const WEAPON_NAMES = ['pistol', 'shotgun', 'rifle'];
 
-    // ── Tune these per weapon if models look off ──
-    // rotY: rotation to point barrel forward (-Z in camera space)
-    // scale: resize to fit screen. Meshy models vary wildly in size.
     const FP = {
-  pistol:  { scale: 0.18, rotY: -Math.PI / 2 },
-  shotgun: { scale: 0.60, rotY: -Math.PI / 2 },
-  rifle:   { scale: 0.55, rotY: -Math.PI / 2 },
+        pistol:  { scale: 0.18, rotY: -Math.PI / 2 },
+        shotgun: { scale: 0.60, rotY: -Math.PI / 2 },
+        rifle:   { scale: 0.55, rotY: -Math.PI / 2 },
     };
 
-    // Rested = low-right idle. Aimed = raised to crosshair on fire.
+    // ADS: weapon centers on screen and raises to sights
     const REST_POS = new THREE.Vector3(0.2, -0.25, -0.45);
-const REST_ROT_BASE = new THREE.Vector3(-0.08, -0.08, 0.03);
-    const AIM_POS  = new THREE.Vector3(0.05, -0.2, -0.4);
+    const REST_ROT_BASE = new THREE.Vector3(-0.08, -0.08, 0.03);
+    const AIM_POS  = new THREE.Vector3(0.0, -0.18, -0.38);
     const AIM_ROT_BASE  = new THREE.Vector3(0, 0, 0);
 
-    let wpnLerp = 0;        // 0 = rested, 1 = aimed
-    let wpnState = 'rest';  // rest | raising | aimed | lowering | swapDown | swapUp
+    let wpnLerp = 0;
+    let wpnState = 'rest';
     let lastFiredAt = 0;
     let recoilKick = 0;
     let wpnBobTime = 0;
@@ -431,23 +509,24 @@ const REST_ROT_BASE = new THREE.Vector3(-0.08, -0.08, 0.03);
     const LOWER_SPD    = 5;
     const RECOIL_AMT   = 0.035;
     const RECOIL_RECOVER = 8;
-    const HOLD_TIME    = 0.45; // stay aimed after last shot
+    const HOLD_TIME    = 0.45;
 
-    // ── Casings ──
+    // ── Casings with per-weapon Y offset ──
     const activeCasings = [];
     const casingGeo = new THREE.CylinderGeometry(0.008, 0.008, 0.03, 6);
     const casingMat = new THREE.MeshStandardMaterial({
         color: 0xccaa44, metalness: 0.8, roughness: 0.3
     });
+    const CASING_Y_OFFSET = { pistol: 0.07, shotgun: 0, rifle: 0 };
 
-    // ── Muzzle flash sprite (lives on weaponHolder) ──
+    // ── Muzzle flash — bigger, brighter ──
     const mFlashSprite = new THREE.Sprite(new THREE.SpriteMaterial({
         color: 0xffaa00, transparent: true,
-        blending: THREE.AdditiveBlending, opacity: 0.9
+        blending: THREE.AdditiveBlending, opacity: 1.0
     }));
-    mFlashSprite.scale.set(0.15, 0.15, 0.15);
+    mFlashSprite.scale.set(0.35, 0.35, 0.35);
     mFlashSprite.visible = false;
-    mFlashSprite.position.set(0, 0.02, -0.35); // barrel tip offset
+    mFlashSprite.position.set(0, 0.02, -0.55);
     weaponHolder.add(mFlashSprite);
     let mFlashVis = 0;
 
@@ -456,8 +535,7 @@ const REST_ROT_BASE = new THREE.Vector3(-0.08, -0.08, 0.03);
         const model = weaponGLBs[name];
         if (!model) return;
 
-        // Remove old
-        while (weaponHolder.children.length > 1) { // keep mFlashSprite
+        while (weaponHolder.children.length > 1) {
             const child = weaponHolder.children[0];
             if (child === mFlashSprite) {
                 if (weaponHolder.children.length > 1)
@@ -473,14 +551,11 @@ const REST_ROT_BASE = new THREE.Vector3(-0.08, -0.08, 0.03);
         wpn.scale.setScalar(cfg.scale);
         wpn.rotation.y = cfg.rotY;
 
-        // Center the model on its own bounding box
         const box = new THREE.Box3().setFromObject(wpn);
         const center = box.getCenter(new THREE.Vector3());
         wpn.position.sub(center);
 
         weaponHolder.add(wpn);
-
-        // Start at rest position
         weaponHolder.position.copy(REST_POS);
         weaponHolder.rotation.set(REST_ROT_BASE.x, REST_ROT_BASE.y, REST_ROT_BASE.z);
     }
@@ -500,26 +575,22 @@ const REST_ROT_BASE = new THREE.Vector3(-0.08, -0.08, 0.03);
             wpnState = 'raising';
         }
 
-        // Muzzle flash
         mFlashSprite.visible = true;
         mFlashSprite.material.rotation = Math.random() * Math.PI * 2;
-        mFlashVis = 0.05;
+        mFlashVis = 0.06;
 
-        // Spawn casing
         spawnCasing();
     }
 
     function spawnCasing() {
         const casing = new THREE.Mesh(casingGeo, casingMat);
-
-        // Get weapon world position for spawn point
         const worldPos = new THREE.Vector3();
         weaponHolder.getWorldPosition(worldPos);
         casing.position.copy(worldPos);
+        casing.position.y += CASING_Y_OFFSET[WEAPON_NAMES[curWeapon]] || 0;
 
         scene.add(casing);
 
-        // Eject right + up relative to camera
         const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
         const up = new THREE.Vector3(0, 1, 0);
         const vel = new THREE.Vector3();
@@ -536,11 +607,18 @@ const REST_ROT_BASE = new THREE.Vector3(-0.08, -0.08, 0.03);
         });
     }
 
+    // ── Crosshair ADS tightening ──
+    function updateCrosshairADS(t) {
+        const ch = document.getElementById('crosshair');
+        const size = 30 - (t * 16); // 30px → 14px when fully aimed
+        ch.style.width = size + 'px';
+        ch.style.height = size + 'px';
+    }
+
     function updateWeaponSystem(dt) {
         const now = performance.now() / 1000;
         const timeSinceShot = now - lastFiredAt;
 
-        // ── State machine ──
         switch (wpnState) {
             case 'rest':
                 wpnLerp = Math.max(0, wpnLerp - LOWER_SPD * dt);
@@ -550,7 +628,7 @@ const REST_ROT_BASE = new THREE.Vector3(-0.08, -0.08, 0.03);
                 if (wpnLerp >= 1) wpnState = 'aimed';
                 break;
             case 'aimed':
-                if (timeSinceShot > HOLD_TIME) wpnState = 'lowering';
+                if (timeSinceShot > HOLD_TIME && !fireHeld) wpnState = 'lowering';
                 break;
             case 'lowering':
                 wpnLerp = Math.max(0, wpnLerp - LOWER_SPD * dt);
@@ -559,7 +637,6 @@ const REST_ROT_BASE = new THREE.Vector3(-0.08, -0.08, 0.03);
             case 'swapDown':
                 wpnLerp = Math.max(-0.5, wpnLerp - RAISE_SPD * dt);
                 if (wpnLerp <= -0.5) {
-                    // Swap the model
                     curWeapon = pendingSwap;
                     pendingSwap = -1;
                     equipWeapon(curWeapon);
@@ -576,15 +653,12 @@ const REST_ROT_BASE = new THREE.Vector3(-0.08, -0.08, 0.03);
                 break;
         }
 
-        // ── Recoil recovery ──
         recoilKick = Math.max(0, recoilKick - RECOIL_RECOVER * dt);
 
-        // ── Idle bob ──
         wpnBobTime += dt;
         const bobX = Math.sin(wpnBobTime * 1.5) * 0.002;
         const bobY = Math.sin(wpnBobTime * 2.0) * 0.002;
 
-        // ── Interpolate position + rotation ──
         const t = Math.max(0, Math.min(1, wpnLerp));
         const px = REST_POS.x + (AIM_POS.x - REST_POS.x) * t + bobX;
         const py = REST_POS.y + (AIM_POS.y - REST_POS.y) * t + bobY + recoilKick * 0.5;
@@ -597,7 +671,9 @@ const REST_ROT_BASE = new THREE.Vector3(-0.08, -0.08, 0.03);
         const rz = REST_ROT_BASE.z + (AIM_ROT_BASE.z - REST_ROT_BASE.z) * t;
         weaponHolder.rotation.set(rx, ry, rz);
 
-        // ── Muzzle flash timer ──
+        // Crosshair tightens with ADS
+        updateCrosshairADS(t);
+
         if (mFlashVis > 0) {
             mFlashVis -= dt;
             if (mFlashVis <= 0) mFlashSprite.visible = false;
@@ -613,7 +689,6 @@ const REST_ROT_BASE = new THREE.Vector3(-0.08, -0.08, 0.03);
             c.mesh.rotation.x += c.spin.x * dt;
             c.mesh.rotation.z += c.spin.z * dt;
 
-            // Floor bounce
             if (c.mesh.position.y < 0.02) {
                 c.mesh.position.y = 0.02;
                 c.velocity.y *= -0.3;
@@ -628,7 +703,7 @@ const REST_ROT_BASE = new THREE.Vector3(-0.08, -0.08, 0.03);
         }
     }
 
-    // ═══════════════════════════════════════
+// ═══════════════════════════════════════
     // FLOATING DAMAGE NUMBERS
     // ═══════════════════════════════════════
     function spawnDamageNumber(position, damage, isCritical) {
@@ -780,10 +855,9 @@ const REST_ROT_BASE = new THREE.Vector3(-0.08, -0.08, 0.03);
         if (ammo[curWeapon] !== Infinity) ammo[curWeapon]--;
         updateAmmoHUD();
 
-        muzzleFlash.intensity = 3;
-        muzzleTimer = 0.06;
+        muzzleFlash.intensity = 5;
+        muzzleTimer = 0.07;
 
-        // ── Trigger weapon raise + recoil + casing ──
         triggerFire();
 
         const dir = new THREE.Vector3(0, 0, -1);
@@ -1001,7 +1075,8 @@ const REST_ROT_BASE = new THREE.Vector3(-0.08, -0.08, 0.03);
             }
         }
     }
-     // ═══════════════════════════════════════
+
+    // ═══════════════════════════════════════
     // WAVE SYSTEM
     // ═══════════════════════════════════════
     function startWave() {
@@ -1100,6 +1175,51 @@ const REST_ROT_BASE = new THREE.Vector3(-0.08, -0.08, 0.03);
     }
 
     // ═══════════════════════════════════════
+    // ZOMBIE PROXIMITY INDICATOR
+    // ═══════════════════════════════════════
+    const threatEls = {
+        left:   document.getElementById('threat-left'),
+        right:  document.getElementById('threat-right'),
+        top:    document.getElementById('threat-top'),
+        bottom: document.getElementById('threat-bottom')
+    };
+
+    function updateThreatIndicators() {
+        let maxL = 0, maxR = 0, maxT = 0, maxB = 0;
+        const THREAT_DIST = 15;
+
+        for (const e of activeEnemies) {
+            if (e.dead) continue;
+            const dir = new THREE.Vector3();
+            dir.subVectors(e.group.position, camera.position);
+            const dist = dir.length();
+            if (dist > THREAT_DIST) continue;
+
+            const intensity = 1 - (dist / THREAT_DIST);
+
+            // Project enemy into screen space
+            const forward = new THREE.Vector3(0, 0, -1).applyEuler(camera.rotation);
+            const right = new THREE.Vector3(1, 0, 0).applyEuler(camera.rotation);
+            const flatDir = new THREE.Vector3(dir.x, 0, dir.z).normalize();
+
+            const dot = forward.dot(flatDir);
+            const cross = right.dot(flatDir);
+
+            if (cross < -0.3) maxL = Math.max(maxL, intensity);
+            if (cross > 0.3)  maxR = Math.max(maxR, intensity);
+            if (dot > 0.3 && Math.abs(cross) < 0.5) {
+                // In front — no indicator needed
+            }
+            if (dot < -0.2) maxB = Math.max(maxB, intensity);
+        }
+
+        threatEls.left.style.opacity = maxL;
+        threatEls.right.style.opacity = maxR;
+        threatEls.top.style.opacity = maxT;
+        threatEls.bottom.style.opacity = maxB;
+    }
+
+    // ═══════════════════════════════════════
     // HUD UPDATES
     // ═══════════════════════════════════════
     function updateHUD() {
@@ -1147,19 +1267,18 @@ const REST_ROT_BASE = new THREE.Vector3(-0.08, -0.08, 0.03);
         curWeapon = 0;
         ammo = [Infinity, 8, 30];
         pitch = 0; yaw = 0;
+        fireHeld = false;
+        fireTouchId = null;
 
-        // Clear enemies
         for (const e of activeEnemies) {
             scene.remove(e.group);
             if (e.healthBar) scene.remove(e.healthBar.sprite);
         }
         activeEnemies.length = 0;
 
-        // Clear power-ups
         for (const p of activePowerups) scene.remove(p.mesh);
         activePowerups.length = 0;
 
-        // Clear damage numbers
         for (const dn of activeDamageNumbers) {
             scene.remove(dn.sprite);
             dn.sprite.material.map.dispose();
@@ -1167,11 +1286,9 @@ const REST_ROT_BASE = new THREE.Vector3(-0.08, -0.08, 0.03);
         }
         activeDamageNumbers.length = 0;
 
-        // Clear casings
         for (const c of activeCasings) scene.remove(c.mesh);
         activeCasings.length = 0;
 
-        // Reset weapon system
         wpnLerp = 0;
         wpnState = 'rest';
         recoilKick = 0;
@@ -1196,6 +1313,8 @@ const REST_ROT_BASE = new THREE.Vector3(-0.08, -0.08, 0.03);
 
     function gameOver() {
         state = 'gameover';
+        fireHeld = false;
+        fireTouchId = null;
         document.getElementById('hud').style.display = 'none';
         document.getElementById('game-over').style.display = 'flex';
         document.getElementById('final-stats').innerHTML =
@@ -1205,7 +1324,7 @@ const REST_ROT_BASE = new THREE.Vector3(-0.08, -0.08, 0.03);
     }
 
     // ═══════════════════════════════════════
-    // INPUT EVENTS
+    // INPUT EVENTS — hold-to-fire for rifle
     // ═══════════════════════════════════════
     document.getElementById('blocker').addEventListener('click', () => {
         if (state === 'menu') startGame();
@@ -1223,15 +1342,34 @@ const REST_ROT_BASE = new THREE.Vector3(-0.08, -0.08, 0.03);
         if (state === 'gameover') startGame();
     });
 
+    // Desktop: hold mouse = hold fire
     renderer.domElement.addEventListener('mousedown', e => {
-        if (e.button === 0) shoot();
+        if (e.button === 0) {
+            fireHeld = true;
+            shoot();
+        }
+    });
+    renderer.domElement.addEventListener('mouseup', e => {
+        if (e.button === 0) fireHeld = false;
     });
 
+    // Mobile: track fire touch separately from aim touch
     renderer.domElement.addEventListener('touchstart', e => {
         if (state !== 'playing') return;
         for (const t of e.changedTouches) {
             if (t.identifier !== aimTouchId) {
+                fireTouchId = t.identifier;
+                fireHeld = true;
                 shoot();
+            }
+        }
+    }, { passive: true });
+
+    renderer.domElement.addEventListener('touchend', e => {
+        for (const t of e.changedTouches) {
+            if (t.identifier === fireTouchId) {
+                fireHeld = false;
+                fireTouchId = null;
             }
         }
     }, { passive: true });
@@ -1272,20 +1410,22 @@ const REST_ROT_BASE = new THREE.Vector3(-0.08, -0.08, 0.03);
         camera.rotation.x = pitch;
 
         if (state === 'playing') {
+            // Hold-to-fire: auto-shoot while held (rifle benefits most)
+            if (fireHeld) shoot();
+
             updateEnemies(dt);
             updatePowerups(dt);
             updateDamageNumbers(dt);
             updateWeaponSystem(dt);
             updateCasings(dt);
+            updateThreatIndicators();
             checkWaveComplete();
 
-            // Muzzle flash decay (scene point light)
             if (muzzleTimer > 0) {
                 muzzleTimer -= dt;
                 if (muzzleTimer <= 0) muzzleFlash.intensity = 0;
             }
 
-            // Between waves countdown
             if (betweenWaves) {
                 waveTimer -= dt;
                 if (waveTimer <= 0) startWave();
@@ -1307,4 +1447,6 @@ const REST_ROT_BASE = new THREE.Vector3(-0.08, -0.08, 0.03);
 
     </script>
 </body>
-</html>       
+</html>        
+
+        
