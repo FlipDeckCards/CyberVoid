@@ -259,6 +259,7 @@
     let betweenWaves = false;
     let fireHeld = false;
     let fireTouchId = null;
+    let pendingFire = false;
 
     const activeEnemies = [];
     const activePowerups = [];
@@ -285,7 +286,7 @@
     renderer.toneMappingExposure = 1.2;
     document.body.appendChild(renderer.domElement);
 
-// ═══════════════════════════════════════
+    // ═══════════════════════════════════════
     // LIGHTING — bright floodlit arena
     // ═══════════════════════════════════════
     scene.add(new THREE.AmbientLight(0xffffff, 2.0));
@@ -477,8 +478,7 @@
         document.getElementById('loading-bar').style.display = 'none';
     }
     init();
-
-    // ═══════════════════════════════════════
+// ═══════════════════════════════════════
     // FIRST-PERSON WEAPON SYSTEM
     // ═══════════════════════════════════════
     const weaponHolder = new THREE.Group();
@@ -540,11 +540,11 @@
     mFlashSprite.scale.set(0.08, 0.08, 0.08);
     mFlashSprite.visible = false;
     const MUZZLE_OFFSETS = [
-        { x: 0, y: 0.06, z: -0.30 },  // 0 = pistol  (was 0.02)
-        { x: 0, y: 0.04, z: -0.95 },  // 1 = shotgun  (unchanged)
-        { x: 0, y: 0.07, z: -0.90 }   // 2 = rifle    (was 0.03)
+        { x: 0, y: 0.06, z: -0.30 },  // 0 = pistol
+        { x: 0, y: 0.04, z: -0.95 },  // 1 = shotgun
+        { x: 0, y: 0.07, z: -0.90 }   // 2 = rifle
     ];
-    mFlashSprite.position.set(0, 0.02, -0.35); // default to pistol
+    mFlashSprite.position.set(0, 0.02, -0.35);
     weaponHolder.add(mFlashSprite);
     let mFlashVis = 0;
 
@@ -581,17 +581,25 @@
     function swapWeapon(newIndex) {
         if (newIndex === curWeapon) return;
         if (wpnState === 'swapDown' || wpnState === 'swapUp') return;
+        pendingFire = false; // cancel any pending shot on swap
         pendingSwap = newIndex;
         wpnState = 'swapDown';
     }
 
+    // triggerFire — ONLY sets the flag; actual shot waits for weapon to arrive
     function triggerFire() {
-        lastFiredAt = performance.now() / 1000;
-        recoilKick = RECOIL_AMT;
+        if (pendingFire) return; // already waiting
+        pendingFire = true;
 
         if (wpnState === 'rest' || wpnState === 'lowering') {
             wpnState = 'raising';
         }
+    }
+
+    // executeShot — fires the actual round (flash, casing, raycast, everything)
+    function executeShot() {
+        lastFiredAt = performance.now() / 1000;
+        recoilKick = RECOIL_AMT;
 
         const mPos = MUZZLE_OFFSETS[curWeapon];
         mFlashSprite.position.set(mPos.x, mPos.y, mPos.z);
@@ -633,7 +641,7 @@
     // ── Crosshair ADS tightening ──
     function updateCrosshairADS(t) {
         const ch = document.getElementById('crosshair');
-        const size = 30 - (t * 16); // 30px → 14px when fully aimed
+        const size = 30 - (t * 16);
         ch.style.width = size + 'px';
         ch.style.height = size + 'px';
     }
@@ -642,12 +650,15 @@
         const now = performance.now() / 1000;
         const timeSinceShot = now - lastFiredAt;
 
+        // Use 3x raise speed when a shot is pending
+        const raiseSpeed = pendingFire ? RAISE_SPD * 3 : RAISE_SPD;
+
         switch (wpnState) {
             case 'rest':
                 wpnLerp = Math.max(0, wpnLerp - LOWER_SPD * dt);
                 break;
             case 'raising':
-                wpnLerp = Math.min(1, wpnLerp + RAISE_SPD * dt);
+                wpnLerp = Math.min(1, wpnLerp + raiseSpeed * dt);
                 if (wpnLerp >= 1) wpnState = 'aimed';
                 break;
             case 'aimed':
@@ -675,8 +686,14 @@
                 }
                 break;
         }
-        
-// Muzzle flash visibility countdown
+
+        // Fire only after weapon reaches fire position
+        if (pendingFire && wpnLerp >= 0.95) {
+            pendingFire = false;
+            executeShot();
+        }
+
+        // Muzzle flash visibility countdown
         if (mFlashVis > 0) {
             mFlashVis -= dt;
             if (mFlashVis <= 0) {
@@ -684,7 +701,7 @@
                 mFlashSprite.visible = false;
             }
         }
-        
+
         recoilKick = Math.max(0, recoilKick - RECOIL_RECOVER * dt);
 
         wpnBobTime += dt;
@@ -705,11 +722,6 @@
 
         // Crosshair tightens with ADS
         updateCrosshairADS(t);
-
-        if (mFlashVis > 0) {
-            mFlashVis -= dt;
-            if (mFlashVis <= 0) mFlashSprite.visible = false;
-        }
     }
 
     function updateCasings(dt) {
@@ -735,7 +747,7 @@
         }
     }
 
-// ═══════════════════════════════════════
+    // ═══════════════════════════════════════
     // FLOATING DAMAGE NUMBERS
     // ═══════════════════════════════════════
     function spawnDamageNumber(position, damage, isCritical) {
@@ -870,8 +882,6 @@
     // ═══════════════════════════════════════
     const raycaster = new THREE.Raycaster();
     raycaster.far = 80;
-
-    let muzzleTimer = 0;
 
     function shoot() {
         if (state !== 'playing') return;
@@ -1223,7 +1233,6 @@
 
             const intensity = 1 - (dist / THREAT_DIST);
 
-            // Project enemy into screen space
             const forward = new THREE.Vector3(0, 0, -1).applyEuler(camera.rotation);
             const right = new THREE.Vector3(1, 0, 0).applyEuler(camera.rotation);
             const flatDir = new THREE.Vector3(dir.x, 0, dir.z).normalize();
@@ -1244,8 +1253,7 @@
         threatEls.top.style.opacity = maxT;
         threatEls.bottom.style.opacity = maxB;
     }
-
-    // ═══════════════════════════════════════
+        // ═══════════════════════════════════════
     // HUD UPDATES
     // ═══════════════════════════════════════
     function updateHUD() {
@@ -1295,6 +1303,7 @@
         pitch = 0; yaw = 0;
         fireHeld = false;
         fireTouchId = null;
+        pendingFire = false;
 
         for (const e of activeEnemies) {
             scene.remove(e.group);
@@ -1341,6 +1350,7 @@
         state = 'gameover';
         fireHeld = false;
         fireTouchId = null;
+        pendingFire = false;
         document.getElementById('hud').style.display = 'none';
         document.getElementById('game-over').style.display = 'flex';
         document.getElementById('final-stats').innerHTML =
@@ -1468,6 +1478,4 @@
 
     </script>
 </body>
-</html>        
-
-        
+</html>
