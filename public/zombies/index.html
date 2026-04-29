@@ -1154,7 +1154,17 @@
         const puType = pickPowerupType();
         const group = puType.create();
         group.position.copy(pos);
-        group.position.y = 0.3;
+        group.position.y = 0.5;
+        group.scale.setScalar(2.5);
+
+        // Invisible hitbox for raycasting
+        const hitbox = new THREE.Mesh(
+            new THREE.SphereGeometry(0.4, 8, 8),
+            new THREE.MeshBasicMaterial({ visible: false })
+        );
+        hitbox.position.y = 0.15;
+        group.add(hitbox);
+
         scene.add(group);
         activePowerups.push({ group, type: puType.id, life: 15 });
     }
@@ -1253,16 +1263,30 @@
         const clips = anims[modelKey] || anims['brute'] || [];
         let walkAction = null, deadAction = null;
 
-        for (const clip of clips) {
-            const n = clip.name.toLowerCase();
-            if (n.includes('walk') || n.includes('run')) {
-                walkAction = mixer.clipAction(clip);
+        if (clips.length > 0) {
+            console.log(`${type} animations:`, clips.map(c => c.name));
+            
+            for (const clip of clips) {
+                const n = clip.name.toLowerCase();
+                if (!walkAction && (n.includes('walk') || n.includes('run') || n.includes('move') || n.includes('idle') || n.includes('action'))) {
+                    walkAction = mixer.clipAction(clip);
+                    walkAction.play();
+                } else if (!deadAction && (n.includes('dead') || n.includes('death') || n.includes('die') || n.includes('fall'))) {
+                    deadAction = mixer.clipAction(clip);
+                    deadAction.loop = THREE.LoopOnce;
+                    deadAction.clampWhenFinished = true;
+                }
+            }
+            if (!walkAction && clips.length >= 1) {
+                walkAction = mixer.clipAction(clips[0]);
                 walkAction.play();
-            } else if (n.includes('dead') || n.includes('death')) {
-                deadAction = mixer.clipAction(clip);
+            }
+            if (!deadAction && clips.length >= 2) {
+                deadAction = mixer.clipAction(clips[clips.length - 1]);
                 deadAction.loop = THREE.LoopOnce;
                 deadAction.clampWhenFinished = true;
             }
+        }
         }
 
         const hitBox = new THREE.Mesh(
