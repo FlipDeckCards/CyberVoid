@@ -540,9 +540,9 @@
     mFlashSprite.scale.set(0.08, 0.08, 0.08);
     mFlashSprite.visible = false;
     const MUZZLE_OFFSETS = [
-        { x: 0, y: 0.02, z: -0.30 },  // 0 = pistol
-        { x: 0, y: 0.04, z: -0.95 },  // 1 = shotgun
-        { x: 0, y: 0.03, z: -0.90 }   // 2 = rifle
+        { x: 0, y: 0.06, z: -0.30 },  // 0 = pistol  (was 0.02)
+        { x: 0, y: 0.04, z: -0.95 },  // 1 = shotgun  (unchanged)
+        { x: 0, y: 0.07, z: -0.90 }   // 2 = rifle    (was 0.03)
     ];
     mFlashSprite.position.set(0, 0.02, -0.35); // default to pistol
     weaponHolder.add(mFlashSprite);
