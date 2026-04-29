@@ -26,8 +26,56 @@
         #blocker .mode {
             font-size: 1.4rem; color: #ff4444;
             letter-spacing: 6px; text-transform: uppercase;
-            margin-bottom: 40px;
+            margin-bottom: 20px;
         }
+
+        /* ── Login Fields ── */
+        #login-fields {
+            display: flex; flex-direction: column; align-items: center;
+            gap: 10px; margin-bottom: 20px; width: 280px;
+        }
+        #login-fields input {
+            width: 100%; padding: 10px 14px;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid #333; border-radius: 4px;
+            color: #39FF14; font-family: 'Courier New', monospace;
+            font-size: 0.85rem; letter-spacing: 2px;
+            outline: none; text-align: center;
+        }
+        #login-fields input::placeholder {
+            color: #555; letter-spacing: 2px;
+        }
+        #login-fields input:focus {
+            border-color: #39FF14;
+            background: rgba(57,255,20,0.05);
+        }
+        #login-status {
+            color: #666; font-size: 0.7rem; letter-spacing: 2px;
+            min-height: 16px; text-align: center;
+        }
+
+        /* ── Leaderboard ── */
+        #menu-leaderboard {
+            width: 300px; max-height: 240px; margin-bottom: 20px;
+            overflow-y: auto;
+        }
+        #menu-leaderboard h3 {
+            color: #ff4444; font-size: 0.75rem;
+            letter-spacing: 4px; text-transform: uppercase;
+            text-align: center; margin-bottom: 8px;
+        }
+        .lb-row {
+            display: flex; justify-content: space-between;
+            padding: 4px 8px; font-size: 0.7rem;
+            letter-spacing: 1px; border-bottom: 1px solid #1a1a1a;
+        }
+        .lb-row .lb-rank { color: #555; width: 30px; }
+        .lb-row .lb-name { color: #39FF14; flex: 1; }
+        .lb-row .lb-score { color: #888; }
+        .lb-row.lb-you .lb-name { color: #ffdd00; }
+        #menu-leaderboard::-webkit-scrollbar { width: 4px; }
+        #menu-leaderboard::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
+
         #blocker .start-text {
             font-size: 1rem; color: #888;
             letter-spacing: 4px; text-transform: uppercase;
@@ -124,7 +172,6 @@
             z-index: 60; display: none; pointer-events: none;
         }
 
-        /* Boss health bar */
         #boss-bar {
             position: absolute; top: 45px; left: 50%;
             transform: translateX(-50%); width: 300px;
@@ -148,7 +195,7 @@
             background: rgba(0,0,0,0.9);
             display: none; flex-direction: column;
             justify-content: center; align-items: center;
-            z-index: 100; cursor: pointer;
+            z-index: 100;
             font-family: 'Courier New', monospace;
         }
         #game-over h1 {
@@ -160,11 +207,22 @@
             letter-spacing: 3px; margin-bottom: 30px;
             text-align: center; line-height: 2;
         }
-        #game-over .restart {
-            color: #39FF14; font-size: 0.9rem;
-            letter-spacing: 4px; text-transform: uppercase;
-            animation: pulse 2s ease-in-out infinite;
+        #game-over-buttons {
+            display: flex; flex-direction: column; align-items: center; gap: 14px;
         }
+        .go-btn {
+            padding: 12px 32px; border: 1px solid #39FF14;
+            background: rgba(57,255,20,0.08); border-radius: 4px;
+            color: #39FF14; font-family: 'Courier New', monospace;
+            font-size: 0.9rem; letter-spacing: 4px; text-transform: uppercase;
+            cursor: pointer; transition: background 0.2s;
+        }
+        .go-btn:hover { background: rgba(57,255,20,0.15); }
+        .go-btn.secondary {
+            border-color: #555; color: #888;
+            background: rgba(255,255,255,0.03);
+        }
+        .go-btn.secondary:hover { background: rgba(255,255,255,0.08); }
 
         .threat-edge {
             position: absolute; background: #ff4444; opacity: 0;
@@ -180,6 +238,8 @@
         @media (max-width: 768px) {
             #blocker h1 { font-size: 2.5rem; letter-spacing: 8px; }
             #blocker .mode { font-size: 1rem; }
+            #login-fields { width: 240px; }
+            #menu-leaderboard { width: 260px; }
             #health-bar-bg { width: 120px; }
             #ammo-display { left: 160px; }
             #ammo-label { left: 160px; }
@@ -192,6 +252,18 @@
     <div id="blocker">
         <h1>DEADZONE</h1>
         <div class="mode">Zombies</div>
+
+        <div id="login-fields" style="display:none;">
+            <input type="text" id="callsign-input" placeholder="CALLSIGN" maxlength="20" autocomplete="off" />
+            <input type="email" id="email-input" placeholder="EMAIL (SYNC ACROSS DEVICES)" autocomplete="email" />
+            <div id="login-status"></div>
+        </div>
+
+        <div id="menu-leaderboard" style="display:none;">
+            <h3>⚡ TOP SCORES ⚡</h3>
+            <div id="lb-rows"></div>
+        </div>
+
         <div class="start-text" id="start-text">Loading...</div>
         <div id="loading-bar"><div id="loading-fill"></div></div>
     </div>
@@ -227,7 +299,10 @@
     <div id="game-over">
         <h1>DEAD</h1>
         <div class="stats" id="final-stats"></div>
-        <div class="restart">TAP TO RESTART</div>
+        <div id="game-over-buttons">
+            <div class="go-btn" id="btn-redeploy">REDEPLOY</div>
+            <div class="go-btn secondary" id="btn-main-menu">MAIN MENU</div>
+        </div>
     </div>
 
     <script type="importmap">
@@ -243,6 +318,105 @@
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
     import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
     import { clone as skeletonClone } from 'three/addons/utils/SkeletonUtils.js';
+
+    // ═══════════════════════════════════════
+    // CALLSIGN / EMAIL / LEADERBOARD API
+    // ═══════════════════════════════════════
+    let playerCallsign = localStorage.getItem('dz_callsign') || '';
+    let playerEmail = localStorage.getItem('dz_email') || '';
+
+    async function fetchLeaderboard() {
+        try {
+            const r = await fetch('/api/leaderboard');
+            const rows = await r.json();
+            const container = document.getElementById('lb-rows');
+            container.innerHTML = '';
+            rows.forEach((row, i) => {
+                const isYou = row.callsign === playerCallsign;
+                const div = document.createElement('div');
+                div.className = 'lb-row' + (isYou ? ' lb-you' : '');
+                div.innerHTML = `<span class="lb-rank">${i + 1}.</span><span class="lb-name">${row.callsign}</span><span class="lb-score">${row.score}</span>`;
+                container.appendChild(div);
+            });
+            document.getElementById('menu-leaderboard').style.display = 'block';
+        } catch (e) {
+            console.warn('Leaderboard fetch failed:', e);
+        }
+    }
+
+    async function registerPlayer(callsign, email) {
+        try {
+            const body = { callsign };
+            if (email) body.email = email;
+            const r = await fetch('/api/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            const data = await r.json();
+            if (data.error) {
+                document.getElementById('login-status').textContent = data.error;
+                return false;
+            }
+            localStorage.setItem('dz_callsign', callsign);
+            if (email) localStorage.setItem('dz_email', email);
+            playerCallsign = callsign;
+            playerEmail = email || '';
+            document.getElementById('login-status').textContent = data.linked ? 'LINKED ✓' : 'READY';
+            return true;
+        } catch (e) {
+            document.getElementById('login-status').textContent = 'OFFLINE — PLAYING LOCAL';
+            localStorage.setItem('dz_callsign', callsign);
+            playerCallsign = callsign;
+            return true;
+        }
+    }
+
+    async function lookupCallsign(email) {
+        try {
+            const r = await fetch(`/api/callsign?email=${encodeURIComponent(email)}`);
+            const data = await r.json();
+            return data.callsign || null;
+        } catch (e) { return null; }
+    }
+
+    async function submitScore(scoreVal, waveVal, killsVal) {
+        if (!playerCallsign) return;
+        try {
+            await fetch('/api/score', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    callsign: playerCallsign,
+                    score: scoreVal, wave: waveVal, kills: killsVal
+                })
+            });
+        } catch (e) { console.warn('Score submit failed'); }
+    }
+
+    // Pre-fill inputs
+    const callsignInput = document.getElementById('callsign-input');
+    const emailInput = document.getElementById('email-input');
+    callsignInput.value = playerCallsign;
+    emailInput.value = playerEmail;
+
+    // If email stored, try to recover callsign
+    if (playerEmail && !playerCallsign) {
+        lookupCallsign(playerEmail).then(cs => {
+            if (cs) {
+                playerCallsign = cs;
+                callsignInput.value = cs;
+                localStorage.setItem('dz_callsign', cs);
+                document.getElementById('login-status').textContent = 'CALLSIGN RECOVERED ✓';
+            }
+        });
+    }
+
+    // Stop clicks on inputs from starting game
+    callsignInput.addEventListener('click', e => e.stopPropagation());
+    callsignInput.addEventListener('touchend', e => e.stopPropagation());
+    emailInput.addEventListener('click', e => e.stopPropagation());
+    emailInput.addEventListener('touchend', e => e.stopPropagation());
 
     // ═══════════════════════════════════════
     // CONFIG
@@ -410,8 +584,7 @@
         `
     });
     scene.add(new THREE.Mesh(skyGeo, skyMat));
-
-    // ═══════════════════════════════════════
+            // ═══════════════════════════════════════
     // ASSET LOADING
     // ═══════════════════════════════════════
     const gltfLoader = new GLTFLoader();
@@ -499,6 +672,8 @@
         state = 'menu';
         document.getElementById('start-text').textContent = 'TAP TO START';
         document.getElementById('loading-bar').style.display = 'none';
+        document.getElementById('login-fields').style.display = 'flex';
+        fetchLeaderboard();
     }
     init();
 
@@ -534,7 +709,6 @@
     const RECOIL_RECOVER = 8;
     const HOLD_TIME    = 0.45;
 
-    // ── Casings ──
     const activeCasings = [];
     const casingGeo = new THREE.CylinderGeometry(0.008, 0.008, 0.03, 6);
     const casingMat = new THREE.MeshStandardMaterial({
@@ -542,7 +716,6 @@
     });
     const CASING_Y_OFFSET = { pistol: 0.07, shotgun: 0, rifle: 0 };
 
-    // ── Muzzle flash ──
     const mFlashCanvas = document.createElement('canvas');
     mFlashCanvas.width = 64;
     mFlashCanvas.height = 64;
@@ -943,17 +1116,17 @@
                 }
             }
 
-            // Shoot power-ups too
+            // ── FIX: pu.mesh → pu.group ──
             const puMeshes = [];
             activePowerups.forEach(pu => {
-                pu.mesh.traverse(c => { if (c.isMesh) puMeshes.push(c); });
+                pu.group.traverse(c => { if (c.isMesh) puMeshes.push(c); });
             });
             const puHits = raycaster.intersectObjects(puMeshes, false);
             if (puHits.length > 0) {
                 const hitMesh = puHits[0].object;
                 for (let pi = activePowerups.length - 1; pi >= 0; pi--) {
                     let found = false;
-                    activePowerups[pi].mesh.traverse(c => { if (c === hitMesh) found = true; });
+                    activePowerups[pi].group.traverse(c => { if (c === hitMesh) found = true; });
                     if (found) {
                         collectPowerup(activePowerups[pi], pi);
                         break;
@@ -963,7 +1136,7 @@
         }
     }
 
- // ═══════════════════════════════════════
+    // ═══════════════════════════════════════
     // PROCEDURAL POWER-UP MODELS
     // ═══════════════════════════════════════
     function createBulletModel(color, length, radius) {
@@ -971,11 +1144,9 @@
         const mat = new THREE.MeshStandardMaterial({
             color, emissive: color, emissiveIntensity: 0.6, metalness: 0.7, roughness: 0.3
         });
-        // Shell casing
         const shell = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, length, 8), mat);
         shell.position.y = length / 2;
         group.add(shell);
-        // Bullet tip
         const tip = new THREE.Mesh(new THREE.ConeGeometry(radius, length * 0.4, 8), mat.clone());
         tip.material.color.set(0xddaa44);
         tip.material.emissive.set(0xddaa44);
@@ -1012,11 +1183,9 @@
         const box = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.3, 0.15), boxMat);
         box.position.y = 0.15;
         group.add(box);
-        // Red cross — horizontal bar
         const h = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.06, 0.16), crossMat);
         h.position.y = 0.15;
         group.add(h);
-        // Red cross — vertical bar
         const v = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.22, 0.16), crossMat);
         v.position.y = 0.15;
         group.add(v);
@@ -1045,7 +1214,6 @@
         const mat = new THREE.MeshStandardMaterial({
             color: 0x4488ff, emissive: 0x4488ff, emissiveIntensity: 0.7
         });
-        // Lightning bolt — 3 stacked wedges
         const bolt1 = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.15, 0.04), mat);
         bolt1.position.set(0.03, 0.3, 0);
         bolt1.rotation.z = 0.3;
@@ -1066,11 +1234,9 @@
         const mat = new THREE.MeshStandardMaterial({
             color: 0xaa44ff, emissive: 0xaa44ff, emissiveIntensity: 0.6, metalness: 0.4, roughness: 0.5
         });
-        // Ammo crate
         const crate = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.25, 0.25), mat);
         crate.position.y = 0.125;
         group.add(crate);
-        // Lid
         const lidMat = mat.clone();
         lidMat.color.set(0x7722cc);
         lidMat.emissive.set(0x7722cc);
@@ -1080,7 +1246,6 @@
         return group;
     }
 
-    // Power-up glow light helper
     function addGlow(group, color) {
         const light = new THREE.PointLight(color, 1.5, 5);
         light.position.y = 0.3;
@@ -1115,7 +1280,6 @@
                 updateHealthHUD();
                 break;
             case 'pistol_ammo':
-                // Pistol is infinite — give bonus score instead
                 score += 50;
                 updateHUD();
                 break;
@@ -1128,7 +1292,6 @@
                 updateAmmoHUD();
                 break;
             case 'nuke':
-                // Kill all non-boss enemies
                 for (const e of activeEnemies) {
                     if (!e.dead && e.type !== 'boss') {
                         killEnemy(e);
@@ -1138,26 +1301,28 @@
                 spawnShockwave(camera.position.clone());
                 break;
             case 'speed':
-                speedBoostTimer = 8; // 8 seconds of faster fire rate
+                speedBoostTimer = 8;
                 break;
             case 'max_ammo':
                 ammo[1] = maxAmmo[1];
                 ammo[2] = maxAmmo[2];
                 updateAmmoHUD();
                 break;
-        }  
+        }
         scene.remove(pu.group);
         activePowerups.splice(index, 1);
     }
 
-        function spawnPowerup(pos) {
-            const puType = pickPowerupType();
-            const group = puType.create();
-            group.position.copy(pos);
-            group.position.y = 0.3;
-            scene.add(group);
-            activePowerups.psh({ group, type: puType.id, life: 15 });
-    }        
+    // ── FIX: .psh → .push + scale up power-ups ──
+    function spawnPowerup(pos) {
+        const puType = pickPowerupType();
+        const group = puType.create();
+        group.position.copy(pos);
+        group.position.y = 0.3;
+        group.scale.setScalar(2.0);
+        scene.add(group);
+        activePowerups.push({ group, type: puType.id, life: 15 });
+    }
 
     function updatePowerups(dt) {
         if (speedBoostTimer > 0) speedBoostTimer -= dt;
@@ -1166,17 +1331,14 @@
             const p = activePowerups[i];
             p.life -= dt;
             p.group.rotation.y += dt * 2;
-            // Gentle float
             p.group.position.y = 0.3 + Math.sin(performance.now() / 1000 * 2 + i) * 0.08;
 
-            // Walk-over pickup
             const dist = camera.position.distanceTo(p.group.position);
             if (dist < 1.5) {
                 collectPowerup(p, i);
                 continue;
             }
 
-            // Blink when about to expire
             if (p.life <= 3) {
                 p.group.visible = Math.sin(p.life * 10) > 0;
             }
@@ -1219,16 +1381,14 @@
             }
         }
     }
-
-    // ═══════════════════════════════════════
+          // ═══════════════════════════════════════
     // ENEMIES
     // ═══════════════════════════════════════
     function spawnEnemy(type) {
         const modelKey = type === 'boss' ? 'boss' : type;
         if (!models[modelKey]) {
-            // Fallback: if boss model missing, use brute scaled up
             if (type === 'boss' && models['brute']) {
-                // Continue with brute as fallback
+                // fallback
             } else return;
         }
 
@@ -1258,32 +1418,29 @@
             if (n.includes('walk') || n.includes('run')) {
                 walkAction = mixer.clipAction(clip);
                 walkAction.play();
-        } else if (n.includes('dead') || n.includes('death')) {
-            deadAction = mixer.clipAction(clip);
-            deadAction.loop = THREE.LoopOnce;
-            deadAction.clampWhenFinished = true;
+            } else if (n.includes('dead') || n.includes('death')) {
+                deadAction = mixer.clipAction(clip);
+                deadAction.loop = THREE.LoopOnce;
+                deadAction.clampWhenFinished = true;
+            }
         }
-    }
 
-    const hitBox = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.5, 0.5, 2, 8),
-        new THREE.MeshBasicMaterial({ visible: false })
+        const hitBox = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.5, 0.5, 2, 8),
+            new THREE.MeshBasicMaterial({ visible: false })
         );
         hitBox.position.y = 1;
         group.add(hitBox);
         scene.add(group);
 
-        // Health bar (not for boss — boss uses HUD bar)
         let hb = null;
         if (type !== 'boss') {
             hb = createHealthBar(type);
             scene.add(hb.sprite);
         }
 
-        // Scale health by wave
         const waveScale = 1 + (wave - 1) * 0.15;
         const scaledHealth = Math.round(cfg.health * waveScale);
-
         const bossWaveNum = Math.floor(wave / 10);
 
         const enemy = {
@@ -1332,7 +1489,8 @@
         const pct = Math.max(0, activeBoss.health / activeBoss.maxHealth * 100);
         document.getElementById('boss-health-fill').style.width = pct + '%';
     }
-function damageEnemy(enemy, baseDmg, hitPoint) {
+
+    function damageEnemy(enemy, baseDmg, hitPoint) {
         const isCritical = hitPoint.y > (enemy.group.position.y + 1.2);
         const dmg = isCritical ? baseDmg * 2 : baseDmg;
 
@@ -1518,7 +1676,6 @@ function damageEnemy(enemy, baseDmg, hitPoint) {
         const spawnInterval = setInterval(() => {
             if (spawned >= totalEnemies || state !== 'playing') {
                 clearInterval(spawnInterval);
-                // Spawn boss after regular enemies
                 if (isBossWave && state === 'playing') {
                     setTimeout(() => spawnEnemy('boss'), 1500);
                 }
@@ -1654,9 +1811,70 @@ function damageEnemy(enemy, baseDmg, hitPoint) {
     }
 
     // ═══════════════════════════════════════
+    // SHOW MAIN MENU
+    // ═══════════════════════════════════════
+    function showMainMenu() {
+        state = 'menu';
+        fireHeld = false;
+        fireTouchId = null;
+        pendingFire = false;
+        hasFiredThisClick = false;
+        activeBoss = null;
+
+        // Clean up scene
+        for (const e of activeEnemies) {
+            scene.remove(e.group);
+            if (e.healthBar) scene.remove(e.healthBar.sprite);
+        }
+        activeEnemies.length = 0;
+        for (const p of activePowerups) scene.remove(p.group);
+        activePowerups.length = 0;
+        for (const dn of activeDamageNumbers) {
+            scene.remove(dn.sprite);
+            dn.sprite.material.map.dispose();
+            dn.sprite.material.dispose();
+        }
+        activeDamageNumbers.length = 0;
+        for (const c of activeCasings) scene.remove(c.mesh);
+        activeCasings.length = 0;
+        for (const sw of activeShockwaves) {
+            scene.remove(sw.mesh);
+            sw.mesh.geometry.dispose();
+            sw.mesh.material.dispose();
+        }
+        activeShockwaves.length = 0;
+
+        document.getElementById('boss-bar').style.display = 'none';
+        document.getElementById('hud').style.display = 'none';
+        document.getElementById('game-over').style.display = 'none';
+        document.getElementById('blocker').style.display = 'flex';
+        document.getElementById('login-fields').style.display = 'flex';
+        document.getElementById('start-text').textContent = 'TAP TO START';
+        document.getElementById('loading-bar').style.display = 'none';
+
+        if (document.pointerLockElement) document.exitPointerLock();
+
+        // Refresh leaderboard
+        fetchLeaderboard();
+    }
+
+    // ═══════════════════════════════════════
     // START / RESTART / GAME OVER
     // ═══════════════════════════════════════
-    function startGame() {
+    async function startGame() {
+        // Validate callsign
+        const csVal = callsignInput.value.trim();
+        const emVal = emailInput.value.trim();
+
+        if (!csVal || csVal.length < 2) {
+            document.getElementById('login-status').textContent = 'ENTER A CALLSIGN (2+ CHARS)';
+            return;
+        }
+
+        // Register / link
+        const ok = await registerPlayer(csVal, emVal || null);
+        if (!ok) return;
+
         state = 'playing';
         score = 0; kills = 0; wave = 0;
         hp = CONFIG.player.health;
@@ -1735,11 +1953,16 @@ function damageEnemy(enemy, baseDmg, hitPoint) {
             `WAVE ${wave}<br>SCORE: ${score}<br>KILLS: ${kills}`;
 
         if (document.pointerLockElement) document.exitPointerLock();
+
+        // Submit score to leaderboard
+        submitScore(score, wave, kills);
     }
 
     // ═══════════════════════════════════════
-    // INPUT EVENTS — semi-auto + full-auto
+    // INPUT EVENTS
     // ═══════════════════════════════════════
+
+    // ── Blocker (main menu) ──
     document.getElementById('blocker').addEventListener('click', () => {
         if (state === 'menu') startGame();
     });
@@ -1748,12 +1971,25 @@ function damageEnemy(enemy, baseDmg, hitPoint) {
         if (state === 'menu') startGame();
     });
 
-    document.getElementById('game-over').addEventListener('click', () => {
+    // ── Game over buttons ──
+    document.getElementById('btn-redeploy').addEventListener('click', e => {
+        e.stopPropagation();
         if (state === 'gameover') startGame();
     });
-    document.getElementById('game-over').addEventListener('touchend', e => {
+    document.getElementById('btn-redeploy').addEventListener('touchend', e => {
         e.preventDefault();
+        e.stopPropagation();
         if (state === 'gameover') startGame();
+    });
+
+    document.getElementById('btn-main-menu').addEventListener('click', e => {
+        e.stopPropagation();
+        if (state === 'gameover') showMainMenu();
+    });
+    document.getElementById('btn-main-menu').addEventListener('touchend', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (state === 'gameover') showMainMenu();
     });
 
     // Desktop: mousedown = fire, mouseup = release
@@ -1830,7 +2066,6 @@ function damageEnemy(enemy, baseDmg, hitPoint) {
         camera.rotation.x = pitch;
 
         if (state === 'playing') {
-            // Hold-to-fire: only auto weapons fire continuously
             if (fireHeld && CONFIG.weapons[curWeapon].auto) shoot();
 
             updateEnemies(dt);
@@ -1864,5 +2099,4 @@ function damageEnemy(enemy, baseDmg, hitPoint) {
 
     </script>
 </body>
-</html>
-        
+</html>  
