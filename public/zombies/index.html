@@ -555,7 +555,8 @@
             audioCtx.resume().catch(() => {});
         }
     }
-    ['click', 'touchstart', 'keydown', 'gamepadconnected'].forEach(evt => {
+}
+['click', 'touchstart', 'keydown', 'gamepadconnected'].forEach(evt => {
         document.addEventListener(evt, () => {
             if (!audioCtx) initAudio();
             else if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
