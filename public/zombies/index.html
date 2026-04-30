@@ -29,7 +29,6 @@
             margin-bottom: 20px;
         }
 
-        /* ── Login Fields ── */
         #login-fields {
             display: flex; flex-direction: column; align-items: center;
             gap: 10px; margin-bottom: 20px; width: 280px;
@@ -54,7 +53,6 @@
             min-height: 16px; text-align: center;
         }
 
-        /* ── Leaderboard ── */
         #menu-leaderboard {
             width: 300px; max-height: 240px; margin-bottom: 20px;
             overflow-y: auto;
@@ -394,13 +392,11 @@
         } catch (e) { console.warn('Score submit failed'); }
     }
 
-    // Pre-fill inputs
     const callsignInput = document.getElementById('callsign-input');
     const emailInput = document.getElementById('email-input');
     callsignInput.value = playerCallsign;
     emailInput.value = playerEmail;
 
-    // If email stored, try to recover callsign
     if (playerEmail && !playerCallsign) {
         lookupCallsign(playerEmail).then(cs => {
             if (cs) {
@@ -412,7 +408,6 @@
         });
     }
 
-    // Stop clicks on inputs from starting game
     callsignInput.addEventListener('click', e => e.stopPropagation());
     callsignInput.addEventListener('touchend', e => e.stopPropagation());
     emailInput.addEventListener('click', e => e.stopPropagation());
@@ -461,6 +456,11 @@
     let activeBoss = null;
     let screenShake = 0;
     let speedBoostTimer = 0;
+
+    // ── Reusable temp objects for smooth movement (zero GC) ──
+    const ANIM_REFERENCE_SPEED = 2.0;
+    const _currentQuat = new THREE.Quaternion();
+    const _targetQuat = new THREE.Quaternion();
 
     const activeEnemies = [];
     const activePowerups = [];
@@ -582,8 +582,6 @@
                 gl_FragColor = vec4(mix(bottomColor, topColor, max(h, 0.0)), 1.0);
             }
         `
-    });
-    scene.add(new THREE.Mesh(skyGeo, skyMat));
             // ═══════════════════════════════════════
     // ASSET LOADING
     // ═══════════════════════════════════════
@@ -1116,7 +1114,6 @@
                 }
             }
 
-            // ── FIX: pu.mesh → pu.group ──
             const puMeshes = [];
             activePowerups.forEach(pu => {
                 pu.group.traverse(c => { if (c.isMesh) puMeshes.push(c); });
@@ -1284,13 +1281,13 @@
                 updateHUD();
                 break;
             case 'rifle_ammo':
-    ammo[2] += 15;
-    updateAmmoHUD();
-    break;
-case 'shotgun_ammo':
-    ammo[1] += 6;
-    updateAmmoHUD();
-    break;
+                ammo[2] += 15;
+                updateAmmoHUD();
+                break;
+            case 'shotgun_ammo':
+                ammo[1] += 6;
+                updateAmmoHUD();
+                break;
             case 'nuke':
                 for (const e of activeEnemies) {
                     if (!e.dead && e.type !== 'boss') {
@@ -1313,7 +1310,6 @@ case 'shotgun_ammo':
         activePowerups.splice(index, 1);
     }
 
-    // ── FIX: .psh → .push + scale up power-ups ──
     function spawnPowerup(pos) {
         const puType = pickPowerupType();
         const group = puType.create();
@@ -1381,7 +1377,9 @@ case 'shotgun_ammo':
             }
         }
     }
-          // ═══════════════════════════════════════
+    });
+    scene.add(new THREE.Mesh(skyGeo, skyMat));
+            // ═══════════════════════════════════════
     // ENEMIES
     // ═══════════════════════════════════════
     function spawnEnemy(type) {
@@ -1441,7 +1439,7 @@ case 'shotgun_ammo':
 
         const waveScale = 1 + (wave - 1) * 0.15;
         const scaledHealth = Math.round(cfg.health * waveScale);
-        const bossWaveNum = Math.floor(wave / 10);
+        const bossWaveNum = Math.floor(wave / 10); // ← CHANGED: was / 5
 
         const enemy = {
             type, group, mixer,
@@ -1471,10 +1469,11 @@ case 'shotgun_ammo':
             bossBar.style.display = 'block';
             updateBossHUD();
 
-            const entourageCount = 2 + bossWaveNum * 2;
+            // ── CHANGED: fixed entourage of 2 shamblers ──
+            const entourageCount = 2;
             for (let ei = 0; ei < entourageCount; ei++) {
                 setTimeout(() => {
-                    if (state === 'playing') spawnEnemy('brute');
+                    if (state === 'playing') spawnEnemy('shambler');
                 }, 800 + ei * 400);
             }
             waveEnemiesLeft += entourageCount;
@@ -1576,6 +1575,7 @@ case 'shotgun_ammo':
         }
     }
 
+    // ── CHANGED: smooth movement + animation sync ──
     function updateEnemies(dt) {
         for (let i = activeEnemies.length - 1; i >= 0; i--) {
             const e = activeEnemies[i];
@@ -1615,15 +1615,28 @@ case 'shotgun_ammo':
             const dist = dir.length();
             dir.normalize();
 
-            e.group.lookAt(
-                camera.position.x,
-                e.group.position.y,
-                camera.position.z
-            );
+            // ── SMOOTH ROTATION: slerp instead of instant lookAt ──
+            if (dist > 0.5) {
+                _currentQuat.copy(e.group.quaternion);
+                e.group.lookAt(camera.position.x, e.group.position.y, camera.position.z);
+                _targetQuat.copy(e.group.quaternion);
+                e.group.quaternion.copy(_currentQuat);
+                e.group.quaternion.slerp(_targetQuat, Math.min(1, 5 * dt));
+            }
 
             if (dist > CONFIG.meleeRange) {
                 e.group.position.addScaledVector(dir, e.speed * dt);
+
+                // ── ANIMATION SYNC: match footstep speed to movement ──
+                if (e.walkAction) {
+                    e.walkAction.timeScale = e.speed / ANIM_REFERENCE_SPEED;
+                }
             } else {
+                // In melee range — stop walk animation cycling fast
+                if (e.walkAction) {
+                    e.walkAction.timeScale = 0.3;
+                }
+
                 hp -= e.damage * dt;
                 updateHealthHUD();
 
@@ -1661,12 +1674,14 @@ case 'shotgun_ammo':
     // ═══════════════════════════════════════
     // WAVE SYSTEM
     // ═══════════════════════════════════════
+
+    // ── CHANGED: slower ramp, boss every 10, 900ms spawns ──
     function startWave() {
         wave++;
         betweenWaves = false;
 
-        const totalEnemies = 4 + wave * 3;
-        const isBossWave = (wave % 5 === 0);
+        const totalEnemies = 3 + wave * 2;               // ← was 4 + wave * 3
+        const isBossWave = (wave % 10 === 0);             // ← was wave % 5
         waveEnemiesLeft = totalEnemies + (isBossWave ? 1 : 0);
 
         updateHUD();
@@ -1684,20 +1699,24 @@ case 'shotgun_ammo':
             const type = pickEnemyType();
             spawnEnemy(type);
             spawned++;
-        }, 600);
+        }, 900);                                          // ← was 600
     }
 
+    // ── CHANGED: eased early waves ──
     function pickEnemyType() {
         const r = Math.random();
-        if (wave <= 2) {
-            return r < 0.7 ? 'shambler' : 'runner';
-        } else if (wave <= 5) {
-            if (r < 0.30) return 'shambler';
-            if (r < 0.55) return 'runner';
-            if (r < 0.80) return 'tank';
+        if (wave <= 3) {
+            // Early: mostly shamblers, light runner mix
+            return r < 0.80 ? 'shambler' : 'runner';
+        } else if (wave <= 7) {
+            // Mid: introduce tanks and brutes
+            if (r < 0.40) return 'shambler';
+            if (r < 0.65) return 'runner';
+            if (r < 0.85) return 'tank';
             return 'brute';
         } else {
-            if (r < 0.15) return 'shambler';
+            // Late: full roster, brute-heavy
+            if (r < 0.20) return 'shambler';
             if (r < 0.40) return 'runner';
             if (r < 0.65) return 'tank';
             return 'brute';
@@ -1821,7 +1840,6 @@ case 'shotgun_ammo':
         hasFiredThisClick = false;
         activeBoss = null;
 
-        // Clean up scene
         for (const e of activeEnemies) {
             scene.remove(e.group);
             if (e.healthBar) scene.remove(e.healthBar.sprite);
@@ -1854,15 +1872,12 @@ case 'shotgun_ammo':
 
         if (document.pointerLockElement) document.exitPointerLock();
 
-        // Refresh leaderboard
         fetchLeaderboard();
     }
-
-    // ═══════════════════════════════════════
+            // ═══════════════════════════════════════
     // START / RESTART / GAME OVER
     // ═══════════════════════════════════════
     async function startGame() {
-        // Validate callsign
         const csVal = callsignInput.value.trim();
         const emVal = emailInput.value.trim();
 
@@ -1871,7 +1886,6 @@ case 'shotgun_ammo':
             return;
         }
 
-        // Register / link
         const ok = await registerPlayer(csVal, emVal || null);
         if (!ok) return;
 
@@ -1954,7 +1968,6 @@ case 'shotgun_ammo':
 
         if (document.pointerLockElement) document.exitPointerLock();
 
-        // Submit score to leaderboard
         submitScore(score, wave, kills);
     }
 
@@ -1962,7 +1975,6 @@ case 'shotgun_ammo':
     // INPUT EVENTS
     // ═══════════════════════════════════════
 
-    // ── Blocker (main menu) ──
     document.getElementById('blocker').addEventListener('click', () => {
         if (state === 'menu') startGame();
     });
@@ -1971,7 +1983,6 @@ case 'shotgun_ammo':
         if (state === 'menu') startGame();
     });
 
-    // ── Game over buttons ──
     document.getElementById('btn-redeploy').addEventListener('click', e => {
         e.stopPropagation();
         if (state === 'gameover') startGame();
@@ -1992,7 +2003,6 @@ case 'shotgun_ammo':
         if (state === 'gameover') showMainMenu();
     });
 
-    // Desktop: mousedown = fire, mouseup = release
     renderer.domElement.addEventListener('mousedown', e => {
         if (e.button === 0) {
             fireHeld = true;
@@ -2007,7 +2017,6 @@ case 'shotgun_ammo':
         }
     });
 
-    // Mobile: track fire touch separately from aim touch
     renderer.domElement.addEventListener('touchstart', e => {
         if (state !== 'playing') return;
         for (const t of e.changedTouches) {
@@ -2099,4 +2108,4 @@ case 'shotgun_ammo':
 
     </script>
 </body>
-</html>  
+</html>
