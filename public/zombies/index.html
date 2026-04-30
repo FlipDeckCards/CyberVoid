@@ -352,7 +352,7 @@
     import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
     import { clone as skeletonClone } from 'three/addons/utils/SkeletonUtils.js';
 
-    // ═══════════════════════════════════════
+      // ═══════════════════════════════════════
     // CALLSIGN / EMAIL / LEADERBOARD API
     // ═══════════════════════════════════════
     let playerCallsign = localStorage.getItem('dz_callsign') || '';
@@ -492,6 +492,18 @@
     let screenShake = 0;
     let speedBoostTimer = 0;
 
+    // ── Sprint + ADS state ──
+    let isSprinting = false;
+    let isADS = false;
+    let adsAmount = 0;
+    const BASE_FOV = 70;
+    const ADS_FOV = 45;
+    const SPRINT_FOV = 78;
+    const ADS_LERP_SPEED = 12;
+    const SPRINT_MULT = 1.7;
+    const ADS_MOVE_MULT = 0.5;
+    const ADS_SPREAD_MULT = 0.35;
+
     // ── Player movement state ──
     const playerPos = new THREE.Vector3(0, 0, 0);
     const MOVE_SPEED = 5.0;
@@ -510,7 +522,7 @@
     let gpFireHeld = false;
     let gpLBPrev = false, gpRBPrev = false;
 
-    // ── Reusable temp objects for smooth movement (zero GC) ──
+    // ── Reusable temp objects (zero GC) ──
     const ANIM_REFERENCE_SPEED = 2.0;
     const _currentQuat = new THREE.Quaternion();
     const _targetQuat = new THREE.Quaternion();
@@ -636,7 +648,9 @@
             }
         `
     });
-        // ═══════════════════════════════════════
+    scene.add(new THREE.Mesh(skyGeo, skyMat));
+
+    // ═══════════════════════════════════════
     // ASSET LOADING
     // ═══════════════════════════════════════
     const gltfLoader = new GLTFLoader();
@@ -890,6 +904,7 @@
         ch.style.height = size + 'px';
     }
 
+    // ── UPDATED: weapon system with ADS + sprint FOV ──
     function updateWeaponSystem(dt) {
         const now = performance.now() / 1000;
         const timeSinceShot = now - lastFiredAt;
@@ -945,13 +960,27 @@
 
         recoilKick = Math.max(0, recoilKick - RECOIL_RECOVER * dt);
 
-        // ── Weapon bob scales with movement ──
+        // ADS lerp
+        const adsTarget = isADS ? 1 : 0;
+        adsAmount += (adsTarget - adsAmount) * Math.min(1, ADS_LERP_SPEED * dt);
+
+        // FOV: sprint widens, ADS narrows, smooth lerp
+        const baseFov = isSprinting ? SPRINT_FOV : BASE_FOV;
+        const targetFOV = baseFov + (ADS_FOV - baseFov) * adsAmount;
+        camera.fov += (targetFOV - camera.fov) * Math.min(1, 10 * dt);
+        camera.updateProjectionMatrix();
+
+        // effective aim = max of fire-aim and ADS
+        const effectiveAim = Math.max(Math.max(0, Math.min(1, wpnLerp)), adsAmount);
+
+        // weapon bob reduced when ADS
+        const bobMoveAmp = isMoving ? 0.007 : 0.002;
+        const bobAmp = bobMoveAmp * (1 - adsAmount * 0.7);
         wpnBobTime += dt * (isMoving ? 5 : 1);
-        const bobAmp = isMoving ? 0.007 : 0.002;
         const bobX = Math.sin(wpnBobTime * 1.5) * bobAmp;
         const bobY = Math.sin(wpnBobTime * 2.0) * bobAmp;
 
-        const t = Math.max(0, Math.min(1, wpnLerp));
+        const t = effectiveAim;
         const px = REST_POS.x + (AIM_POS.x - REST_POS.x) * t + bobX;
         const py = REST_POS.y + (AIM_POS.y - REST_POS.y) * t + bobY + recoilKick * 0.5;
         const pz = REST_POS.z + (AIM_POS.z - REST_POS.z) * t + recoilKick;
@@ -1119,10 +1148,8 @@
         }
     }, { passive: true });
 
-    scene.add(new THREE.Mesh(skyGeo, skyMat));
-
-           // ═══════════════════════════════════════
-    // SHOOTING — semi-auto gated
+    // ═══════════════════════════════════════
+    // SHOOTING — semi-auto gated, ADS spread
     // ═══════════════════════════════════════
     const raycaster = new THREE.Raycaster();
     raycaster.far = 80;
@@ -1146,8 +1173,10 @@
         for (let p = 0; p < w.pellets; p++) {
             const d = dir.clone();
             if (w.spread > 0) {
-                d.x += (Math.random() - 0.5) * w.spread;
-                d.y += (Math.random() - 0.5) * w.spread;
+                // ADS tightens spread
+                const spreadMult = adsAmount > 0.5 ? ADS_SPREAD_MULT : 1.0;
+                d.x += (Math.random() - 0.5) * w.spread * spreadMult;
+                d.y += (Math.random() - 0.5) * w.spread * spreadMult;
                 d.normalize();
             }
             raycaster.set(camera.position, d);
@@ -1723,7 +1752,7 @@
         }
     }
 
-    // ═══════════════════════════════════════
+            // ═══════════════════════════════════════
     // WAVE SYSTEM
     // ═══════════════════════════════════════
     function startWave() {
@@ -1860,12 +1889,21 @@
     }
 
     // ═══════════════════════════════════════
-    // SCREEN SHAKE (now uses playerPos)
+    // SCREEN SHAKE + HEAD BOB
     // ═══════════════════════════════════════
     function updateScreenShake(dt) {
         camera.position.x = playerPos.x;
         camera.position.z = playerPos.z;
         camera.position.y = CONFIG.player.height;
+
+        // Head bob while moving, stronger when sprinting
+        if (isMoving) {
+            const bobFreq = isSprinting ? 12 : 7;
+            const bobAmt = isSprinting ? 0.055 : 0.018;
+            const swayAmt = isSprinting ? 0.025 : 0.008;
+            camera.position.y += Math.sin(wpnBobTime * bobFreq) * bobAmt;
+            camera.position.x += Math.cos(wpnBobTime * bobFreq * 0.5) * swayAmt;
+        }
 
         if (screenShake > 0) {
             screenShake -= dt;
@@ -1904,6 +1942,9 @@
             if (Math.abs(ly) < dead) ly = 0;
             inputX += lx;
             inputY -= ly;
+
+            // L3 (button 10) = sprint hold
+            isSprinting = gp.buttons[10] ? gp.buttons[10].pressed : false;
         }
 
         // Clamp combined input to unit circle
@@ -1912,9 +1953,16 @@
 
         isMoving = len > 0.1;
 
+        // Cancel sprint if ADS or not moving
+        if (isADS || !isMoving) isSprinting = false;
+
         if (!isMoving) return;
 
-        const speed = MOVE_SPEED * (speedBoostTimer > 0 ? 1.5 : 1.0) * dt;
+        // Sprint + ADS + boost speed modifiers
+        const sprintMult = isSprinting ? SPRINT_MULT : 1.0;
+        const adsMult = isADS ? ADS_MOVE_MULT : 1.0;
+        const boostMult = speedBoostTimer > 0 ? 1.5 : 1.0;
+        const speed = MOVE_SPEED * sprintMult * adsMult * boostMult * dt;
 
         // Forward = camera facing direction on XZ plane
         _moveForward.set(0, 0, -1).applyAxisAngle(_yAxis, yaw);
@@ -1938,6 +1986,7 @@
     window.addEventListener('gamepaddisconnected', e => {
         if (gamepadIndex === e.gamepad.index) gamepadIndex = null;
         gpFireHeld = false;
+        isADS = false;
         console.log('Gamepad disconnected');
     });
 
@@ -1945,6 +1994,54 @@
         if (gamepadIndex === null) return null;
         const gamepads = navigator.getGamepads();
         return gamepads[gamepadIndex] || null;
+    }
+
+    // ═══════════════════════════════════════
+    // AIM ASSIST (gamepad only)
+    // ═══════════════════════════════════════
+    const _aaDir = new THREE.Vector3();
+    const _aaToTarget = new THREE.Vector3();
+    const _aaInvQuat = new THREE.Quaternion();
+
+    function getAimAssistTarget() {
+        if (gamepadIndex === null) return null;
+
+        let best = null;
+        let bestAngle = 0.35; // ~20° threshold
+
+        _aaDir.set(0, 0, -1).applyEuler(camera.rotation);
+
+        for (const e of activeEnemies) {
+            if (e.dead) continue;
+
+            // Target chest height
+            _aaToTarget.set(
+                e.group.position.x - camera.position.x,
+                (e.group.position.y + 1.0) - camera.position.y,
+                e.group.position.z - camera.position.z
+            );
+            const dist = _aaToTarget.length();
+            if (dist > 50 || dist < 1) continue;
+
+            _aaToTarget.normalize();
+            const angle = _aaDir.angleTo(_aaToTarget);
+
+            if (angle < bestAngle) {
+                bestAngle = angle;
+
+                // Compute yaw/pitch offsets in camera local space
+                _aaInvQuat.copy(camera.quaternion).invert();
+                const local = _aaToTarget.clone().applyQuaternion(_aaInvQuat);
+
+                best = {
+                    yawOffset: Math.atan2(local.x, -local.z),
+                    pitchOffset: Math.atan2(local.y, -local.z),
+                    angle,
+                    dist
+                };
+            }
+        }
+        return best;
     }
 
     function updateGamepad(dt) {
@@ -1957,13 +2054,40 @@
         let ry = gp.axes[3] || 0;
         if (Math.abs(rx) < dead) rx = 0;
         if (Math.abs(ry) < dead) ry = 0;
-        yaw -= rx * 3.0 * dt;
-        pitch -= ry * 2.0 * dt;
+
+        // Aim assist — friction + magnetism
+        const aaTarget = getAimAssistTarget();
+        let aimSens = 1.0;
+
+        if (aaTarget) {
+            // Friction: reduce sensitivity when crosshair is near enemy
+            const frictionBase = isADS ? 0.35 : 0.55;
+            aimSens = frictionBase + (1 - frictionBase) * (aaTarget.angle / 0.35);
+
+            // Magnetism: soft pull toward target (only when stick is active)
+            const stickMag = Math.sqrt(rx * rx + ry * ry);
+            if (stickMag > 0.05) {
+                const pullBase = isADS ? 4.0 : 2.5;
+                const pullStr = pullBase * (1 - aaTarget.angle / 0.35);
+                yaw -= aaTarget.yawOffset * pullStr * dt;
+                pitch -= aaTarget.pitchOffset * pullStr * dt;
+            }
+        }
+
+        // ADS slows turn speed
+        const adsTurnMult = isADS ? 0.6 : 1.0;
+
+        yaw -= rx * 3.0 * aimSens * adsTurnMult * dt;
+        pitch -= ry * 2.0 * aimSens * adsTurnMult * dt;
         pitch = Math.max(-1.2, Math.min(1.2, pitch));
 
-        // RT (button 7) → fire
-        const rt = gp.buttons[7] ? gp.buttons[7].value : 0;
-        if (rt > 0.1) {
+        // L1 (button 4) = ADS hold
+        isADS = gp.buttons[4] ? gp.buttons[4].pressed : false;
+        if (isADS) isSprinting = false;
+
+        // R1 (button 5) = Fire
+        const r1 = gp.buttons[5] ? gp.buttons[5].pressed : false;
+        if (r1) {
             if (!gpFireHeld) {
                 gpFireHeld = true;
                 fireHeld = true;
@@ -1978,21 +2102,22 @@
             }
         }
 
-        // LB (button 4) → previous weapon
-        const lb = gp.buttons[4] ? gp.buttons[4].pressed : false;
-        if (lb && !gpLBPrev) {
+        // L2 (button 6) = Cycle weapons CCW
+        const l2 = gp.buttons[6] ? gp.buttons[6].pressed : false;
+        if (l2 && !gpLBPrev) {
             swapWeapon((curWeapon + 2) % 3);
         }
-        gpLBPrev = lb;
+        gpLBPrev = l2;
 
-        // RB (button 5) → next weapon
-        const rb = gp.buttons[5] ? gp.buttons[5].pressed : false;
-        if (rb && !gpRBPrev) {
+        // R2 (button 7) = Cycle weapons CW
+        const r2 = gp.buttons[7] ? gp.buttons[7].pressed : false;
+        if (r2 && !gpRBPrev) {
             swapWeapon((curWeapon + 1) % 3);
         }
-        gpRBPrev = rb;
-    } 
-            // ═══════════════════════════════════════
+        gpRBPrev = r2;
+    }
+        
+         // ═══════════════════════════════════════
     // SHOW MAIN MENU
     // ═══════════════════════════════════════
     function showMainMenu() {
@@ -2006,6 +2131,9 @@
         isMoving = false;
         moveJoyDeltaX = 0;
         moveJoyDeltaY = 0;
+        isADS = false;
+        isSprinting = false;
+        adsAmount = 0;
 
         playerPos.set(0, 0, 0);
 
@@ -2077,6 +2205,9 @@
         isMoving = false;
         moveJoyDeltaX = 0;
         moveJoyDeltaY = 0;
+        isADS = false;
+        isSprinting = false;
+        adsAmount = 0;
 
         playerPos.set(0, 0, 0);
 
@@ -2144,6 +2275,9 @@
         activeBoss = null;
         gpFireHeld = false;
         isMoving = false;
+        isADS = false;
+        isSprinting = false;
+        adsAmount = 0;
         document.getElementById('boss-bar').style.display = 'none';
         document.getElementById('hud').style.display = 'none';
         document.getElementById('game-over').style.display = 'flex';
@@ -2188,6 +2322,7 @@
         if (state === 'gameover') showMainMenu();
     });
 
+    // Left-click = fire
     renderer.domElement.addEventListener('mousedown', e => {
         if (e.button === 0) {
             fireHeld = true;
@@ -2201,6 +2336,18 @@
             hasFiredThisClick = false;
         }
     });
+
+    // Right-click = ADS
+    renderer.domElement.addEventListener('mousedown', e => {
+        if (e.button === 2 && state === 'playing') {
+            isADS = true;
+            isSprinting = false;
+        }
+    });
+    renderer.domElement.addEventListener('mouseup', e => {
+        if (e.button === 2) isADS = false;
+    });
+    renderer.domElement.addEventListener('contextmenu', e => e.preventDefault());
 
     renderer.domElement.addEventListener('touchstart', e => {
         if (state !== 'playing') return;
@@ -2224,9 +2371,15 @@
         }
     }, { passive: true });
 
-    // ── Keyboard: WASD tracking + weapon swap ──
+    // Keyboard: WASD + sprint + weapon swap
     document.addEventListener('keydown', e => {
         keys[e.key.toLowerCase()] = true;
+
+        // Shift = sprint
+        if (e.key === 'Shift') {
+            if (!isADS) isSprinting = true;
+        }
+
         if (state !== 'playing') return;
         if (e.key === '1') swapWeapon(0);
         if (e.key === '2') swapWeapon(1);
@@ -2237,6 +2390,7 @@
     });
     document.addEventListener('keyup', e => {
         keys[e.key.toLowerCase()] = false;
+        if (e.key === 'Shift') isSprinting = false;
     });
 
     document.querySelectorAll('.weapon-slot').forEach(el => {
@@ -2270,7 +2424,6 @@
         moveJoyDeltaX = 0;
         moveJoyDeltaY = 0;
 
-        // Show joystick base at touch point
         joyBase.style.display = 'block';
         joyBase.style.left = (t.clientX - 55) + 'px';
         joyBase.style.top = (t.clientY - 55) + 'px';
@@ -2286,17 +2439,14 @@
             let dy = t.clientY - moveJoyOriginY;
             const dist = Math.sqrt(dx * dx + dy * dy);
 
-            // Clamp to max radius
             if (dist > JOYSTICK_MAX_DIST) {
                 dx = (dx / dist) * JOYSTICK_MAX_DIST;
                 dy = (dy / dist) * JOYSTICK_MAX_DIST;
             }
 
-            // Normalize to -1..1
             moveJoyDeltaX = dx / JOYSTICK_MAX_DIST;
-            moveJoyDeltaY = -(dy / JOYSTICK_MAX_DIST); // invert Y: up = forward
+            moveJoyDeltaY = -(dy / JOYSTICK_MAX_DIST);
 
-            // Move thumb visual
             joyThumb.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
         }
     }, { passive: false });
@@ -2338,10 +2488,7 @@
         camera.rotation.x = pitch;
 
         if (state === 'playing') {
-            // Gamepad polling (aim + fire + weapon swap)
             updateGamepad(dt);
-
-            // Player movement (WASD + joystick + gamepad left stick)
             updateMovement(dt);
 
             if (fireHeld && CONFIG.weapons[curWeapon].auto) shoot();
@@ -2377,4 +2524,4 @@
 
     </script>
 </body>
-</html>
+</html>   
