@@ -599,12 +599,13 @@
     function playGunshot(weaponIndex) {
         console.log('GUNSHOT CALLED', audioCtx ? audioCtx.state : 'NULL');
         if (!audioCtx) return;
-        const now = audioCtx.currentTime;
-        const profiles = [
-            { freq: 220, freqEnd: 60, decay: 0.12, vol: 0.25, noiseVol: 0.12, noiseDur: 0.06, filterFreq: 3000 },
-            { freq: 90, freqEnd: 25, decay: 0.22, vol: 0.35, noiseVol: 0.20, noiseDur: 0.10, filterFreq: 1500 },
-            { freq: 300, freqEnd: 80, decay: 0.08, vol: 0.22, noiseVol: 0.15, noiseDur: 0.04, filterFreq: 4500 },
-        ];
+        const o = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        g.gain.value = 0.5;
+        o.connect(g).connect(audioCtx.destination);
+        o.start();
+        o.stop(audioCtx.currentTime + 0.15);
+    }
         const p = profiles[weaponIndex] || profiles[0];
 
         const osc = audioCtx.createOscillator();
