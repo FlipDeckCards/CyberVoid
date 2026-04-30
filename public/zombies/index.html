@@ -581,13 +581,15 @@
                 float h = normalize(vWorldPosition).y;
                 gl_FragColor = vec4(mix(bottomColor, topColor, max(h, 0.0)), 1.0);
             }
-        `
-            // ═══════════════════════════════════════
-    // ASSET LOADING
-    // ═══════════════════════════════════════
-    const gltfLoader = new GLTFLoader();
-    const dracoLoader = new DRACOLoader();
-    dracoLoader.setDecoderPath('https://unpkg.com/three@0.160.0/examples/jsm/libs/draco/');
+            `
+        });
+    scene.add(new THREE.Mesh(skyGeo, skyMat));
+
+// ═══════════════════════════════════════
+// ASSET LOADING
+// ═══════════════════════════════════════
+  const gltfLoader = new GLTFLoader();      
+  const dracoLoader = new DRACOLoader();      
     gltfLoader.setDRACOLoader(dracoLoader);
     const models = {};
     const anims = {};
