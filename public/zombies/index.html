@@ -591,6 +591,7 @@
   const gltfLoader = new GLTFLoader();      
   const dracoLoader = new DRACOLoader();      
     gltfLoader.setDRACOLoader(dracoLoader);
+        dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
     const models = {};
     const anims = {};
     const weaponGLBs = {};
