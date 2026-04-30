@@ -548,6 +548,7 @@
     function initAudio() {
         if (!audioCtx) {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        console.log('AUDIO CREATED', audioCtx.state);
         }
         if (audioCtx.state === 'suspended') {
             audioCtx.resume().catch(() => {});
@@ -596,6 +597,7 @@
 
     // ── 2. Gunshots ──
     function playGunshot(weaponIndex) {
+        console.log('GUNSHOT CALLED', audioCtx ? audioCtx.state : 'NULL');
         if (!audioCtx) return;
         const now = audioCtx.currentTime;
         const profiles = [
