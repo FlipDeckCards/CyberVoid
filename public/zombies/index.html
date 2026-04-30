@@ -555,7 +555,6 @@
             audioCtx.resume().catch(() => {});
         }
     }
-}
 ['click', 'touchstart', 'keydown', 'gamepadconnected'].forEach(evt => {
         document.addEventListener(evt, () => {
             if (!audioCtx) initAudio();
