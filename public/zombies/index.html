@@ -233,6 +233,34 @@
         #threat-top    { top: 0; left: 25%; width: 50%; height: 3px; }
         #threat-bottom { bottom: 70px; left: 25%; width: 50%; height: 3px; }
 
+        /* ── MOBILE MOVE JOYSTICK ── */
+        #move-joystick-zone {
+            position: fixed;
+            bottom: 0; left: 0;
+            width: 45%; height: 55%;
+            z-index: 55;
+            pointer-events: auto;
+            display: none;
+        }
+        #move-joystick-base {
+            position: absolute;
+            width: 110px; height: 110px;
+            border-radius: 50%;
+            border: 2px solid rgba(57, 255, 20, 0.25);
+            background: rgba(57, 255, 20, 0.04);
+            display: none;
+            pointer-events: none;
+        }
+        #move-joystick-thumb {
+            position: absolute;
+            width: 44px; height: 44px;
+            border-radius: 50%;
+            background: rgba(57, 255, 20, 0.35);
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+        }
+
         @media (max-width: 768px) {
             #blocker h1 { font-size: 2.5rem; letter-spacing: 8px; }
             #blocker .mode { font-size: 1rem; }
@@ -290,6 +318,13 @@
         <div class="threat-edge" id="threat-right"></div>
         <div class="threat-edge" id="threat-top"></div>
         <div class="threat-edge" id="threat-bottom"></div>
+    </div>
+
+    <!-- MOBILE MOVE JOYSTICK -->
+    <div id="move-joystick-zone">
+        <div id="move-joystick-base">
+            <div id="move-joystick-thumb"></div>
+        </div>
     </div>
 
     <div id="wave-announce"></div>
@@ -457,6 +492,24 @@
     let screenShake = 0;
     let speedBoostTimer = 0;
 
+    // ── Player movement state ──
+    const playerPos = new THREE.Vector3(0, 0, 0);
+    const MOVE_SPEED = 5.0;
+    const ARENA_BOUNDS = 39.0;
+    const keys = {};
+    let isMoving = false;
+
+    // ── Mobile joystick state ──
+    let moveJoyTouchId = null;
+    let moveJoyOriginX = 0, moveJoyOriginY = 0;
+    let moveJoyDeltaX = 0, moveJoyDeltaY = 0;
+    const JOYSTICK_MAX_DIST = 45;
+
+    // ── Gamepad state ──
+    let gamepadIndex = null;
+    let gpFireHeld = false;
+    let gpLBPrev = false, gpRBPrev = false;
+
     // ── Reusable temp objects for smooth movement (zero GC) ──
     const ANIM_REFERENCE_SPEED = 2.0;
     const _currentQuat = new THREE.Quaternion();
@@ -581,17 +634,15 @@
                 float h = normalize(vWorldPosition).y;
                 gl_FragColor = vec4(mix(bottomColor, topColor, max(h, 0.0)), 1.0);
             }
-            `
-        });
-    scene.add(new THREE.Mesh(skyGeo, skyMat));
-
-// ═══════════════════════════════════════
-// ASSET LOADING
-// ═══════════════════════════════════════
-  const gltfLoader = new GLTFLoader();      
-  const dracoLoader = new DRACOLoader();      
+        `
+    });
+        // ═══════════════════════════════════════
+    // ASSET LOADING
+    // ═══════════════════════════════════════
+    const gltfLoader = new GLTFLoader();
+    const dracoLoader = new DRACOLoader();
     gltfLoader.setDRACOLoader(dracoLoader);
-        dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
+    dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
     const models = {};
     const anims = {};
     const weaponGLBs = {};
@@ -894,9 +945,11 @@
 
         recoilKick = Math.max(0, recoilKick - RECOIL_RECOVER * dt);
 
-        wpnBobTime += dt;
-        const bobX = Math.sin(wpnBobTime * 1.5) * 0.002;
-        const bobY = Math.sin(wpnBobTime * 2.0) * 0.002;
+        // ── Weapon bob scales with movement ──
+        wpnBobTime += dt * (isMoving ? 5 : 1);
+        const bobAmp = isMoving ? 0.007 : 0.002;
+        const bobX = Math.sin(wpnBobTime * 1.5) * bobAmp;
+        const bobY = Math.sin(wpnBobTime * 2.0) * bobAmp;
 
         const t = Math.max(0, Math.min(1, wpnLerp));
         const px = REST_POS.x + (AIM_POS.x - REST_POS.x) * t + bobX;
@@ -1066,7 +1119,9 @@
         }
     }, { passive: true });
 
-    // ═══════════════════════════════════════
+    scene.add(new THREE.Mesh(skyGeo, skyMat));
+
+           // ═══════════════════════════════════════
     // SHOOTING — semi-auto gated
     // ═══════════════════════════════════════
     const raycaster = new THREE.Raycaster();
@@ -1380,8 +1435,8 @@
             }
         }
     }
-    
-            // ═══════════════════════════════════════
+
+    // ═══════════════════════════════════════
     // ENEMIES
     // ═══════════════════════════════════════
     function spawnEnemy(type) {
@@ -1441,7 +1496,7 @@
 
         const waveScale = 1 + (wave - 1) * 0.15;
         const scaledHealth = Math.round(cfg.health * waveScale);
-        const bossWaveNum = Math.floor(wave / 10); // ← CHANGED: was / 5
+        const bossWaveNum = Math.floor(wave / 10);
 
         const enemy = {
             type, group, mixer,
@@ -1471,7 +1526,6 @@
             bossBar.style.display = 'block';
             updateBossHUD();
 
-            // ── CHANGED: fixed entourage of 2 shamblers ──
             const entourageCount = 2;
             for (let ei = 0; ei < entourageCount; ei++) {
                 setTimeout(() => {
@@ -1577,7 +1631,6 @@
         }
     }
 
-    // ── CHANGED: smooth movement + animation sync ──
     function updateEnemies(dt) {
         for (let i = activeEnemies.length - 1; i >= 0; i--) {
             const e = activeEnemies[i];
@@ -1617,7 +1670,6 @@
             const dist = dir.length();
             dir.normalize();
 
-            // ── SMOOTH ROTATION: slerp instead of instant lookAt ──
             if (dist > 0.5) {
                 _currentQuat.copy(e.group.quaternion);
                 e.group.lookAt(camera.position.x, e.group.position.y, camera.position.z);
@@ -1629,12 +1681,10 @@
             if (dist > CONFIG.meleeRange) {
                 e.group.position.addScaledVector(dir, e.speed * dt);
 
-                // ── ANIMATION SYNC: match footstep speed to movement ──
                 if (e.walkAction) {
                     e.walkAction.timeScale = e.speed / ANIM_REFERENCE_SPEED;
                 }
             } else {
-                // In melee range — stop walk animation cycling fast
                 if (e.walkAction) {
                     e.walkAction.timeScale = 0.3;
                 }
@@ -1676,14 +1726,12 @@
     // ═══════════════════════════════════════
     // WAVE SYSTEM
     // ═══════════════════════════════════════
-
-    // ── CHANGED: slower ramp, boss every 10, 900ms spawns ──
     function startWave() {
         wave++;
         betweenWaves = false;
 
-        const totalEnemies = 3 + wave * 2;               // ← was 4 + wave * 3
-        const isBossWave = (wave % 10 === 0);             // ← was wave % 5
+        const totalEnemies = 3 + wave * 2;
+        const isBossWave = (wave % 10 === 0);
         waveEnemiesLeft = totalEnemies + (isBossWave ? 1 : 0);
 
         updateHUD();
@@ -1701,23 +1749,19 @@
             const type = pickEnemyType();
             spawnEnemy(type);
             spawned++;
-        }, 900);                                          // ← was 600
+        }, 900);
     }
 
-    // ── CHANGED: eased early waves ──
     function pickEnemyType() {
         const r = Math.random();
         if (wave <= 3) {
-            // Early: mostly shamblers, light runner mix
             return r < 0.80 ? 'shambler' : 'runner';
         } else if (wave <= 7) {
-            // Mid: introduce tanks and brutes
             if (r < 0.40) return 'shambler';
             if (r < 0.65) return 'runner';
             if (r < 0.85) return 'tank';
             return 'brute';
         } else {
-            // Late: full roster, brute-heavy
             if (r < 0.20) return 'shambler';
             if (r < 0.40) return 'runner';
             if (r < 0.65) return 'tank';
@@ -1816,22 +1860,139 @@
     }
 
     // ═══════════════════════════════════════
-    // SCREEN SHAKE
+    // SCREEN SHAKE (now uses playerPos)
     // ═══════════════════════════════════════
     function updateScreenShake(dt) {
+        camera.position.x = playerPos.x;
+        camera.position.z = playerPos.z;
+        camera.position.y = CONFIG.player.height;
+
         if (screenShake > 0) {
             screenShake -= dt;
             const intensity = Math.min(screenShake, 0.3) * 0.15;
-            camera.position.x = (Math.random() - 0.5) * intensity;
-            camera.position.z = (Math.random() - 0.5) * intensity;
-        } else {
-            camera.position.x = 0;
-            camera.position.z = 0;
+            camera.position.x += (Math.random() - 0.5) * intensity;
+            camera.position.z += (Math.random() - 0.5) * intensity;
         }
-        camera.position.y = CONFIG.player.height;
     }
 
     // ═══════════════════════════════════════
+    // PLAYER MOVEMENT (WASD + Joystick + Gamepad)
+    // ═══════════════════════════════════════
+    const _moveForward = new THREE.Vector3();
+    const _moveRight = new THREE.Vector3();
+    const _yAxis = new THREE.Vector3(0, 1, 0);
+
+    function updateMovement(dt) {
+        const moveX = (moveJoyDeltaX || 0);
+        const moveY = (moveJoyDeltaY || 0);
+        let inputX = moveX;
+        let inputY = moveY;
+
+        // WASD / arrow keys
+        if (keys['w'] || keys['arrowup'])    inputY += 1;
+        if (keys['s'] || keys['arrowdown'])  inputY -= 1;
+        if (keys['a'] || keys['arrowleft'])  inputX -= 1;
+        if (keys['d'] || keys['arrowright']) inputX += 1;
+
+        // Gamepad left stick
+        const gp = getGamepad();
+        if (gp) {
+            const dead = 0.15;
+            let lx = gp.axes[0] || 0;
+            let ly = gp.axes[1] || 0;
+            if (Math.abs(lx) < dead) lx = 0;
+            if (Math.abs(ly) < dead) ly = 0;
+            inputX += lx;
+            inputY -= ly;
+        }
+
+        // Clamp combined input to unit circle
+        const len = Math.sqrt(inputX * inputX + inputY * inputY);
+        if (len > 1) { inputX /= len; inputY /= len; }
+
+        isMoving = len > 0.1;
+
+        if (!isMoving) return;
+
+        const speed = MOVE_SPEED * (speedBoostTimer > 0 ? 1.5 : 1.0) * dt;
+
+        // Forward = camera facing direction on XZ plane
+        _moveForward.set(0, 0, -1).applyAxisAngle(_yAxis, yaw);
+        _moveRight.set(1, 0, 0).applyAxisAngle(_yAxis, yaw);
+
+        playerPos.x += (_moveForward.x * inputY + _moveRight.x * inputX) * speed;
+        playerPos.z += (_moveForward.z * inputY + _moveRight.z * inputX) * speed;
+
+        // Arena boundary clamp
+        playerPos.x = Math.max(-ARENA_BOUNDS, Math.min(ARENA_BOUNDS, playerPos.x));
+        playerPos.z = Math.max(-ARENA_BOUNDS, Math.min(ARENA_BOUNDS, playerPos.z));
+    }
+
+    // ═══════════════════════════════════════
+    // GAMEPAD SUPPORT (PS5 + Xbox)
+    // ═══════════════════════════════════════
+    window.addEventListener('gamepadconnected', e => {
+        gamepadIndex = e.gamepad.index;
+        console.log('Gamepad connected:', e.gamepad.id);
+    });
+    window.addEventListener('gamepaddisconnected', e => {
+        if (gamepadIndex === e.gamepad.index) gamepadIndex = null;
+        gpFireHeld = false;
+        console.log('Gamepad disconnected');
+    });
+
+    function getGamepad() {
+        if (gamepadIndex === null) return null;
+        const gamepads = navigator.getGamepads();
+        return gamepads[gamepadIndex] || null;
+    }
+
+    function updateGamepad(dt) {
+        const gp = getGamepad();
+        if (!gp) return;
+
+        // Right stick → aim
+        const dead = 0.15;
+        let rx = gp.axes[2] || 0;
+        let ry = gp.axes[3] || 0;
+        if (Math.abs(rx) < dead) rx = 0;
+        if (Math.abs(ry) < dead) ry = 0;
+        yaw -= rx * 3.0 * dt;
+        pitch -= ry * 2.0 * dt;
+        pitch = Math.max(-1.2, Math.min(1.2, pitch));
+
+        // RT (button 7) → fire
+        const rt = gp.buttons[7] ? gp.buttons[7].value : 0;
+        if (rt > 0.1) {
+            if (!gpFireHeld) {
+                gpFireHeld = true;
+                fireHeld = true;
+                hasFiredThisClick = false;
+                shoot();
+            }
+        } else {
+            if (gpFireHeld) {
+                gpFireHeld = false;
+                fireHeld = false;
+                hasFiredThisClick = false;
+            }
+        }
+
+        // LB (button 4) → previous weapon
+        const lb = gp.buttons[4] ? gp.buttons[4].pressed : false;
+        if (lb && !gpLBPrev) {
+            swapWeapon((curWeapon + 2) % 3);
+        }
+        gpLBPrev = lb;
+
+        // RB (button 5) → next weapon
+        const rb = gp.buttons[5] ? gp.buttons[5].pressed : false;
+        if (rb && !gpRBPrev) {
+            swapWeapon((curWeapon + 1) % 3);
+        }
+        gpRBPrev = rb;
+    } 
+            // ═══════════════════════════════════════
     // SHOW MAIN MENU
     // ═══════════════════════════════════════
     function showMainMenu() {
@@ -1841,6 +2002,12 @@
         pendingFire = false;
         hasFiredThisClick = false;
         activeBoss = null;
+        gpFireHeld = false;
+        isMoving = false;
+        moveJoyDeltaX = 0;
+        moveJoyDeltaY = 0;
+
+        playerPos.set(0, 0, 0);
 
         for (const e of activeEnemies) {
             scene.remove(e.group);
@@ -1871,12 +2038,14 @@
         document.getElementById('login-fields').style.display = 'flex';
         document.getElementById('start-text').textContent = 'TAP TO START';
         document.getElementById('loading-bar').style.display = 'none';
+        document.getElementById('move-joystick-zone').style.display = 'none';
 
         if (document.pointerLockElement) document.exitPointerLock();
 
         fetchLeaderboard();
     }
-            // ═══════════════════════════════════════
+
+    // ═══════════════════════════════════════
     // START / RESTART / GAME OVER
     // ═══════════════════════════════════════
     async function startGame() {
@@ -1904,6 +2073,12 @@
         activeBoss = null;
         screenShake = 0;
         speedBoostTimer = 0;
+        gpFireHeld = false;
+        isMoving = false;
+        moveJoyDeltaX = 0;
+        moveJoyDeltaY = 0;
+
+        playerPos.set(0, 0, 0);
 
         for (const e of activeEnemies) {
             scene.remove(e.group);
@@ -1944,6 +2119,11 @@
         document.getElementById('game-over').style.display = 'none';
         document.getElementById('hud').style.display = 'block';
 
+        // Show mobile joystick on mobile
+        if (isMobile) {
+            document.getElementById('move-joystick-zone').style.display = 'block';
+        }
+
         updateHUD();
         updateHealthHUD();
         updateWeaponHUD();
@@ -1962,9 +2142,12 @@
         pendingFire = false;
         hasFiredThisClick = false;
         activeBoss = null;
+        gpFireHeld = false;
+        isMoving = false;
         document.getElementById('boss-bar').style.display = 'none';
         document.getElementById('hud').style.display = 'none';
         document.getElementById('game-over').style.display = 'flex';
+        document.getElementById('move-joystick-zone').style.display = 'none';
         document.getElementById('final-stats').innerHTML =
             `WAVE ${wave}<br>SCORE: ${score}<br>KILLS: ${kills}`;
 
@@ -2041,7 +2224,9 @@
         }
     }, { passive: true });
 
+    // ── Keyboard: WASD tracking + weapon swap ──
     document.addEventListener('keydown', e => {
+        keys[e.key.toLowerCase()] = true;
         if (state !== 'playing') return;
         if (e.key === '1') swapWeapon(0);
         if (e.key === '2') swapWeapon(1);
@@ -2049,6 +2234,9 @@
         if (e.key === 'q' || e.key === 'Q') {
             swapWeapon((curWeapon + 1) % CONFIG.weapons.length);
         }
+    });
+    document.addEventListener('keyup', e => {
+        keys[e.key.toLowerCase()] = false;
     });
 
     document.querySelectorAll('.weapon-slot').forEach(el => {
@@ -2065,6 +2253,79 @@
     });
 
     // ═══════════════════════════════════════
+    // MOBILE MOVE JOYSTICK
+    // ═══════════════════════════════════════
+    const joyZone = document.getElementById('move-joystick-zone');
+    const joyBase = document.getElementById('move-joystick-base');
+    const joyThumb = document.getElementById('move-joystick-thumb');
+
+    joyZone.addEventListener('touchstart', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (moveJoyTouchId !== null) return;
+        const t = e.changedTouches[0];
+        moveJoyTouchId = t.identifier;
+        moveJoyOriginX = t.clientX;
+        moveJoyOriginY = t.clientY;
+        moveJoyDeltaX = 0;
+        moveJoyDeltaY = 0;
+
+        // Show joystick base at touch point
+        joyBase.style.display = 'block';
+        joyBase.style.left = (t.clientX - 55) + 'px';
+        joyBase.style.top = (t.clientY - 55) + 'px';
+        joyThumb.style.transform = 'translate(-50%, -50%)';
+    }, { passive: false });
+
+    joyZone.addEventListener('touchmove', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        for (const t of e.changedTouches) {
+            if (t.identifier !== moveJoyTouchId) continue;
+            let dx = t.clientX - moveJoyOriginX;
+            let dy = t.clientY - moveJoyOriginY;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+
+            // Clamp to max radius
+            if (dist > JOYSTICK_MAX_DIST) {
+                dx = (dx / dist) * JOYSTICK_MAX_DIST;
+                dy = (dy / dist) * JOYSTICK_MAX_DIST;
+            }
+
+            // Normalize to -1..1
+            moveJoyDeltaX = dx / JOYSTICK_MAX_DIST;
+            moveJoyDeltaY = -(dy / JOYSTICK_MAX_DIST); // invert Y: up = forward
+
+            // Move thumb visual
+            joyThumb.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+        }
+    }, { passive: false });
+
+    joyZone.addEventListener('touchend', e => {
+        for (const t of e.changedTouches) {
+            if (t.identifier === moveJoyTouchId) {
+                moveJoyTouchId = null;
+                moveJoyDeltaX = 0;
+                moveJoyDeltaY = 0;
+                joyBase.style.display = 'none';
+                joyThumb.style.transform = 'translate(-50%, -50%)';
+            }
+        }
+    }, { passive: true });
+
+    joyZone.addEventListener('touchcancel', e => {
+        for (const t of e.changedTouches) {
+            if (t.identifier === moveJoyTouchId) {
+                moveJoyTouchId = null;
+                moveJoyDeltaX = 0;
+                moveJoyDeltaY = 0;
+                joyBase.style.display = 'none';
+                joyThumb.style.transform = 'translate(-50%, -50%)';
+            }
+        }
+    }, { passive: true });
+
+    // ═══════════════════════════════════════
     // GAME LOOP
     // ═══════════════════════════════════════
     function gameLoop() {
@@ -2077,6 +2338,12 @@
         camera.rotation.x = pitch;
 
         if (state === 'playing') {
+            // Gamepad polling (aim + fire + weapon swap)
+            updateGamepad(dt);
+
+            // Player movement (WASD + joystick + gamepad left stick)
+            updateMovement(dt);
+
             if (fireHeld && CONFIG.weapons[curWeapon].auto) shoot();
 
             updateEnemies(dt);
