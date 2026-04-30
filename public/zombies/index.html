@@ -546,8 +546,12 @@
     const GROWL_RANGE = 12;
 
     function initAudio() {
-        if (audioCtx) return;
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
     }
 
     // ── 1. Footsteps ──
@@ -2145,12 +2149,13 @@
             }
         }
 
-        const hitBox = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.5, 0.5, 2, 8),
+        const hitRadius = type === 'boss' ? 1.3 : 0.9;
+        const hitHeight = type === 'boss' ? 3.2 : 2.5;
+        const hitbox = new THREE.Mesh(
+            new THREE.CylinderGeometry(hitRadius, hitRadius, hitHeight, 8),
             new THREE.MeshBasicMaterial({ visible: false })
         );
-        hitBox.position.y = 1;
-        group.add(hitBox);
+        hitbox.position.y = hitHeight / 2;
         scene.add(group);
 
         let hb = null;
@@ -2545,8 +2550,9 @@ playWaveKlaxon(wave % 10 === 0);
     // SCREEN SHAKE + HEAD BOB
     // ═══════════════════════════════════════
     function updateScreenShake(dt) {
-        camera.position.x = playerPos.x;
-        camera.position.z = playerPos.z;
+        const camSmooth = Math.min(1, dt * 20);
+        camera.position.x += (playerPos.x - camera.position.x) * camSmooth;
+        camera.position.z += (playerPos.z - camera.position.z) * camSmooth;
         camera.position.y = CONFIG.player.height;
         if (isMoving) {
             const bobFreq = isSprinting ? 12 : 7;
@@ -2664,7 +2670,7 @@ playWaveKlaxon(wave % 10 === 0);
         if (gamepadIndex === null) return null;
 
         let best = null;
-        let bestAngle = 0.35; // ~20° threshold
+        let bestAngle = 0.5; // ~29° threshold
 
         _aaDir.set(0, 0, -1).applyEuler(camera.rotation);
 
@@ -2674,7 +2680,7 @@ playWaveKlaxon(wave % 10 === 0);
             // Target chest height
             _aaToTarget.set(
                 e.group.position.x - camera.position.x,
-                (e.group.position.y + 1.0) - camera.position.y,
+                (e.group.position.y + 1.3) - camera.position.y,
                 e.group.position.z - camera.position.z
             );
             const dist = _aaToTarget.length();
@@ -2718,13 +2724,13 @@ playWaveKlaxon(wave % 10 === 0);
 
         if (aaTarget) {
             // Friction: reduce sensitivity when crosshair is near enemy
-            const frictionBase = isADS ? 0.35 : 0.55;
+            const frictionBase = isADS ? 0.2 : 0.4;
             aimSens = frictionBase + (1 - frictionBase) * (aaTarget.angle / 0.35);
 
             // Magnetism: soft pull toward target (only when stick is active)
             const stickMag = Math.sqrt(rx * rx + ry * ry);
             if (stickMag > 0.05) {
-                const pullBase = isADS ? 4.0 : 2.5;
+                const pullBase = isADS ? 7.0 : 5.0;
                 const pullStr = pullBase * (1 - aaTarget.angle / 0.35);
                 yaw -= aaTarget.yawOffset * pullStr * dt;
                 pitch -= aaTarget.pitchOffset * pullStr * dt;
