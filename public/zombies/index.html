@@ -550,10 +550,15 @@
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         }
         if (audioCtx.state === 'suspended') {
-            audioCtx.resume();
+            audioCtx.resume().catch(() => {});
         }
     }
-
+    ['click', 'touchstart', 'keydown', 'gamepadconnected'].forEach(evt => {
+        document.addEventListener(evt, () => {
+            if (!audioCtx) initAudio();
+            else if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+        });
+    });
     // ── 1. Footsteps ──
     function playFootstep() {
         if (!audioCtx) return;
@@ -2550,14 +2555,14 @@ playWaveKlaxon(wave % 10 === 0);
     // SCREEN SHAKE + HEAD BOB
     // ═══════════════════════════════════════
     function updateScreenShake(dt) {
-        const camSmooth = Math.min(1, dt * 20);
+        const camSmooth = Math.min(1, dt * 25);
         camera.position.x += (playerPos.x - camera.position.x) * camSmooth;
         camera.position.z += (playerPos.z - camera.position.z) * camSmooth;
         camera.position.y = CONFIG.player.height;
         if (isMoving) {
             const bobFreq = isSprinting ? 12 : 7;
-            const bobAmt = isSprinting ? 0.055 : 0.018;
-            const swayAmt = isSprinting ? 0.025 : 0.008;
+            const bobAmt = isSprinting ? 0.030 : 0.018;
+            const swayAmt = isSprinting ? 0.012 : 0.008;
             const bobVal = Math.sin(wpnBobTime * bobFreq);
             camera.position.y += bobVal * bobAmt;
             camera.position.x += Math.cos(wpnBobTime * bobFreq * 0.5) * swayAmt;
@@ -2730,10 +2735,10 @@ playWaveKlaxon(wave % 10 === 0);
             // Magnetism: soft pull toward target (only when stick is active)
             const stickMag = Math.sqrt(rx * rx + ry * ry);
             if (stickMag > 0.05) {
-                const pullBase = isADS ? 7.0 : 5.0;
+                const pullBase = isADS ? 4.0 : 2.5;
                 const pullStr = pullBase * (1 - aaTarget.angle / 0.35);
                 yaw -= aaTarget.yawOffset * pullStr * dt;
-                pitch -= aaTarget.pitchOffset * pullStr * dt;
+                pitch -= aaTarget.pitchOffset * pullStr * 0.3 * dt;
             }
         }
 
