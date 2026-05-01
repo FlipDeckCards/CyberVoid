@@ -2324,7 +2324,7 @@ if (deathClip) {
             if (enemy.healthBar) scene.remove(enemy.healthBar.sprite);
         }
 
-        if (enemy.deadAction) {
+        if (enemy.deadAction && enemy.type !== 'brute') {
     if (enemy.mixer) enemy.mixer.stopAllAction();
     enemy.deadAction.reset();
     enemy.deadAction.setLoop(THREE.LoopOnce, 1);
@@ -2333,6 +2333,18 @@ if (deathClip) {
     enemy.deadAction.setEffectiveTimeScale(clipDur < 1.5 ? 0.3 : 1);
     enemy.deadAction.setEffectiveWeight(1);
     enemy.deadAction.play();
+} else {
+    if (enemy.mixer) enemy.mixer.stopAllAction();
+    enemy.sinkStartY = enemy.group.position.y;
+    enemy.group.traverse((child) => {
+        if (child.isMesh && child.material) {
+            const mats = Array.isArray(child.material) ? child.material : [child.material];
+            mats.forEach(mat => {
+                mat.transparent = true;
+                mat.opacity = 1;
+            });
+        }
+    });
 }
 
         if (!enemy.isBoss && Math.random() < CONFIG.dropChance) {
@@ -2346,8 +2358,22 @@ if (deathClip) {
             e.mixer.update(dt);
 
             if (e.dead) {
-    if (e.mixer) e.mixer.update(dt);
     e.despawnTimer += dt;
+
+    if (e.type === 'brute') {
+        const progress = Math.min(e.despawnTimer / CONFIG.despawnTime, 1);
+        e.group.position.y = (e.sinkStartY || 0) - (progress * 2);
+        const opacity = 1 - progress;
+        e.group.traverse((child) => {
+            if (child.isMesh && child.material) {
+                const mats = Array.isArray(child.material) ? child.material : [child.material];
+                mats.forEach(mat => { mat.opacity = opacity; });
+            }
+        });
+    } else {
+        if (e.mixer) e.mixer.update(dt);
+    }
+
     if (e.despawnTimer > CONFIG.despawnTime) {
         scene.remove(e.group);
         if (e.healthBar) scene.remove(e.healthBar.sprite);
@@ -2355,7 +2381,6 @@ if (deathClip) {
     }
     continue;
 }
-
             if (!e.isBoss) updateHealthBar(e);
 
             const dir = new THREE.Vector3(
