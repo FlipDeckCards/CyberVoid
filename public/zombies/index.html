@@ -2283,6 +2283,12 @@ if (deathClip) {
 
     function killEnemy(enemy) {
         enemy.dead = true;
+        // Play death animation clip if available
+        if (enemy.deadAction) {
+            if (enemy.walkAction) enemy.walkAction.stop();
+            enemy.deadAction.reset();
+            enemy.deadAction.play();
+        }
         playDeathSound(enemy.type, enemy.group.position);
         kills++;
         score += enemy.points;
@@ -2352,14 +2358,11 @@ if (deathClip) {
 
             if (e.dead) {
     e.despawnTimer += dt;
+if (e.dead) {
+                    e.despawnTimer += dt;
+                    if (e.mixer) e.mixer.update(dt);
 
-    if (e.type === 'brute') {
-    e.dropSpeed = (e.dropSpeed || 0) + dt * 0.5;
-    e.group.position.y -= e.dropSpeed * dt;
-    e.group.rotation.x += (e.tumbleX || 3) * dt;
-    e.group.rotation.z += (e.tumbleZ || 3) * dt;
-} else {
-    if (e.mixer) e.mixer.update(dt);
+                    if (e.despawnTimer > CONFIG.despawnTime) {
 
     if (e.despawnTimer > CONFIG.despawnTime) {
         scene.remove(e.group);
