@@ -2354,7 +2354,7 @@ if (deathClip) {
     e.despawnTimer += dt;
 
     if (e.type === 'brute') {
-    e.dropSpeed = (e.dropSpeed || 0) + dt * 1.5;
+    e.dropSpeed = (e.dropSpeed || 0) + dt * 0.5;
     e.group.position.y -= e.dropSpeed * dt;
     e.group.rotation.x += (e.tumbleX || 3) * dt;
     e.group.rotation.z += (e.tumbleZ || 3) * dt;
