@@ -279,7 +279,7 @@
     <div id="blocker">
         <h1>DEADZONE</h1>
         <div class="mode">Zombies</div>
-
+<a href="/" id="back-to-deadzone" style="color:#FF4444; font-size:0.7rem; text-decoration:none; letter-spacing:3px; text-transform:uppercase; margin-top:5px; margin-bottom:10px;">← ALL ARENAS</a>
         <div id="login-fields" style="display:none;">
             <input type="text" id="callsign-input" placeholder="CALLSIGN" maxlength="20" autocomplete="off" />
             <input type="email" id="email-input" placeholder="EMAIL (SYNC ACROSS DEVICES)" autocomplete="email" />
@@ -2955,6 +2955,8 @@
         e.stopPropagation();
         if (state === 'gameover') showMainMenu();
     });
+        document.getElementById('back-to-deadzone').addEventListener('click', e => { e.stopPropagation(); });
+document.getElementById('back-to-deadzone').addEventListener('touchend', e => { e.stopPropagation(); });
 
     renderer.domElement.addEventListener('mousedown', e => {
         if (e.button === 0) {
