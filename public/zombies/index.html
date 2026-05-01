@@ -2138,15 +2138,25 @@
         let walkAction = null, deadAction = null;
 
         for (const clip of clips) {
-            const n = clip.name.toLowerCase();
-            if (n.includes('walk') || n.includes('run')) {
-                walkAction = mixer.clipAction(clip);
-                walkAction.play();
-            } else if (n.includes('dead') || n.includes('death')) {
-                deadAction = mixer.clipAction(clip);
-                deadAction.loop = THREE.LoopOnce;
-                deadAction.clampWhenFinished = true;
-            }
+    const n = clip.name.toLowerCase();
+    if (!walkAction && (n.includes('walk') || n.includes('run') || n.includes('moving'))) {
+        walkAction = mixer.clipAction(clip);
+        walkAction.play();
+    } else if (!deadAction && (n.includes('dead') || n.includes('death') || n.includes('die') || n.includes('dying'))) {
+        deadAction = mixer.clipAction(clip);
+        deadAction.loop = THREE.LoopOnce;
+        deadAction.clampWhenFinished = true;
+    }
+}
+if (!walkAction && clips.length > 0) {
+    walkAction = mixer.clipAction(clips[0]);
+    walkAction.play();
+}
+if (!deadAction && clips.length > 1) {
+    deadAction = mixer.clipAction(clips[1]);
+    deadAction.loop = THREE.LoopOnce;
+    deadAction.clampWhenFinished = true;
+}
         }
 
         const hitRadius = type === 'boss' ? 1.3 : 0.9;
