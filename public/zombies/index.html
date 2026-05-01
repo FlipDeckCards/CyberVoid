@@ -2137,28 +2137,46 @@
         const clips = anims[modelKey] || anims['brute'] || [];
         let walkAction = null, deadAction = null;
 
-        for (const clip of clips) {
+       // --- Categorize all 3 clips explicitly ---
+let walkClip = null, runClip = null, deathClip = null;
+for (const clip of clips) {
     const n = clip.name.toLowerCase();
-    if (!walkAction && (n.includes('walk') || n.includes('run') || n.includes('moving'))) {
-        walkAction = mixer.clipAction(clip);
-        walkAction.play();
-    } else if (!deadAction && (n.includes('dead') || n.includes('death') || n.includes('die') || n.includes('dying'))) {
-        deadAction = mixer.clipAction(clip);
-        deadAction.loop = THREE.LoopOnce;
-        deadAction.clampWhenFinished = true;
+    if (n.includes('dead') || n.includes('death') || n.includes('die') || n.includes('dying')) {
+        deathClip = clip;
+    } else if (n.includes('walk')) {
+        walkClip = clip;
+    } else if (n.includes('run') || n.includes('sprint') || n.includes('jog')) {
+        runClip = clip;
     }
 }
-if (!walkAction && clips.length > 0) {
-    walkAction = mixer.clipAction(clips[0]);
-    walkAction.play();
-}
-if (!deadAction && clips.length > 1) {
-    deadAction = mixer.clipAction(clips[1]);
+// Fallback by index if names are unexpected
+if (!walkClip && clips.length > 0) walkClip = clips[0];
+if (!runClip && clips.length > 1) runClip = clips[1];
+if (!deathClip && clips.length > 2) deathClip = clips[2];
+
+// --- Per-zombie animation tuning ---
+const animConfig = {
+    shambler: { useClip: 'walk', timeScale: 0.45 },
+    runner:   { useClip: 'run',  timeScale: 0.45 },
+    brute:    { useClip: 'walk', timeScale: 0.75 },
+    tank:     { useClip: 'run',  timeScale: 0.65 }
+};
+const cfg = animConfig[modelKey] || { useClip: 'walk', timeScale: 0.7 };
+const moveClip = (cfg.useClip === 'run' && runClip) ? runClip : (walkClip || runClip || clips[0]);
+
+walkAction = mixer.clipAction(moveClip);
+walkAction.timeScale = cfg.timeScale;
+walkAction.play();
+
+if (deathClip) {
+    deadAction = mixer.clipAction(deathClip);
+    deadAction.loop = THREE.LoopOnce;
+    deadAction.clampWhenFinished = true;
+} else if (clips.length > 2) {
+    deadAction = mixer.clipAction(clips[2]);
     deadAction.loop = THREE.LoopOnce;
     deadAction.clampWhenFinished = true;
 }
-        console.log(modelKey, 'walk:', walkAction ? 'YES' : 'NO', 'dead:', deadAction ? 'YES' : 'NO', 'clips:', clips.map(c => c.name));
-
         const hitRadius = type === 'boss' ? 1.3 : 0.9;
         const hitHeight = type === 'boss' ? 3.2 : 2.5;
         const hitbox = new THREE.Mesh(
