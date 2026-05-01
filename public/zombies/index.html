@@ -2335,16 +2335,10 @@ if (deathClip) {
     enemy.deadAction.play();
 } else {
     if (enemy.mixer) enemy.mixer.stopAllAction();
-    enemy.sinkStartY = enemy.group.position.y;
-    enemy.group.traverse((child) => {
-        if (child.isMesh && child.material) {
-            const mats = Array.isArray(child.material) ? child.material : [child.material];
-            mats.forEach(mat => {
-                mat.transparent = true;
-                mat.opacity = 1;
-            });
-        }
-    });
+    enemy.tumbleX = (Math.random() - 0.5) * 10;
+    enemy.tumbleZ = (Math.random() - 0.5) * 10;
+    enemy.dropSpeed = 0;
+}
 }
 
         if (!enemy.isBoss && Math.random() < CONFIG.dropChance) {
@@ -2361,18 +2355,12 @@ if (deathClip) {
     e.despawnTimer += dt;
 
     if (e.type === 'brute') {
-        const progress = Math.min(e.despawnTimer / CONFIG.despawnTime, 1);
-        e.group.position.y = (e.sinkStartY || 0) - (progress * 2);
-        const opacity = 1 - progress;
-        e.group.traverse((child) => {
-            if (child.isMesh && child.material) {
-                const mats = Array.isArray(child.material) ? child.material : [child.material];
-                mats.forEach(mat => { mat.opacity = opacity; });
-            }
-        });
-    } else {
-        if (e.mixer) e.mixer.update(dt);
-    }
+    e.dropSpeed = (e.dropSpeed || 0) + dt * 4;
+    e.group.position.y -= e.dropSpeed * dt;
+    e.group.rotation.x += (e.tumbleX || 3) * dt;
+    e.group.rotation.z += (e.tumbleZ || 3) * dt;
+} else {
+    if (e.mixer) e.mixer.update(dt);
 
     if (e.despawnTimer > CONFIG.despawnTime) {
         scene.remove(e.group);
