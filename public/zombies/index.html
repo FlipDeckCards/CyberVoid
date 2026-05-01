@@ -1617,9 +1617,9 @@
 
         const effectiveAim = Math.max(Math.max(0, Math.min(1, wpnLerp)), adsAmount);
 
-        const bobMoveAmp = isMoving ? 0.007 : 0.002;
+        const bobMoveAmp = isMoving ? 0.004 : 0.001;
         const bobAmp = bobMoveAmp * (1 - adsAmount * 0.7);
-        wpnBobTime += dt * (isMoving ? 5 : 1);
+        wpnBobTime += dt * (isMoving ? 3 : 1);
         const bobX = Math.sin(wpnBobTime * 1.5) * bobAmp;
         const bobY = Math.sin(wpnBobTime * 2.0) * bobAmp;
 
@@ -2544,9 +2544,9 @@
         camera.position.z += (playerPos.z - camera.position.z) * camSmooth;
         camera.position.y = CONFIG.player.height;
         if (isMoving) {
-            const bobFreq = isSprinting ? 12 : 7;
-            const bobAmt = isSprinting ? 0.030 : 0.018;
-            const swayAmt = isSprinting ? 0.012 : 0.008;
+            const bobFreq = isSprinting ? 9 : 5;
+const bobAmt = isSprinting ? 0.015 : 0.008;
+const swayAmt = isSprinting ? 0.006 : 0.004;
             const bobVal = Math.sin(wpnBobTime * bobFreq);
             camera.position.y += bobVal * bobAmt;
             camera.position.x += Math.cos(wpnBobTime * bobFreq * 0.5) * swayAmt;
