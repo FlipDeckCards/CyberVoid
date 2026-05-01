@@ -70,6 +70,7 @@
         .lb-row .lb-rank { color: #555; width: 30px; }
         .lb-row .lb-name { color: #39FF14; flex: 1; }
         .lb-row .lb-score { color: #888; }
+        .lb-row .lb-wave { color: #39FF14; font-size: 0.65rem; width: 50px; text-align: center; }
         .lb-row.lb-you .lb-name { color: #ffdd00; }
         #menu-leaderboard::-webkit-scrollbar { width: 4px; }
         #menu-leaderboard::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
@@ -368,7 +369,7 @@
                 const isYou = row.callsign === playerCallsign;
                 const div = document.createElement('div');
                 div.className = 'lb-row' + (isYou ? ' lb-you' : '');
-                div.innerHTML = `<span class="lb-rank">${i + 1}.</span><span class="lb-name">${row.callsign}</span><span class="lb-score">${row.score}</span>`;
+                div.innerHTML = `<span class="lb-rank">${i + 1}.</span><span class="lb-name">${row.callsign}</span><span class="lb-wave">R${row.wave || 0}</span><span class="lb-score">${row.score}</span>`;
                 container.appendChild(div);
             });
             document.getElementById('menu-leaderboard').style.display = 'block';
