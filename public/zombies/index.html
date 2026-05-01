@@ -2357,22 +2357,16 @@ if (deathClip) {
             e.mixer.update(dt);
 
             if (e.dead) {
-    e.despawnTimer += dt;
-if (e.dead) {
                     e.despawnTimer += dt;
                     if (e.mixer) e.mixer.update(dt);
 
                     if (e.despawnTimer > CONFIG.despawnTime) {
-
-    if (e.despawnTimer > CONFIG.despawnTime) {
-        scene.remove(e.group);
-        if (e.healthBar) scene.remove(e.healthBar.sprite);
-        activeEnemies.splice(i, 1);
-    }
-    continue;
-}
- continue;
-}
+                        scene.remove(e.group);
+                        if (e.healthBar) scene.remove(e.healthBar.sprite);
+                        activeEnemies.splice(i, 1);
+                    }
+                    continue;
+                }
             if (!e.isBoss) updateHealthBar(e);
 
             const dir = new THREE.Vector3(
