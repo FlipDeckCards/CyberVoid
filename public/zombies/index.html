@@ -2329,6 +2329,7 @@ if (deathClip) {
     enemy.deadAction.setEffectiveWeight(1);
     enemy.deadAction.setEffectiveTimeScale(1.5);
     enemy.deadAction.play();
+            console.log('DEATH:', enemy.type, enemy.deadAction.getClip().name, enemy.deadAction.getClip().duration, 'mixer:', !!enemy.mixer);
 }
 if (enemy.walkAction) {
     enemy.walkAction.setEffectiveWeight(0);
