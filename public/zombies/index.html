@@ -2354,7 +2354,7 @@ if (deathClip) {
     e.despawnTimer += dt;
 
     if (e.type === 'brute') {
-    e.dropSpeed = (e.dropSpeed || 0) + dt * 4;
+    e.dropSpeed = (e.dropSpeed || 0) + dt * 1.5;
     e.group.position.y -= e.dropSpeed * dt;
     e.group.rotation.x += (e.tumbleX || 3) * dt;
     e.group.rotation.z += (e.tumbleZ || 3) * dt;
@@ -2392,8 +2392,10 @@ if (deathClip) {
                 e.group.position.addScaledVector(dir, e.speed * dt);
 
                 if (e.walkAction) {
-                    e.walkAction.timeScale = e.speed / ANIM_REFERENCE_SPEED;
-                }
+    let tScale = e.speed / ANIM_REFERENCE_SPEED;
+    if (e.type === 'tank') tScale *= 0.45;
+    e.walkAction.timeScale = tScale;
+}
                 if (dist < GROWL_RANGE) {
                     if (!e.growlCooldown) e.growlCooldown = Math.random() * 2;
                     e.growlCooldown -= dt;
