@@ -1316,7 +1316,7 @@
 
     function loadZombie(name) {
         return new Promise(resolve => {
-            gltfLoader.load(`Zombies/${name}.glb`, gltf => {
+            gltfLoader.load(`assets/${name}.glb`, gltf => {
                 gltf.scene.traverse(c => {
                     if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; }
                 });
