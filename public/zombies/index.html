@@ -2368,6 +2368,8 @@ if (deathClip) {
     }
     continue;
 }
+ continue;
+}
             if (!e.isBoss) updateHealthBar(e);
 
             const dir = new THREE.Vector3(
@@ -3200,7 +3202,6 @@ document.getElementById('back-to-deadzone').addEventListener('touchend', e => { 
         camera.updateProjectionMatrix();
         renderer.setSize(innerWidth, innerHeight);
     });
-}
     </script>
 </body>
 </html>
