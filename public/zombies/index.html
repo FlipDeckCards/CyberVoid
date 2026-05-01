@@ -2141,7 +2141,7 @@
 let walkClip = null, runClip = null, deathClip = null;
 for (const clip of clips) {
     const n = clip.name.toLowerCase();
-    if (n.includes('dead') || n.includes('death') || n.includes('die') || n.includes('dying')) {
+    if (n.includes('dead') || n.includes('death') || n.includes('die') || n.includes('dying') || n.includes('shot') || n.includes('fall')) {
         deathClip = clip;
     } else if (n.includes('walk')) {
         walkClip = clip;
@@ -2158,7 +2158,7 @@ if (!deathClip && clips.length > 2) deathClip = clips[2];
 const animConfig = {
     shambler: { useClip: 'walk', timeScale: 0.45 },
     runner:   { useClip: 'run',  timeScale: 0.03 },
-    brute:    { useClip: 'walk', timeScale: 0.75 },
+    brute:    { useClip: 'run', timeScale: 0.75 },
     tank:     { useClip: 'run',  timeScale: 0.35 }
 };
 const aCfg = animConfig[modelKey] || { useClip: 'walk', timeScale: 0.7 };
