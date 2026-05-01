@@ -2325,16 +2325,14 @@ if (deathClip) {
         }
 
         if (enemy.deadAction) {
+    if (enemy.mixer) enemy.mixer.stopAllAction();
     enemy.deadAction.reset();
-    enemy.deadAction.setEffectiveWeight(1);
+    enemy.deadAction.setLoop(THREE.LoopOnce, 1);
+    enemy.deadAction.clampWhenFinished = true;
     const clipDur = enemy.deadAction.getClip().duration;
-enemy.deadAction.setEffectiveTimeScale(clipDur < 1.5 ? 0.3 : 1);;
+    enemy.deadAction.setEffectiveTimeScale(clipDur < 1.5 ? 0.3 : 1);
+    enemy.deadAction.setEffectiveWeight(1);
     enemy.deadAction.play();
-            console.log('DEATH:', enemy.type, enemy.deadAction.getClip().name, enemy.deadAction.getClip().duration, 'mixer:', !!enemy.mixer);
-}
-if (enemy.walkAction) {
-    enemy.walkAction.setEffectiveWeight(0);
-    enemy.walkAction.stop();
 }
 
         if (!enemy.isBoss && Math.random() < CONFIG.dropChance) {
