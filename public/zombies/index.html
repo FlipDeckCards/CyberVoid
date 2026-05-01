@@ -2157,11 +2157,12 @@ if (!deathClip && clips.length > 2) deathClip = clips[2];
 // --- Per-zombie animation tuning ---
 const animConfig = {
     shambler: { useClip: 'walk', timeScale: 0.45 },
-    runner:   { useClip: 'run',  timeScale: 0.25 },
+    runner:   { useClip: 'run',  timeScale: 0.12 },
     brute:    { useClip: 'walk', timeScale: 0.75 },
-    tank:     { useClip: 'walk',  timeScale: 0.65 }
+    tank:     { useClip: 'run',  timeScale: 0.55 }
 };
 const aCfg = animConfig[modelKey] || { useClip: 'walk', timeScale: 0.7 };
+ console.log('CLIPS for', modelKey, clips.map(c => c.name));       
 const moveClip = (aCfg.useClip === 'run' && runClip) ? runClip : (walkClip || runClip || clips[0]);
 
 walkAction = mixer.clipAction(moveClip);
