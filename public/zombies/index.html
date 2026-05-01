@@ -2161,11 +2161,11 @@ const animConfig = {
     brute:    { useClip: 'walk', timeScale: 0.75 },
     tank:     { useClip: 'run',  timeScale: 0.65 }
 };
-const cfg = animConfig[modelKey] || { useClip: 'walk', timeScale: 0.7 };
-const moveClip = (cfg.useClip === 'run' && runClip) ? runClip : (walkClip || runClip || clips[0]);
+const aCfg = animConfig[modelKey] || { useClip: 'walk', timeScale: 0.7 };
+const moveClip = (aCfg.useClip === 'run' && runClip) ? runClip : (walkClip || runClip || clips[0]);
 
 walkAction = mixer.clipAction(moveClip);
-walkAction.timeScale = cfg.timeScale;
+walkAction.timeScale = aCfg.timeScale;
 walkAction.play();
 
 if (deathClip) {
