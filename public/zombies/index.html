@@ -2344,7 +2344,6 @@ if (deathClip) {
         if (!enemy.isBoss && Math.random() < CONFIG.dropChance) {
             spawnPowerup(enemy.group.position.clone());
         }
-    }
 
     function updateEnemies(dt) {
         for (let i = activeEnemies.length - 1; i >= 0; i--) {
