@@ -2333,17 +2333,17 @@ if (deathClip) {
     enemy.deadAction.setEffectiveTimeScale(clipDur < 1.5 ? 0.3 : 1);
     enemy.deadAction.setEffectiveWeight(1);
     enemy.deadAction.play();
-} else {
-    if (enemy.mixer) enemy.mixer.stopAllAction();
-    enemy.tumbleX = (Math.random() - 0.5) * 10;
-    enemy.tumbleZ = (Math.random() - 0.5) * 10;
-    enemy.dropSpeed = 0;
-}
-}
+ } else {
+        if (enemy.mixer) enemy.mixer.stopAllAction();
+        enemy.tumbleX = (Math.random() - 0.5) * 10;
+        enemy.tumbleZ = (Math.random() - 0.5) * 10;
+        enemy.dropSpeed = 0;
+    }
 
-        if (!enemy.isBoss && Math.random() < CONFIG.dropChance) {
-            spawnPowerup(enemy.group.position.clone());
-        }
+    if (!enemy.isBoss && Math.random() < CONFIG.dropChance) {
+        spawnPowerup(enemy.group.position.clone());
+    }
+}
 
     function updateEnemies(dt) {
         for (let i = activeEnemies.length - 1; i >= 0; i--) {
