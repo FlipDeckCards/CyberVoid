@@ -2347,14 +2347,15 @@ if (enemy.walkAction) {
             e.mixer.update(dt);
 
             if (e.dead) {
-                e.despawnTimer += dt;
-                if (e.despawnTimer > CONFIG.despawnTime) {
-                    scene.remove(e.group);
-                    if (e.healthBar) scene.remove(e.healthBar.sprite);
-                    activeEnemies.splice(i, 1);
-                }
-                continue;
-            }
+    if (e.mixer) e.mixer.update(dt);
+    e.despawnTimer += dt;
+    if (e.despawnTimer > CONFIG.despawnTime) {
+        scene.remove(e.group);
+        if (e.healthBar) scene.remove(e.healthBar.sprite);
+        activeEnemies.splice(i, 1);
+    }
+    continue;
+}
 
             if (!e.isBoss) updateHealthBar(e);
 
