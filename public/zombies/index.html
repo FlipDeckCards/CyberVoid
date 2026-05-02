@@ -1336,7 +1336,9 @@
         });
     }
 
-    const WEAPON_NAMES = ['pistol', 'shotgun', 'rifle', 'raygun'];
+        const WEAPON_NAMES = ['pistol', 'shotgun', 'rifle', 'raygun'];
+        const weaponHolder = new THREE.Group();
+        scene.add(weaponHolder);
 
     async function init() {
         await Promise.all([
