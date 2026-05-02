@@ -2723,7 +2723,7 @@ function updateWeaponSystem(dt) {
         const clip = clipAmmo[curWeapon];
         const reserve = reserveAmmo[curWeapon];
         if (reserve === Infinity) {
-            document.getElementById('ammo-display').textContent = `${clip}`;
+            document.getElementById('ammo-display').textContent = `${clip} / ∞`;
         } else {
             document.getElementById('ammo-display').textContent = `${clip} / ${reserve}`;
         }
