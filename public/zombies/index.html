@@ -2153,7 +2153,7 @@ function updateWeaponSystem(dt) {
         { id: 'nuke',         weight: 5,  create: () => { const g = createNukeModel(); addGlow(g, 0x39FF14); return g; } },
         { id: 'speed',        weight: 8,  create: () => { const g = createSpeedModel(); addGlow(g, 0x4488ff); return g; } },
         { id: 'max_ammo',     weight: 7,  create: () => { const g = createMaxAmmoModel(); addGlow(g, 0xaa44ff); return g; } },
-        { id: 'raygun_ammo',  weight: 3,  create: () => { const g = createRaygunAmmoModel(); addGlow(g, 0xaa00ff); return g; } },
+        { id: 'raygun_ammo',  weight: 999,  create: () => { const g = createRaygunAmmoModel(); addGlow(g, 0xaa00ff); return g; } },
     ];
 
     const TOTAL_PU_WEIGHT = POWERUP_TYPES.reduce((s, p) => s + p.weight, 0);
