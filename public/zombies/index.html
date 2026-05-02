@@ -1936,6 +1936,77 @@ function updateWeaponSystem(dt) {
         if (clipAmmo[curWeapon] <= 0 && (reserveAmmo[curWeapon] > 0 || reserveAmmo[curWeapon] === Infinity)) {
             setTimeout(() => { if (state === 'playing' && !isReloading) startReload(); }, 300);
         }
+
+        // Visible plasma ball muzzle effect
+        if (curWeapon === 3) {
+            const ballDir = new THREE.Vector3(0, 0, -1).applyEuler(camera.rotation);
+            const spawnPos = camera.position.clone().addScaledVector(ballDir, 0.5);
+            spawnPlasmaBall(spawnPos, ballDir);
+        }
+    }
+        lastShotTime = now;
+        clipAmmo[curWeapon]--;
+        updateAmmoHUD();
+        updateWeaponHUD();
+
+        recoilKick = RECOIL_AMT;
+        executeShot();
+
+        const dir = new THREE.Vector3(0, 0, -1);
+        dir.applyEuler(camera.rotation);
+
+        for (let p = 0; p < w.pellets; p++) {
+            const d = dir.clone();
+            if (w.spread > 0) {
+                const spreadMult = adsAmount > 0.5 ? ADS_SPREAD_MULT : 1.0;
+                d.x += (Math.random() - 0.5) * w.spread * spreadMult;
+                d.y += (Math.random() - 0.5) * w.spread * spreadMult;
+                d.normalize();
+            }
+            raycaster.set(camera.position, d);
+
+            const meshes = [];
+            activeEnemies.forEach(e => {
+                if (e.dead) return;
+                e.group.traverse(c => { if (c.isMesh) meshes.push(c); });
+            });
+
+            const hits = raycaster.intersectObjects(meshes, false);
+            if (hits.length > 0) {
+                const maxPierce = w.pierce || 1;
+                let pierced = 0;
+                const hitEnemies = new Set();
+
+                for (const hit of hits) {
+                    if (pierced >= maxPierce) break;
+                    const hitObj = hit.object;
+
+                    for (const enemy of activeEnemies) {
+                        if (enemy.dead || hitEnemies.has(enemy)) continue;
+                        let found = false;
+                        enemy.group.traverse(c => { if (c === hitObj) found = true; });
+                        if (found) {
+                            let effectiveDamage = w.damage;
+                            if (w.falloffStart !== undefined && w.falloffEnd !== undefined) {
+                                const hitDist = camera.position.distanceTo(hit.point);
+                                if (hitDist > w.falloffStart) {
+                                    const falloff = 1 - Math.min(1, (hitDist - w.falloffStart) / (w.falloffEnd - w.falloffStart));
+                                    effectiveDamage = w.damage * Math.max(0.1, falloff);
+                                }
+                            }
+                            damageEnemy(enemy, effectiveDamage, hit.point);
+                            hitEnemies.add(enemy);
+                            pierced++;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        if (clipAmmo[curWeapon] <= 0 && (reserveAmmo[curWeapon] > 0 || reserveAmmo[curWeapon] === Infinity)) {
+            setTimeout(() => { if (state === 'playing' && !isReloading) startReload(); }, 300);
+        }
     }
 
     // ═══════════════════════════════════════
