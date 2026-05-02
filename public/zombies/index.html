@@ -1925,53 +1925,7 @@ function updateWeaponSystem(dt) {
             spawnPlasmaBall(spawnPos, ballDir);
         }
     }
-       
-            raycaster.set(camera.position, d);
-
-            const meshes = [];
-            activeEnemies.forEach(e => {
-                if (e.dead) return;
-                e.group.traverse(c => { if (c.isMesh) meshes.push(c); });
-            });
-
-            const hits = raycaster.intersectObjects(meshes, false);
-            if (hits.length > 0) {
-                const maxPierce = w.pierce || 1;
-                let pierced = 0;
-                const hitEnemies = new Set();
-
-                for (const hit of hits) {
-                    if (pierced >= maxPierce) break;
-                    const hitObj = hit.object;
-
-                    for (const enemy of activeEnemies) {
-                        if (enemy.dead || hitEnemies.has(enemy)) continue;
-                        let found = false;
-                        enemy.group.traverse(c => { if (c === hitObj) found = true; });
-                        if (found) {
-                            let effectiveDamage = w.damage;
-                            if (w.falloffStart !== undefined && w.falloffEnd !== undefined) {
-                                const hitDist = camera.position.distanceTo(hit.point);
-                                if (hitDist > w.falloffStart) {
-                                    const falloff = 1 - Math.min(1, (hitDist - w.falloffStart) / (w.falloffEnd - w.falloffStart));
-                                    effectiveDamage = w.damage * Math.max(0.1, falloff);
-                                }
-                            }
-                            damageEnemy(enemy, effectiveDamage, hit.point);
-                            hitEnemies.add(enemy);
-                            pierced++;
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-
-        if (clipAmmo[curWeapon] <= 0 && (reserveAmmo[curWeapon] > 0 || reserveAmmo[curWeapon] === Infinity)) {
-            setTimeout(() => { if (state === 'playing' && !isReloading) startReload(); }, 300);
-        }
-    }
-
+      
     // ═══════════════════════════════════════
     // POWER-UPS
     // ═══════════════════════════════════════
