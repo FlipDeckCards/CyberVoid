@@ -711,7 +711,7 @@
     
     // ─── Wave transitions ───
     function playWaveKlaxon(isBossWave) {
-        playSfx('nextWave', isBossWave ? 1.0 : 0..85);
+        playSfx('nextWave', isBossWave ? 1.0 : 0.85);
         if (isBossWave) {
             setTimeout(() => playSfx('titanEntry', 1.0), 600);
         }
@@ -731,7 +731,7 @@
             nuke: 'nukePowerup',
         };
         const key = pickupMap[pickupType] || 'powerUp';
-        playSfx(key, 0.9);
+        playSfx(key, 1.0);
     }
     
     // ─── Death ───
@@ -1114,7 +1114,7 @@
         weaponHolder.rotation.set(REST_ROT_BASE.x, REST_ROT_BASE.y, REST_ROT_BASE.z);
     }
 
-     function swapWeapon(newIndex) {
+    function swapWeapon(newIndex) {
         if (newIndex === curWeapon) return;
         if (wpnState === 'swapDown' || wpnState === 'swapUp') return;
         if (isReloading) {
@@ -1126,9 +1126,7 @@
         pendingSwap = newIndex;
         wpnState = 'swapDown';
         playWeaponDown();
-        playWeaponSwitch();
     }
-
    function startReload() {
         if (isReloading) return;
         if (clipAmmo[curWeapon] >= maxClip[curWeapon]) return;
