@@ -526,6 +526,7 @@
     let score = 0, kills = 0, wave = 0;
     let hp = CONFIG.player.health;
     let curWeapon = 0;
+        
 
     let clipAmmo    = [12, 6, 30, 5];
     let reserveAmmo = [Infinity, 20, 60, 0];
@@ -1875,6 +1876,7 @@ function updateWeaponSystem(dt) {
         lastShotTime = now;
         clipAmmo[curWeapon]--;
         updateAmmoHUD();
+        updateWeaponHUD();
 
         recoilKick = RECOIL_AMT;
         executeShot();
