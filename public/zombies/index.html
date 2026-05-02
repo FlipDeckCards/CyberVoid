@@ -2075,7 +2075,6 @@ function updateWeaponSystem(dt) {
     }
 
     const POWERUP_TYPES = [
-        { id: 'pistol_ammo',  weight: 20, create: () => { const g = createBulletModel(0xffcc44, 0.2, 0.04); addGlow(g, 0xffcc44); return g; } },
         { id: 'rifle_ammo',   weight: 20, create: () => { const g = createBulletModel(0xff8833, 0.3, 0.05); addGlow(g, 0xff8833); return g; } },
         { id: 'shotgun_ammo', weight: 15, create: () => { const g = createShotgunShellModel(); addGlow(g, 0xff3333); return g; } },
         { id: 'health',       weight: 25, create: () => { const g = createMedkitModel(); addGlow(g, 0x39FF14); return g; } },
