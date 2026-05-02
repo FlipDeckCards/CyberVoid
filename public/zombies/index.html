@@ -731,7 +731,7 @@
             nuke: 'nukePowerup',
         };
         const key = pickupMap[pickupType] || 'powerUp';
-        playSfx(key, 0.9);
+        playSfx(key, 1.2);
     }
     
     // ─── Death ───
@@ -1114,7 +1114,7 @@
         weaponHolder.rotation.set(REST_ROT_BASE.x, REST_ROT_BASE.y, REST_ROT_BASE.z);
     }
 
-     function swapWeapon(newIndex) {
+    function swapWeapon(newIndex) {
         if (newIndex === curWeapon) return;
         if (wpnState === 'swapDown' || wpnState === 'swapUp') return;
         if (isReloading) {
@@ -1127,7 +1127,6 @@
         wpnState = 'swapDown';
         playWeaponDown();
     }
-
    function startReload() {
         if (isReloading) return;
         if (clipAmmo[curWeapon] >= maxClip[curWeapon]) return;
@@ -1136,7 +1135,6 @@
         isReloading = true;
         reloadDuration = CONFIG.weapons[curWeapon].reloadTime;
         reloadTimer = reloadDuration;
-        playReloadSound(curWeapon);
         document.getElementById('reload-indicator').style.display = 'block';
     }
     function updateReload(dt) {
