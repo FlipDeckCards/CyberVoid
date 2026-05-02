@@ -1873,25 +1873,6 @@ function updateWeaponSystem(dt) {
             return;
         }
 
-        lastShotTime = now;
-        clipAmmo[curWeapon]--;
-        updateAmmoHUD();
-        updateWeaponHUD();
-
-        recoilKick = RECOIL_AMT;
-        executeShot();
-
-        const dir = new THREE.Vector3(0, 0, -1);
-        dir.applyEuler(camera.rotation);
-
-        for (let p = 0; p < w.pellets; p++) {
-            const d = dir.clone();
-            if (w.spread > 0) {
-                const spreadMult = adsAmount > 0.5 ? ADS_SPREAD_MULT : 1.0;
-                d.x += (Math.random() - 0.5) * w.spread * spreadMult;
-                d.y += (Math.random() - 0.5) * w.spread * spreadMult;
-                d.normalize();
-            }
             raycaster.set(camera.position, d);
 
             const meshes = [];
