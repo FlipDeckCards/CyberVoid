@@ -711,7 +711,7 @@
     
     // ─── Wave transitions ───
     function playWaveKlaxon(isBossWave) {
-        playSfx('nextWave', isBossWave ? 1.0 : 0..85);
+        playSfx('nextWave', isBossWave ? 1.0 : 0.85);
         if (isBossWave) {
             setTimeout(() => playSfx('titanEntry', 1.0), 600);
         }
@@ -1126,7 +1126,6 @@
         pendingSwap = newIndex;
         wpnState = 'swapDown';
         playWeaponDown();
-        playWeaponSwitch();
     }
 
    function startReload() {
