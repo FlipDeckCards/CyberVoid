@@ -2729,13 +2729,19 @@ function updateWeaponSystem(dt) {
         }
     }
 
-    function updateWeaponHUD() {
+   function updateWeaponHUD() {
     const names = ['PISTOL', 'SHOTGUN', 'RIFLE', 'PARTICLE GUN'];
     document.querySelectorAll('.weapon-slot').forEach((el, i) => {
         el.classList.toggle('active', i === curWeapon);
         const reserve = reserveAmmo[i];
-        const display = reserve === Infinity ? '∞' : reserve;
-        el.textContent = `${names[i]} ${display}`;
+        const clip = clipAmmo[i];
+        let total;
+        if (reserve === Infinity) {
+            total = '∞';
+        } else {
+            total = clip + reserve;
+        }
+        el.textContent = `${names[i]} ${total}`;
     });
     updateAmmoHUD();
 }
