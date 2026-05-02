@@ -1125,7 +1125,6 @@
         pendingFire = false;
         pendingSwap = newIndex;
         wpnState = 'swapDown';
-        playWeaponDown();
     }
    function startReload() {
         if (isReloading) return;
@@ -1154,7 +1153,6 @@
             }
             updateAmmoHUD();
             updateWeaponHUD();
-            playWeaponUp(curWeapon);
         }
     }
 
@@ -1274,7 +1272,6 @@
                     equipWeapon(curWeapon);
                     updateWeaponHUD();
                     wpnState = 'swapUp';
-                    playWeaponUp(curWeapon);
                 }
                 break;
             case 'swapUp':
