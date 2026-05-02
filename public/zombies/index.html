@@ -314,7 +314,7 @@
             <div class="weapon-slot active" data-weapon="0">1 PISTOL</div>
             <div class="weapon-slot" data-weapon="1">2 SHOTGUN</div>
             <div class="weapon-slot" data-weapon="2">3 RIFLE</div>
-            <div class="weapon-slot" data-weapon="3" id="raygun-slot" style="display:none;">4 RAYGUN</div>
+            <div class="weapon-slot" data-weapon="3" id="Partical Gun-slot" style="display:none;">4 Partical Gun</div>
         </div>
         <div class="threat-edge" id="threat-left"></div>
         <div class="threat-edge" id="threat-right"></div>
@@ -458,7 +458,7 @@
             { name: 'Pistol',  damage: 25, rate: 0.3,  ammo: Infinity, spread: 0,    pellets: 1, auto: false },
             { name: 'Shotgun', damage: 15, rate: 0.8,  ammo: 20,        spread: 0.08, pellets: 6, auto: false },
             { name: 'Rifle',   damage: 35, rate: 0.12, ammo: 60,       spread: 0.02, pellets: 1, auto: true  },
-            { name: 'Raygun',  damage: 9999, rate: 0.5, ammo: 0,  spread: 0,    pellets: 1, auto: false, pierce: 3 },
+            { name: 'Partical Gun',  damage: 9999, rate: 0.5, ammo: 0,  spread: 0,    pellets: 1, auto: false, pierce: 3 },
         ],
         enemies: {
             shambler: { speed: 1.8, health: 100, damage: 10, points: 10,  scale: 1.2 },
@@ -957,7 +957,7 @@
             max_ammo:     { notes: [330, 440, 554, 659], dur: 0.07, gap: 0.05, vol: 0.08, type: 'triangle', ff: 3500 },
             speed:        { notes: [587, 784, 988],      dur: 0.05, gap: 0.04, vol: 0.08, type: 'square',   ff: 2000 },
             nuke:         { notes: [262, 330, 392, 523], dur: 0.10, gap: 0.07, vol: 0.12, type: 'sawtooth', ff: 2500 },
-            raygun_ammo: { notes: [220, 440, 660, 880], dur: 0.12, gap: 0.06, vol: 0.10, type: 'sine',     ff: 4000 },
+            Partical Gun_ammo: { notes: [220, 440, 660, 880], dur: 0.12, gap: 0.06, vol: 0.10, type: 'sine',     ff: 4000 },
         };
         const p = profiles[pickupType] || profiles.health;
         for (let i = 0; i < p.notes.length; i++) {
@@ -1371,7 +1371,7 @@
             loadWeapon('pistol'),
             loadWeapon('shotgun'),
             loadWeapon('rifle'),
-            loadWeapon('raygun')
+            loadWeapon('Partical Gun')
         ]);
 
         for (const [name, model] of Object.entries(models)) {
@@ -1398,13 +1398,13 @@
     const weaponHolder = new THREE.Group();
     camera.add(weaponHolder);
 
-    const WEAPON_NAMES = ['pistol', 'shotgun', 'rifle', 'raygun'];
+    const WEAPON_NAMES = ['pistol', 'shotgun', 'rifle', 'Partical Gun'];
 
     const FP = {
         pistol:  { scale: 0.18, rotY: -Math.PI / 2 },
         shotgun: { scale: 0.60, rotY: -Math.PI / 2 },
         rifle:   { scale: 0.55, rotY: -Math.PI / 2 },
-        raygun:  { scale: 0.40, rotY: -Math.PI / 2 },
+        Partical Gun:  { scale: 0.40, rotY: -Math.PI / 2 },
     };
 
     const REST_POS = new THREE.Vector3(0.2, -0.25, -0.45);
@@ -1430,7 +1430,7 @@
     const casingMat = new THREE.MeshStandardMaterial({
         color: 0xccaa44, metalness: 0.8, roughness: 0.3
     });
-    const CASING_Y_OFFSET = { pistol: 0.07, shotgun: 0, rifle: 0, raygun: -999 };
+    const CASING_Y_OFFSET = { pistol: 0.07, shotgun: 0, rifle: 0, Partical Gun: -999 };
 
     const mFlashCanvas = document.createElement('canvas');
     mFlashCanvas.width = 64;
@@ -2000,7 +2000,7 @@
         { id: 'nuke',        weight: 5,  create: () => { const g = createNukeModel(); addGlow(g, 0x39FF14); return g; } },
         { id: 'speed',       weight: 8,  create: () => { const g = createSpeedModel(); addGlow(g, 0x4488ff); return g; } },
         { id: 'max_ammo',    weight: 7,  create: () => { const g = createMaxAmmoModel(); addGlow(g, 0xaa44ff); return g; } },
-        { id: 'raygun_ammo', weight: 75, create: () => { const g = createNukeModel(); addGlow(g, 0x00ff44); return g; } },
+        { id: 'Partical Gun_ammo', weight: 75, create: () => { const g = createNukeModel(); addGlow(g, 0x00ff44); return g; } },
     ];
 
     const TOTAL_PU_WEIGHT = POWERUP_TYPES.reduce((s, p) => s + p.weight, 0);
@@ -2050,10 +2050,10 @@
                 ammo[2] = maxAmmo[2];
                 updateAmmoHUD();
                 break;
-                case 'raygun_ammo':
+                case 'Partical Gun_ammo':
                 ammo[3] = Math.min(ammo[3] + 25, maxAmmo[3]);
-                document.getElementById('raygun-slot').style.display = '';
-                updateAmmoDisplay();
+                document.getElementById('Partical gun-slot').style.display = '';
+                updateAmmoHUD();
                 break;
         }
         scene.remove(pu.group);
