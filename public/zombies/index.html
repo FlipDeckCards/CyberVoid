@@ -1129,7 +1129,7 @@
         playWeaponSwitch();
     }
 
-    function startReload() {
+   function startReload() {
         if (isReloading) return;
         if (clipAmmo[curWeapon] >= maxClip[curWeapon]) return;
         if (reserveAmmo[curWeapon] <= 0 && reserveAmmo[curWeapon] !== Infinity) return;
@@ -1140,7 +1140,6 @@
         playReloadSound(curWeapon);
         document.getElementById('reload-indicator').style.display = 'block';
     }
-
     function updateReload(dt) {
         if (!isReloading) return;
         reloadTimer -= dt;
