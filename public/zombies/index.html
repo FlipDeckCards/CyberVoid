@@ -2730,11 +2730,15 @@ function updateWeaponSystem(dt) {
     }
 
     function updateWeaponHUD() {
-        document.querySelectorAll('.weapon-slot').forEach((el, i) => {
-            el.classList.toggle('active', i === curWeapon);
-        });
-        updateAmmoHUD();
-    }
+    const names = ['PISTOL', 'SHOTGUN', 'RIFLE', 'PARTICLE GUN'];
+    document.querySelectorAll('.weapon-slot').forEach((el, i) => {
+        el.classList.toggle('active', i === curWeapon);
+        const reserve = reserveAmmo[i];
+        const display = reserve === Infinity ? '∞' : reserve;
+        el.textContent = `${names[i]} ${display}`;
+    });
+    updateAmmoHUD();
+}
 
     function showWaveAnnounce(text) {
         const el = document.getElementById('wave-announce');
