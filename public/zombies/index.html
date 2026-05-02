@@ -1367,6 +1367,11 @@
     }
     init();
 
+    function equipWeapon(index) {
+        const name = WEAPON_NAMES[index];
+        const model = weaponGLBs[name];
+        if (!model) return;
+
        while (weaponHolder.children.length > 1) {
             const child = weaponHolder.children[0];
             if (child === mFlashSprite) {
