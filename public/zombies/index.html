@@ -620,6 +620,11 @@
         titanEntry: 'titan_entry.mp3',
         zombieGrowling: 'zombie_growling.mp3',
         zombieMasses: 'zombie_masses.mp3',
+        pistolReload: 'pistol_reload.mp3',
+        rifleReload: 'rifle_reload.mp3',
+        shotgunReload: 'shotgun_reload.mp3',
+        particleReload: 'particle_reload.mp3',
+        weaponSwitch: 'weapon_switch.mp3',
     };
     
     const audioCache = {};
@@ -687,10 +692,21 @@
         }
     }
     
-    // ─── Weapon shots ───
+     // ─── Weapon shots ───
     function playGunshot(weaponIndex) {
         const soundMap = ['pistolShot', 'shotgunShot', 'rifleShot', 'particleShot'];
         playSfx(soundMap[weaponIndex] || 'pistolShot', 0.4);
+    }
+
+    // ─── Reload ───
+    function playReloadSound(weaponIndex) {
+        const reloadMap = ['pistolReload', 'shotgunReload', 'rifleReload', 'particleReload'];
+        playSfx(reloadMap[weaponIndex] || 'pistolReload', 0.4);
+    }
+
+    // ─── Weapon switch ───
+    function playWeaponSwitch() {
+        playSfx('weaponSwitch', 0.4);
     }
     
     // ─── Wave transitions ───
@@ -1098,7 +1114,7 @@
         weaponHolder.rotation.set(REST_ROT_BASE.x, REST_ROT_BASE.y, REST_ROT_BASE.z);
     }
 
-    function swapWeapon(newIndex) {
+     function swapWeapon(newIndex) {
         if (newIndex === curWeapon) return;
         if (wpnState === 'swapDown' || wpnState === 'swapUp') return;
         if (isReloading) {
@@ -1110,6 +1126,7 @@
         pendingSwap = newIndex;
         wpnState = 'swapDown';
         playWeaponDown();
+        playWeaponSwitch();
     }
 
     function startReload() {
@@ -1120,7 +1137,7 @@
         isReloading = true;
         reloadDuration = CONFIG.weapons[curWeapon].reloadTime;
         reloadTimer = reloadDuration;
-        playPickupChime('reload');
+        playReloadSound(curWeapon);
         document.getElementById('reload-indicator').style.display = 'block';
     }
 
