@@ -711,9 +711,9 @@
     
     // ─── Wave transitions ───
     function playWaveKlaxon(isBossWave) {
-        playSfx('nextWave', isBossWave ? 0.9 : 0.7);
+        playSfx('nextWave', isBossWave ? 1.0 : 0..85);
         if (isBossWave) {
-            setTimeout(() => playSfx('titanEntry', 0.85), 600);
+            setTimeout(() => playSfx('titanEntry', 1.0), 600);
         }
     }
     
