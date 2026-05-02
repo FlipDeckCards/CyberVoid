@@ -1137,7 +1137,6 @@
         isReloading = true;
         reloadDuration = CONFIG.weapons[curWeapon].reloadTime;
         reloadTimer = reloadDuration;
-        playReloadSound(curWeapon);
         document.getElementById('reload-indicator').style.display = 'block';
     }
     function updateReload(dt) {
