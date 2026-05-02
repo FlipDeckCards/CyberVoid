@@ -121,6 +121,13 @@
             border-radius: 50%; border: 1px solid rgba(255,255,255,0.6);
             display: none;
         }
+        /* Horseshoe for rifle */
+        #ch-horseshoe {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            display: none;
+        }
+        #ch-horseshoe svg { display: block; }
 
         .hud-top {
             position: absolute; top: 15px; width: 100%;
@@ -145,10 +152,8 @@
             position: absolute; bottom: 60px; left: 240px;
             color: #39FF14; font-size: 1.4rem;
         }
-        #ammo-label {
-            position: absolute; bottom: 72px; left: 240px;
-            color: #666; font-size: 0.6rem; letter-spacing: 2px;
-        }
+        /* Removed #ammo-label to clean up the HUD */
+
         #reload-indicator {
             position: absolute; bottom: 44px; left: 240px;
             color: #ffaa00; font-size: 0.6rem; letter-spacing: 3px;
@@ -165,7 +170,7 @@
             display: none;
         }
 
-        /* ── WEAPON BAR: restyled with glow, no slot numbers ── */
+        /* ── WEAPON BAR: bold + slightly bigger text, no slot numbers ── */
         #weapon-bar {
             position: absolute; bottom: 15px; right: 20px;
             display: flex; flex-direction: column; gap: 6px;
@@ -177,7 +182,8 @@
             border: 1px solid #333;
             border-radius: 4px;
             color: #666;
-            font-size: 0.65rem;
+            font-size: 0.72rem;
+            font-weight: bold;
             letter-spacing: 2px;
             text-transform: uppercase;
             cursor: pointer;
@@ -302,7 +308,6 @@
             #menu-leaderboard { width: 260px; }
             #health-bar-bg { width: 120px; }
             #ammo-display { left: 160px; }
-            #ammo-label { left: 160px; }
             #reload-indicator { left: 160px; }
             #wave-announce { font-size: 3rem; }
             #boss-bar { width: 200px; }
@@ -333,6 +338,14 @@
             <div id="ch-cross-h"></div>
             <div id="ch-cross-v"></div>
             <div id="ch-ring"></div>
+            <div id="ch-horseshoe">
+                <svg width="32" height="32" viewBox="0 0 32 32">
+                    <!-- Horseshoe: open arc at bottom -->
+                    <path d="M 4 18 A 12 12 0 1 1 28 18" fill="none" stroke="#ff8800" stroke-width="2" stroke-linecap="round"/>
+                    <!-- Red dot in center -->
+                    <circle cx="16" cy="16" r="2.5" fill="#ff2222"/>
+                </svg>
+            </div>
         </div>
         <div class="hud-top">
             <div id="wave-display">WAVE 1</div>
@@ -346,7 +359,6 @@
         <div id="health-label">HEALTH</div>
         <div id="health-bar-bg"><div id="health-bar"></div></div>
         <div id="ammo-display">∞</div>
-        <div id="ammo-label">AMMO</div>
         <div id="reload-indicator">RELOADING</div>
         <div id="speed-timer"></div>
         <div id="weapon-bar">
@@ -491,7 +503,7 @@
         weapons: [
             { name: 'Pistol',        damage: 25,   rate: 0.3,  spread: 0,    pellets: 1, auto: false, clipSize: 12, reloadTime: 1.2 },
             { name: 'Shotgun',       damage: 15,   rate: 0.8,  spread: 0.08, pellets: 6, auto: false, clipSize: 6,  reloadTime: 2.0, falloffStart: 10, falloffEnd: 25 },
-            { name: 'Rifle',         damage: 35,   rate: 0.12, spread: 0.02, pellets: 1, auto: true,  clipSize: 30, reloadTime: 1.8 },
+            { name: 'Rifle',          damage: 35,   rate: 0.12, spread: 0.02, pellets: 1, auto: true,  clipSize: 30, reloadTime: 1.8 },
             { name: 'Particle Gun',  damage: 9999, rate: 0.5,  spread: 0,    pellets: 1, auto: false, clipSize: 5,  reloadTime: 2.5, pierce: 3 },
         ],
         enemies: {
@@ -572,9 +584,9 @@
     const clock = new THREE.Clock();
 
     // ═══════════════════════════════════════
-    // PAUSE SYSTEM
+    // PAUSE SYSTEM — starts with 1 charge
     // ═══════════════════════════════════════
-    let pauseCharges = 0;
+    let pauseCharges = 1; // ← START WITH 1
     let isPaused = false;
     let pauseTimer = 0;
     const PAUSE_CHARGE_INTERVAL = 20;
@@ -725,8 +737,8 @@
         formant2.type = 'peaking'; formant2.frequency.value = 600 + Math.random() * 400;
         formant2.gain.value = 6; formant2.Q.value = 1.5;
         osc.connect(formant).connect(formant2).connect(gain).connect(audioCtx.destination);
-        lfo.start(now); osc.start(now); noise.start(now);
-        lfo.stop(now + p.dur + 0.01); osc.stop(now + p.dur + 0.01); noise.stop(now + p.dur * 0.8 + 0.01);
+        lfo.start(now); osc.start(now);
+        lfo.stop(now + p.dur + 0.01); osc.stop(now + p.dur + 0.01);
         setTimeout(() => { activeGrowlCount = Math.max(0, activeGrowlCount - 1); }, p.dur * 1000 + 50);
     }
 
@@ -1284,7 +1296,7 @@
     scene.add(new THREE.Mesh(skyGeo, skyMat));
 
     // ═══════════════════════════════════════
-    // FIRST-PERSON WEAPON SYSTEM (before init)
+    // FIRST-PERSON WEAPON SYSTEM
     // ═══════════════════════════════════════
     const weaponHolder = new THREE.Group();
     camera.add(weaponHolder);
@@ -1475,52 +1487,53 @@
         const crossH = document.getElementById('ch-cross-h');
         const crossV = document.getElementById('ch-cross-v');
         const ring = document.getElementById('ch-ring');
+        const horseshoe = document.getElementById('ch-horseshoe');
+
+        // Reset all
+        dot.style.display = 'none';
+        crossH.style.display = 'none';
+        crossV.style.display = 'none';
+        ring.style.display = 'none';
+        horseshoe.style.display = 'none';
 
         if (adsT < 0.3) {
+            // Hip fire: small white dot
             ch.style.width = '30px';
             ch.style.height = '30px';
             dot.style.display = 'block';
             dot.style.width = '4px';
             dot.style.height = '4px';
-            crossH.style.display = 'none';
-            crossV.style.display = 'none';
-            ring.style.display = 'none';
         } else {
+            // ADS modes
             const size = 30 - (adsT * 8);
             ch.style.width = size + 'px';
             ch.style.height = size + 'px';
 
             switch (curWeapon) {
-                case 0:
+                case 0: // Pistol: Blue glowing dot
                     dot.style.display = 'block';
-                    dot.style.width = '3px';
-                    dot.style.height = '3px';
-                    crossH.style.display = 'block';
-                    crossV.style.display = 'block';
-                    ring.style.display = 'none';
+                    dot.style.width = '5px';
+                    dot.style.height = '5px';
+                    dot.style.background = 'rgba(0,150,255,1)';
+                    dot.style.boxShadow = '0 0 6px rgba(0,150,255,0.9), 0 0 12px rgba(0,150,255,0.5)';
                     break;
-                case 1:
+                case 1: // Shotgun: ring
                     dot.style.display = 'none';
-                    crossH.style.display = 'none';
-                    crossV.style.display = 'none';
                     ring.style.display = 'block';
                     ring.style.width = '22px';
                     ring.style.height = '22px';
                     break;
-                case 2:
-                    dot.style.display = 'block';
-                    dot.style.width = '2px';
-                    dot.style.height = '2px';
-                    crossH.style.display = 'block';
-                    crossV.style.display = 'block';
-                    ring.style.display = 'none';
+                case 2: // Rifle: orange horseshoe with red dot
+                    horseshoe.style.display = 'block';
+                    horseshoe.style.width = '32px';
+                    horseshoe.style.height = '32px';
                     break;
-                case 3:
+                case 3: // Particle Gun: purple ring
                     dot.style.display = 'block';
                     dot.style.width = '3px';
                     dot.style.height = '3px';
-                    crossH.style.display = 'none';
-                    crossV.style.display = 'none';
+                    dot.style.background = 'rgba(255,255,255,0.9)';
+                    dot.style.boxShadow = '0 0 4px rgba(160,80,255,0.4)';
                     ring.style.display = 'block';
                     ring.style.width = '18px';
                     ring.style.height = '18px';
@@ -1529,8 +1542,7 @@
             }
         }
     }
-
-    function updateWeaponSystem(dt) {
+function updateWeaponSystem(dt) {
         const SWAP_SPEED = 10;
 
         switch (wpnState) {
@@ -1826,15 +1838,6 @@
             loadWeapon('rifle'),
             loadWeapon('raygun')
         ]);
-
-        for (const [name, model] of Object.entries(models)) {
-            if (model) {
-                const box = new THREE.Box3().setFromObject(model);
-                const size = new THREE.Vector3();
-                box.getSize(size);
-                console.log(`${name}: ${size.x.toFixed(1)} x ${size.y.toFixed(1)} x ${size.z.toFixed(1)}`);
-            }
-        }
 
         equipWeapon(0);
         state = 'menu';
@@ -2237,11 +2240,13 @@
 
         const mixer = new THREE.AnimationMixer(group);
         const clips = anims[modelKey] || [];
-        let walkClip = null, deathClip = null;
+        let walkClip = null, runClip = null, deathClip = null;
         for (const clip of clips) {
             const n = clip.name.toLowerCase();
             if (n.includes('dead') || n.includes('death') || n.includes('die') || n.includes('dying') || n.includes('shot') || n.includes('fall')) {
                 deathClip = clip;
+            } else if (n.includes('run')) {
+                runClip = clip;
             } else if (n.includes('walk')) {
                 walkClip = clip;
             }
@@ -2249,17 +2254,7 @@
         if (!walkClip && clips.length > 0) walkClip = clips[0];
         if (!deathClip && clips.length > 2) deathClip = clips[2];
 
-        const animConfig = {
-            shambler: { useClip: 'walk', timeScale: 0.45 },
-            runner:   { useClip: 'walk', timeScale: 0.05 },
-            brute:    { useClip: 'walk', timeScale: 0.75 },
-            tank:     { useClip: 'walk', timeScale: 0.35 }
-        };
-        const aCfg = animConfig[modelKey] || { useClip: 'walk', timeScale: 0.7 };
-        const moveClip = walkClip || clips[0];
-
-        const walkAction = mixer.clipAction(moveClip);
-        walkAction.timeScale = aCfg.timeScale;
+        const walkAction = mixer.clipAction(walkClip || clips[0]);
         walkAction.play();
 
         let deadAction = null;
@@ -2290,16 +2285,24 @@
         const scaledHealth = Math.round(cfg.health * waveScale);
         const bossWaveNum = Math.floor(wave / 10);
 
-        const speedScale = Math.min(2.0, 1 + (wave - 1) * 0.08);
-        const scaledSpeed = cfg.speed * speedScale;
+        // ── RUNNER: Gentler speed scaling, use run anim after wave 8 ──
+        let baseSpeed = cfg.speed;
+        if (type === 'runner') {
+            // Slower scaling curve: only +2% per wave instead of 8%
+            const speedScale = Math.min(1.4, 1 + (wave - 1) * 0.02);
+            baseSpeed = cfg.speed * speedScale;
+        } else {
+            const speedScale = Math.min(2.0, 1 + (wave - 1) * 0.08);
+            baseSpeed = cfg.speed * speedScale;
+        }
 
         const enemy = {
             type, group, mixer,
-            walkAction, deadAction,
+            walkAction, runClip, deathClip,
             health: scaledHealth,
             maxHealth: scaledHealth,
-            speed: scaledSpeed,
-            baseSpeed: scaledSpeed,
+            speed: baseSpeed,
+            baseSpeed,
             damage: cfg.damage,
             points: cfg.points,
             dead: false,
@@ -2458,6 +2461,17 @@
             }
 
             e.mixer.update(dt);
+
+            // ── Runner animation swap after wave 8 ──
+            if (e.type === 'runner' && e.runClip && wave >= 8) {
+                if (e.walkAction && e.walkAction.isRunning() && e.walkAction.getClip() !== e.runClip) {
+                    e.walkAction.fadeOut(0.2);
+                    const newAction = e.mixer.clipAction(e.runClip);
+                    newAction.reset().fadeIn(0.2).play();
+                    e.walkAction = newAction;
+                }
+            }
+
             if (!e.isBoss) updateHealthBar(e);
 
             const dir = new THREE.Vector3(
@@ -2551,7 +2565,7 @@
     // ═══════════════════════════════════════
     // WAVE SYSTEM
     // ═══════════════════════════════════════
-    function startWave() {
+      function startWave() {
         wave++;
         betweenWaves = false;
 
@@ -2599,7 +2613,7 @@
         }
     }
 
-   function checkWaveComplete() {
+    function checkWaveComplete() {
         if (waveEnemiesLeft <= 0 && !betweenWaves && state === 'playing') {
             betweenWaves = true;
             waveTimer = 4;
@@ -2708,7 +2722,7 @@
         const clip = clipAmmo[curWeapon];
         const reserve = reserveAmmo[curWeapon];
         if (reserve === Infinity) {
-            document.getElementById('ammo-display').textContent = `${clip} / ∞`;
+            document.getElementById('ammo-display').textContent = `${clip}`;
         } else {
             document.getElementById('ammo-display').textContent = `${clip} / ${reserve}`;
         }
@@ -2944,7 +2958,6 @@
         isReloading = false;
         reloadTimer = 0;
         isPaused = false;
-        pauseCharges = 0;
         document.getElementById('reload-indicator').style.display = 'none';
         document.getElementById('speed-timer').style.display = 'none';
 
@@ -3010,7 +3023,7 @@
         reserveAmmo = [Infinity, 20, 60, 0];
         isReloading = false;
         reloadTimer = 0;
-        pauseCharges = 0;
+        pauseCharges = 1; // ← START WITH 1 CHARGE
         isPaused = false;
         document.getElementById('reload-indicator').style.display = 'none';
         document.getElementById('speed-timer').style.display = 'none';
@@ -3363,4 +3376,4 @@
     });
     </script>
 </body>
-</html>
+</html>   
