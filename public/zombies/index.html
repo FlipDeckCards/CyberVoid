@@ -100,7 +100,6 @@
             display: none;
         }
 
-        /* ── CROSSHAIR: dot for hip fire, weapon-specific ADS ── */
         #crosshair {
             position: absolute; top: 50%; left: 50%;
             transform: translate(-50%, -50%);
@@ -157,7 +156,6 @@
             animation: pulse 0.5s ease-in-out infinite;
         }
 
-        /* ── SPEED BOOST TIMER ── */
         #speed-timer {
             position: absolute; bottom: 100px; left: 50%;
             transform: translateX(-50%);
@@ -167,20 +165,34 @@
             display: none;
         }
 
+        /* ── WEAPON BAR: restyled with glow, no slot numbers ── */
         #weapon-bar {
             position: absolute; bottom: 15px; right: 20px;
             display: flex; flex-direction: column; gap: 6px;
             pointer-events: auto;
         }
         .weapon-slot {
-            padding: 6px 12px; background: rgba(0,0,0,0.6);
-            border: 1px solid #333; border-radius: 4px;
-            color: #888; font-size: 0.65rem; letter-spacing: 2px;
-            text-transform: uppercase; cursor: pointer; text-align: right;
+            padding: 6px 14px;
+            background: rgba(0,0,0,0.6);
+            border: 1px solid #333;
+            border-radius: 4px;
+            color: #666;
+            font-size: 0.65rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            cursor: pointer;
+            text-align: right;
+            transition: all 0.15s;
         }
+        .weapon-slot[data-weapon="0"] { --glow: rgba(0,150,255,0.5); --border: #0096ff; --text: #0096ff; }
+        .weapon-slot[data-weapon="1"] { --glow: rgba(255,100,0,0.5); --border: #ff6400; --text: #ff6400; }
+        .weapon-slot[data-weapon="2"] { --glow: rgba(50,255,50,0.5); --border: #32ff32; --text: #32ff32; }
+        .weapon-slot[data-weapon="3"] { --glow: rgba(160,80,255,0.5); --border: #a050ff; --text: #a050ff; }
         .weapon-slot.active {
-            border-color: #39FF14; color: #39FF14;
-            background: rgba(57,255,20,0.1);
+            border-color: var(--border);
+            color: var(--text);
+            background: var(--glow);
+            box-shadow: 0 0 10px var(--glow), inset 0 0 8px rgba(255,255,255,0.05);
         }
 
         #wave-announce {
@@ -256,7 +268,6 @@
         #threat-top    { top: 0; left: 25%; width: 50%; height: 3px; }
         #threat-bottom { bottom: 70px; left: 25%; width: 50%; height: 3px; }
 
-        /* ── MOBILE MOVE JOYSTICK ── */
         #move-joystick-zone {
             position: fixed;
             bottom: 0; left: 0;
@@ -302,18 +313,16 @@
     <div id="blocker">
         <h1>DEADZONE</h1>
         <div class="mode">Zombies</div>
-<a href="/" id="back-to-deadzone" style="color:#FF4444; font-size:0.7rem; text-decoration:none; letter-spacing:3px; text-transform:uppercase; margin-top:5px; margin-bottom:10px;">← ALL ARENAS</a>
+        <a href="/" id="back-to-deadzone" style="color:#FF4444; font-size:0.7rem; text-decoration:none; letter-spacing:3px; text-transform:uppercase; margin-top:5px; margin-bottom:10px;">← ALL ARENAS</a>
         <div id="login-fields" style="display:none;">
             <input type="text" id="callsign-input" placeholder="CALLSIGN" maxlength="20" autocomplete="off" />
             <input type="email" id="email-input" placeholder="EMAIL (SYNC ACROSS DEVICES)" autocomplete="email" />
             <div id="login-status"></div>
         </div>
-
         <div id="menu-leaderboard" style="display:none;">
             <h3>⚡ TOP SCORES ⚡</h3>
             <div id="lb-rows"></div>
         </div>
-
         <div class="start-text" id="start-text">Loading...</div>
         <div id="loading-bar"><div id="loading-fill"></div></div>
     </div>
@@ -341,10 +350,10 @@
         <div id="reload-indicator">RELOADING</div>
         <div id="speed-timer"></div>
         <div id="weapon-bar">
-            <div class="weapon-slot active" data-weapon="0">1 PISTOL</div>
-            <div class="weapon-slot" data-weapon="1">2 SHOTGUN</div>
-            <div class="weapon-slot" data-weapon="2">3 RIFLE</div>
-            <div class="weapon-slot" data-weapon="3" id="raygun-slot" style="display:none;">4 PARTICLE GUN</div>
+            <div class="weapon-slot active" data-weapon="0">PISTOL</div>
+            <div class="weapon-slot" data-weapon="1">SHOTGUN</div>
+            <div class="weapon-slot" data-weapon="2">RIFLE</div>
+            <div class="weapon-slot" data-weapon="3" id="raygun-slot" style="display:none;">PARTICLE GUN</div>
         </div>
         <div class="threat-edge" id="threat-left"></div>
         <div class="threat-edge" id="threat-right"></div>
@@ -352,7 +361,6 @@
         <div class="threat-edge" id="threat-bottom"></div>
     </div>
 
-    <!-- MOBILE MOVE JOYSTICK -->
     <div id="move-joystick-zone">
         <div id="move-joystick-base">
             <div id="move-joystick-thumb"></div>
@@ -370,7 +378,7 @@
         </div>
     </div>
 
-        <script type="importmap">
+    <script type="importmap">
     {
         "imports": {
             "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
@@ -404,9 +412,7 @@
                 container.appendChild(div);
             });
             document.getElementById('menu-leaderboard').style.display = 'block';
-        } catch (e) {
-            console.warn('Leaderboard fetch failed:', e);
-        }
+        } catch (e) { console.warn('Leaderboard fetch failed:', e); }
     }
 
     async function registerPlayer(callsign, email) {
@@ -451,10 +457,7 @@
             await fetch('/api/score', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    callsign: playerCallsign,
-                    score: scoreVal, wave: waveVal, kills: killsVal
-                })
+                body: JSON.stringify({ callsign: playerCallsign, score: scoreVal, wave: waveVal, kills: killsVal })
             });
         } catch (e) { console.warn('Score submit failed'); }
     }
@@ -495,7 +498,7 @@
             shambler: { speed: 1.8, health: 100, damage: 10, points: 10,  scale: 1.2 },
             runner:   { speed: 3.2, health: 60,  damage: 8,  points: 25,  scale: 1.2 },
             brute:    { speed: 1.5, health: 180, damage: 25, points: 50,  scale: 1.5 },
-            tank:     { speed: 1.75, health: 250, damage: 20, points: 40,  scale: 1.4 },
+            tank:     { speed: 1.75, health: 250, damage: 20, points: 40, scale: 1.4 },
             boss:     { speed: 1.5, health: 1000, damage: 30, points: 500, scale: 4.0 }
         },
         spawnRadius: 60,
@@ -512,9 +515,6 @@
     let hp = CONFIG.player.health;
     let curWeapon = 0;
 
-    // ── Magazine / Reload system ──
-    // clipAmmo = rounds currently in magazine
-    // reserveAmmo = total spare rounds (pistol is Infinity)
     let clipAmmo    = [12, 6, 30, 5];
     let reserveAmmo = [Infinity, 20, 60, 0];
     const maxClip   = [12, 6, 30, 5];
@@ -535,7 +535,6 @@
     let screenShake = 0;
     let speedBoostTimer = 0;
 
-    // ── Sprint + ADS state ──
     let isSprinting = false;
     let isADS = false;
     let adsAmount = 0;
@@ -547,25 +546,21 @@
     const ADS_MOVE_MULT = 0.5;
     const ADS_SPREAD_MULT = 0.35;
 
-    // ── Player movement state ──
     const playerPos = new THREE.Vector3(0, 0, 0);
     const MOVE_SPEED = 5.0;
     const ARENA_BOUNDS = 39.0;
     const keys = {};
     let isMoving = false;
 
-    // ── Mobile joystick state ──
     let moveJoyTouchId = null;
     let moveJoyOriginX = 0, moveJoyOriginY = 0;
     let moveJoyDeltaX = 0, moveJoyDeltaY = 0;
     const JOYSTICK_MAX_DIST = 45;
 
-    // ── Gamepad state ──
     let gamepadIndex = null;
     let gpFireHeld = false;
     let gpLBPrev = false, gpRBPrev = false;
 
-    // ── Reusable temp objects (zero GC) ──
     const ANIM_REFERENCE_SPEED = 2.0;
     const _currentQuat = new THREE.Quaternion();
     const _targetQuat = new THREE.Quaternion();
@@ -576,8 +571,17 @@
     const activeShockwaves = [];
     const clock = new THREE.Clock();
 
-      // ═══════════════════════════════════════
-    // PROCEDURAL AUDIO SYSTEM (zero files)
+    // ═══════════════════════════════════════
+    // PAUSE SYSTEM
+    // ═══════════════════════════════════════
+    let pauseCharges = 0;
+    let isPaused = false;
+    let pauseTimer = 0;
+    const PAUSE_CHARGE_INTERVAL = 20;
+    const PAUSE_DURATION = 3;
+
+    // ═══════════════════════════════════════
+    // PROCEDURAL AUDIO SYSTEM
     // ═══════════════════════════════════════
     let audioCtx = null;
     let lastStepTime = 0;
@@ -590,36 +594,28 @@
     const GROWL_RANGE = 12;
 
     function initAudio() {
-        if (!audioCtx) {
-            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            console.log('AUDIO CREATED', audioCtx.state);
-        }
-        if (audioCtx.state === 'suspended') {
-            audioCtx.resume().catch(() => {});
-        }
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
     }
-    ['click', 'touchstart', 'keydown', 'gamepadconnected'].forEach(evt => {
+    ['click','touchstart','keydown','gamepadconnected'].forEach(evt => {
         document.addEventListener(evt, () => {
             if (!audioCtx) initAudio();
             else if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
         });
     });
 
-    // ── 1. Footsteps ──
     function playFootstep() {
         if (!audioCtx) return;
         const now = audioCtx.currentTime;
         stepToggle = !stepToggle;
         const basePitch = stepToggle ? 65 : 55;
         const pitch = basePitch + Math.random() * 15;
-
         const osc = audioCtx.createOscillator();
         osc.type = 'sine';
         osc.frequency.setValueAtTime(pitch, now);
         osc.frequency.exponentialRampToValueAtTime(30, now + 0.08);
         const gain = audioCtx.createGain();
-        const vol = isSprinting ? 0.18 : 0.10;
-        gain.gain.setValueAtTime(vol, now);
+        gain.gain.setValueAtTime(isSprinting ? 0.18 : 0.10, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
         osc.connect(gain).connect(audioCtx.destination);
         osc.start(now); osc.stop(now + 0.12);
@@ -631,8 +627,7 @@
         const noise = audioCtx.createBufferSource();
         noise.buffer = noiseBuf;
         const noiseGain = audioCtx.createGain();
-        const noiseVol = isSprinting ? 0.06 : 0.03;
-        noiseGain.gain.setValueAtTime(noiseVol, now);
+        noiseGain.gain.setValueAtTime(isSprinting ? 0.06 : 0.03, now);
         noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
         const filter = audioCtx.createBiquadFilter();
         filter.type = 'lowpass'; filter.frequency.value = 800;
@@ -640,9 +635,7 @@
         noise.start(now); noise.stop(now + 0.06);
     }
 
-    // ── 2. Gunshots ──
     function playGunshot(weaponIndex) {
-        console.log('GUNSHOT CALLED', audioCtx ? audioCtx.state : 'NULL');
         if (!audioCtx) return;
         const now = audioCtx.currentTime;
         const profiles = [
@@ -651,7 +644,6 @@
             { freq: 300, freqEnd: 80, decay: 0.08, vol: 0.22, noiseVol: 0.15, noiseDur: 0.04, filterFreq: 4500 },
         ];
         const p = profiles[weaponIndex] || profiles[0];
-
         const osc = audioCtx.createOscillator();
         osc.type = 'sawtooth';
         osc.frequency.setValueAtTime(p.freq + Math.random() * 30, now);
@@ -686,14 +678,12 @@
         sub.frequency.setValueAtTime(subFreq, now);
         sub.frequency.exponentialRampToValueAtTime(20, now + 0.1);
         const subGain = audioCtx.createGain();
-        const subVol = weaponIndex === 1 ? 0.30 : 0.15;
-        subGain.gain.setValueAtTime(subVol, now);
+        subGain.gain.setValueAtTime(weaponIndex === 1 ? 0.30 : 0.15, now);
         subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
         sub.connect(subGain).connect(audioCtx.destination);
         sub.start(now); sub.stop(now + 0.11);
     }
 
-    // ── 3. Zombie Growls ──
     const GROWL_PROFILES = {
         shambler: { freq: 75, freqEnd: 55, modRate: 3, modDepth: 20, dur: 0.6, vol: 0.08, type: 'sawtooth' },
         runner:   { freq: 140, freqEnd: 100, modRate: 12, modDepth: 40, dur: 0.3, vol: 0.07, type: 'square' },
@@ -712,7 +702,6 @@
         if (vol < 0.01) return;
         activeGrowlCount++;
         const freqRand = (Math.random() - 0.5) * 20;
-
         const osc = audioCtx.createOscillator();
         osc.type = p.type;
         osc.frequency.setValueAtTime(p.freq + freqRand, now);
@@ -736,54 +725,22 @@
         formant2.type = 'peaking'; formant2.frequency.value = 600 + Math.random() * 400;
         formant2.gain.value = 6; formant2.Q.value = 1.5;
         osc.connect(formant).connect(formant2).connect(gain).connect(audioCtx.destination);
-
-        const noiseDur = p.dur * 0.8;
-        const bufSize = Math.floor(audioCtx.sampleRate * noiseDur);
-        const noiseBuf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
-        const nd = noiseBuf.getChannelData(0);
-        for (let i = 0; i < bufSize; i++) nd[i] = (Math.random() * 2 - 1);
-        const noise = audioCtx.createBufferSource();
-        noise.buffer = noiseBuf;
-        const raspFilter = audioCtx.createBiquadFilter();
-        raspFilter.type = 'bandpass'; raspFilter.frequency.value = 400 + Math.random() * 300; raspFilter.Q.value = 3;
-        const noiseGain = audioCtx.createGain();
-        noiseGain.gain.setValueAtTime(0.001, now);
-        noiseGain.gain.linearRampToValueAtTime(vol * 0.3, now + noiseDur * 0.2);
-        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + noiseDur);
-        noise.connect(raspFilter).connect(noiseGain).connect(audioCtx.destination);
-
-        if (enemyType === 'boss') {
-            const osc2 = audioCtx.createOscillator();
-            osc2.type = 'sawtooth';
-            osc2.frequency.setValueAtTime((p.freq + freqRand) * 1.5, now);
-            osc2.frequency.linearRampToValueAtTime((p.freqEnd + freqRand * 0.5) * 1.5, now + p.dur);
-            const gain2 = audioCtx.createGain();
-            gain2.gain.setValueAtTime(0.001, now);
-            gain2.gain.linearRampToValueAtTime(vol * 0.6, now + p.dur * 0.15);
-            gain2.gain.exponentialRampToValueAtTime(0.001, now + p.dur);
-            osc2.connect(formant);
-            osc2.start(now); osc2.stop(now + p.dur + 0.01);
-        }
-
         lfo.start(now); osc.start(now); noise.start(now);
-        lfo.stop(now + p.dur + 0.01); osc.stop(now + p.dur + 0.01); noise.stop(now + noiseDur + 0.01);
+        lfo.stop(now + p.dur + 0.01); osc.stop(now + p.dur + 0.01); noise.stop(now + p.dur * 0.8 + 0.01);
         setTimeout(() => { activeGrowlCount = Math.max(0, activeGrowlCount - 1); }, p.dur * 1000 + 50);
     }
 
-    // ── 4. Hit Impacts ──
     function playHitImpact(distance, isCritical) {
         if (!audioCtx) return;
         const now = audioCtx.currentTime;
         const distFactor = 1 - Math.min(distance / 50, 0.85);
-
         const osc = audioCtx.createOscillator();
         osc.type = 'sine';
         const baseFreq = isCritical ? 180 : 120;
         osc.frequency.setValueAtTime(baseFreq + Math.random() * 30, now);
         osc.frequency.exponentialRampToValueAtTime(40, now + 0.08);
         const oscGain = audioCtx.createGain();
-        const baseVol = isCritical ? 0.20 : 0.12;
-        oscGain.gain.setValueAtTime(baseVol * distFactor, now);
+        oscGain.gain.setValueAtTime((isCritical ? 0.20 : 0.12) * distFactor, now);
         oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.10);
         osc.connect(oscGain).connect(audioCtx.destination);
         osc.start(now); osc.stop(now + 0.11);
@@ -798,8 +755,7 @@
         const nf = audioCtx.createBiquadFilter();
         nf.type = 'bandpass'; nf.frequency.value = isCritical ? 2500 : 1500; nf.Q.value = 1.2;
         const nGain = audioCtx.createGain();
-        const noiseVol = isCritical ? 0.14 : 0.07;
-        nGain.gain.setValueAtTime(noiseVol * distFactor, now);
+        nGain.gain.setValueAtTime((isCritical ? 0.14 : 0.07) * distFactor, now);
         nGain.gain.exponentialRampToValueAtTime(0.001, now + slapDur);
         noise.connect(nf).connect(nGain).connect(audioCtx.destination);
         noise.start(now); noise.stop(now + slapDur + 0.01);
@@ -817,7 +773,6 @@
         }
     }
 
-    // ── 5. Death Groans ──
     function playDeathSound(enemyType, position) {
         if (!audioCtx) return;
         const now = audioCtx.currentTime;
@@ -833,7 +788,6 @@
         };
         const p = profiles[enemyType] || profiles.shambler;
         const freqRand = (Math.random() - 0.5) * 20;
-
         const osc = audioCtx.createOscillator();
         osc.type = 'sawtooth';
         osc.frequency.setValueAtTime(p.freq + freqRand, now);
@@ -904,7 +858,6 @@
         noise.stop(now + raspDur + 0.01); thud.stop(now + thudDelay + 0.13);
     }
 
-          // ── 6. Wave Klaxon ──
     function playWaveKlaxon(isBossWave) {
         if (!audioCtx) return;
         const now = audioCtx.currentTime;
@@ -942,7 +895,6 @@
         }
     }
 
-    // ── 7. Heartbeat ──
     function startHeartbeat() {
         if (heartbeatActive) return;
         heartbeatActive = true;
@@ -960,9 +912,8 @@
                 osc.frequency.setValueAtTime(freq, t);
                 osc.frequency.exponentialRampToValueAtTime(20, t + 0.1);
                 const gain = audioCtx.createGain();
-                const beatVol = i === 0 ? vol : vol * 0.7;
                 gain.gain.setValueAtTime(0.001, t);
-                gain.gain.linearRampToValueAtTime(beatVol, t + 0.015);
+                gain.gain.linearRampToValueAtTime(i === 0 ? vol : vol * 0.7, t + 0.015);
                 gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
                 osc.connect(gain).connect(audioCtx.destination);
                 osc.start(t); osc.stop(t + 0.11);
@@ -987,7 +938,6 @@
         if (heartbeatInterval) { clearInterval(heartbeatInterval); heartbeatInterval = null; }
     }
 
-    // ── 8. Pickup Chimes ──
     function playPickupChime(pickupType) {
         if (!audioCtx) return;
         const now = audioCtx.currentTime;
@@ -1029,7 +979,6 @@
         }
     }
 
-    // ── 9. Dry Fire Click ──
     function playDryFire() {
         if (!audioCtx) return;
         const now = audioCtx.currentTime;
@@ -1060,7 +1009,6 @@
         noise.start(now + 0.01); noise.stop(now + 0.04);
     }
 
-    // ── 10. Weapon Swap ──
     function playWeaponDown() {
         if (!audioCtx) return;
         const now = audioCtx.currentTime;
@@ -1146,7 +1094,6 @@
         noise.start(now); noise.stop(now + 0.07);
     }
 
-    // ── 11. Death Sting ──
     function playDeathSting() {
         if (!audioCtx) return;
         const now = audioCtx.currentTime;
@@ -1225,7 +1172,7 @@
     // END AUDIO SYSTEM
     // ═══════════════════════════════════════
 
-            // ═══════════════════════════════════════
+    // ═══════════════════════════════════════
     // SCENE
     // ═══════════════════════════════════════
     const scene = new THREE.Scene();
@@ -1245,9 +1192,6 @@
     renderer.toneMappingExposure = 1.2;
     document.body.appendChild(renderer.domElement);
 
-    // ═══════════════════════════════════════
-    // LIGHTING — bright floodlit arena
-    // ═══════════════════════════════════════
     scene.add(new THREE.AmbientLight(0xffffff, 2.0));
 
     const moon = new THREE.DirectionalLight(0x6699bb, 1.5);
@@ -1282,9 +1226,6 @@
         scene.add(pole);
     }
 
-    // ═══════════════════════════════════════
-    // ARENA ENVIRONMENT
-    // ═══════════════════════════════════════
     const ground = new THREE.Mesh(
         new THREE.PlaneGeometry(80, 80),
         new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.95 })
@@ -1343,101 +1284,7 @@
     scene.add(new THREE.Mesh(skyGeo, skyMat));
 
     // ═══════════════════════════════════════
-    // ASSET LOADING
-    // ═══════════════════════════════════════
-    const gltfLoader = new GLTFLoader();
-    const dracoLoader = new DRACOLoader();
-    gltfLoader.setDRACOLoader(dracoLoader);
-    dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
-    const models = {};
-    const anims = {};
-    const weaponGLBs = {};
-    let loaded = 0;
-    const TOTAL_ASSETS = 8;
-
-    function updateLoadBar() {
-        loaded++;
-        document.getElementById('loading-fill').style.width =
-            (loaded / TOTAL_ASSETS * 100) + '%';
-    }
-
-    function loadZombie(name) {
-        return new Promise(resolve => {
-            gltfLoader.load(`Zombies/${name}.glb`, gltf => {
-                gltf.scene.traverse(c => {
-                    if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; }
-                });
-                models[name] = gltf.scene;
-                const box = new THREE.Box3().setFromObject(gltf.scene);
-                const center = box.getCenter(new THREE.Vector3());
-                gltf.scene.position.set(-center.x, 0, -center.z);
-                anims[name] = gltf.animations;
-                updateLoadBar();
-                resolve();
-            }, undefined, () => {
-                console.warn(`Missing: ${name}.glb`);
-                updateLoadBar();
-                resolve();
-            });
-        });
-    }
-
-    function loadWeapon(name) {
-        return new Promise(resolve => {
-            gltfLoader.load(`${name}.glb`, gltf => {
-                const model = gltf.scene;
-                model.traverse(c => {
-                    if (c.isMesh) {
-                        c.castShadow = false;
-                        c.receiveShadow = false;
-                        c.material = c.material.clone();
-                        c.material.fog = false;
-                    }
-                });
-                weaponGLBs[name] = model;
-                updateLoadBar();
-                resolve();
-            }, undefined, () => {
-                console.warn(`Missing weapon: ${name}.glb`);
-                updateLoadBar();
-                resolve();
-            });
-        });
-    }
-
-    async function init() {
-        await Promise.all([
-            loadZombie('shambler'),
-            loadZombie('runner'),
-            loadZombie('brute'),
-            loadZombie('tank'),
-            loadZombie('boss'),
-            loadWeapon('pistol'),
-            loadWeapon('shotgun'),
-            loadWeapon('rifle'),
-            loadWeapon('raygun')
-        ]);
-
-        for (const [name, model] of Object.entries(models)) {
-            if (model) {
-                const box = new THREE.Box3().setFromObject(model);
-                const size = new THREE.Vector3();
-                box.getSize(size);
-                console.log(`${name}: ${size.x.toFixed(1)} x ${size.y.toFixed(1)} x ${size.z.toFixed(1)}`);
-            }
-        }
-
-        equipWeapon(0);
-        state = 'menu';
-        document.getElementById('start-text').textContent = 'TAP TO START';
-        document.getElementById('loading-bar').style.display = 'none';
-        document.getElementById('login-fields').style.display = 'flex';
-        fetchLeaderboard();
-    }
-    init();
-
-          // ═══════════════════════════════════════
-    // FIRST-PERSON WEAPON SYSTEM
+    // FIRST-PERSON WEAPON SYSTEM (before init)
     // ═══════════════════════════════════════
     const weaponHolder = new THREE.Group();
     camera.add(weaponHolder);
@@ -1535,7 +1382,6 @@
     function swapWeapon(newIndex) {
         if (newIndex === curWeapon) return;
         if (wpnState === 'swapDown' || wpnState === 'swapUp') return;
-        // Cancel reload on swap
         if (isReloading) {
             isReloading = false;
             reloadTimer = 0;
@@ -1547,7 +1393,6 @@
         playWeaponDown();
     }
 
-    // ── RELOAD SYSTEM ──
     function startReload() {
         if (isReloading) return;
         if (clipAmmo[curWeapon] >= maxClip[curWeapon]) return;
@@ -1587,10 +1432,10 @@
 
         const mPos = MUZZLE_OFFSETS[curWeapon];
         mFlashSprite.position.set(mPos.x, mPos.y, mPos.z);
-       mFlashSprite.visible = true;
-mFlashSprite.material.rotation = Math.random() * Math.PI * 2;
-mFlashSprite.material.color.set(curWeapon === 3 ? 0xaa44ff : 0xffffff);
-const FLASH_SIZES = [0.20, 0.32, 0.22, 0.28];
+        mFlashSprite.visible = true;
+        mFlashSprite.material.rotation = Math.random() * Math.PI * 2;
+        mFlashSprite.material.color.set(curWeapon === 3 ? 0xaa44ff : 0xffffff);
+        const FLASH_SIZES = [0.20, 0.32, 0.22, 0.28];
         const flashSize = FLASH_SIZES[curWeapon] + Math.random() * 0.08;
         mFlashSprite.scale.set(flashSize, flashSize, flashSize);
         mFlashVis = 0.06;
@@ -1600,7 +1445,7 @@ const FLASH_SIZES = [0.20, 0.32, 0.22, 0.28];
 
     function spawnCasing() {
         const yOff = CASING_Y_OFFSET[WEAPON_NAMES[curWeapon]];
-        if (yOff === -999) return; // raygun has no casings
+        if (yOff === -999) return;
 
         const casing = new THREE.Mesh(casingGeo, casingMat);
         const worldPos = new THREE.Vector3();
@@ -1619,14 +1464,11 @@ const FLASH_SIZES = [0.20, 0.32, 0.22, 0.28];
 
         activeCasings.push({
             mesh: casing, velocity: vel,
-            spin: new THREE.Vector3(
-                Math.random() * 12, Math.random() * 12, Math.random() * 12
-            ),
+            spin: new THREE.Vector3(Math.random() * 12, Math.random() * 12, Math.random() * 12),
             age: 0
         });
     }
 
-    // ── CROSSHAIR: dot for hip, weapon-specific ADS ──
     function updateCrosshairADS(adsT) {
         const ch = document.getElementById('crosshair');
         const dot = document.getElementById('ch-dot');
@@ -1635,7 +1477,6 @@ const FLASH_SIZES = [0.20, 0.32, 0.22, 0.28];
         const ring = document.getElementById('ch-ring');
 
         if (adsT < 0.3) {
-            // Hip fire: small white dot only
             ch.style.width = '30px';
             ch.style.height = '30px';
             dot.style.display = 'block';
@@ -1645,13 +1486,12 @@ const FLASH_SIZES = [0.20, 0.32, 0.22, 0.28];
             crossV.style.display = 'none';
             ring.style.display = 'none';
         } else {
-            // ADS: weapon-specific reticle
             const size = 30 - (adsT * 8);
             ch.style.width = size + 'px';
             ch.style.height = size + 'px';
 
             switch (curWeapon) {
-                case 0: // Pistol — simple cross
+                case 0:
                     dot.style.display = 'block';
                     dot.style.width = '3px';
                     dot.style.height = '3px';
@@ -1659,7 +1499,7 @@ const FLASH_SIZES = [0.20, 0.32, 0.22, 0.28];
                     crossV.style.display = 'block';
                     ring.style.display = 'none';
                     break;
-                case 1: // Shotgun — ring/circle
+                case 1:
                     dot.style.display = 'none';
                     crossH.style.display = 'none';
                     crossV.style.display = 'none';
@@ -1667,7 +1507,7 @@ const FLASH_SIZES = [0.20, 0.32, 0.22, 0.28];
                     ring.style.width = '22px';
                     ring.style.height = '22px';
                     break;
-                case 2: // Rifle — cross + center dot
+                case 2:
                     dot.style.display = 'block';
                     dot.style.width = '2px';
                     dot.style.height = '2px';
@@ -1675,7 +1515,7 @@ const FLASH_SIZES = [0.20, 0.32, 0.22, 0.28];
                     crossV.style.display = 'block';
                     ring.style.display = 'none';
                     break;
-                case 3: // Raygun — ring + dot
+                case 3:
                     dot.style.display = 'block';
                     dot.style.width = '3px';
                     dot.style.height = '3px';
@@ -1690,17 +1530,11 @@ const FLASH_SIZES = [0.20, 0.32, 0.22, 0.28];
         }
     }
 
-    // ── WEAPON SYSTEM UPDATE ──
-    // Hip fire: weapon stays at REST_POS (hold position)
-    // ADS: weapon lerps to AIM_POS
-    // No raise/lower on hip fire — just recoil kick
     function updateWeaponSystem(dt) {
         const SWAP_SPEED = 10;
 
         switch (wpnState) {
-            case 'rest':
-                // nothing — weapon at rest
-                break;
+            case 'rest': break;
             case 'swapDown':
                 wpnLerp = Math.max(-0.5, wpnLerp - SWAP_SPEED * dt);
                 if (wpnLerp <= -0.5) {
@@ -1731,30 +1565,25 @@ const FLASH_SIZES = [0.20, 0.32, 0.22, 0.28];
 
         recoilKick = Math.max(0, recoilKick - RECOIL_RECOVER * dt);
 
-        // ADS lerp
         const adsTarget = isADS ? 1 : 0;
         adsAmount += (adsTarget - adsAmount) * Math.min(1, ADS_LERP_SPEED * dt);
 
-        // FOV
         const baseFov = isSprinting ? SPRINT_FOV : BASE_FOV;
         const targetFOV = baseFov + (ADS_FOV - baseFov) * adsAmount;
         camera.fov += (targetFOV - camera.fov) * Math.min(1, 10 * dt);
         camera.updateProjectionMatrix();
 
-        // Weapon bob
         const bobMoveAmp = isMoving ? 0.004 : 0.001;
         const bobAmp = bobMoveAmp * (1 - adsAmount * 0.7);
         wpnBobTime += dt * (isMoving ? 3 : 1);
         const bobX = Math.sin(wpnBobTime * 1.5) * bobAmp;
         const bobY = Math.sin(wpnBobTime * 2.0) * bobAmp;
 
-        // Position: rest ↔ aim based on ADS only (hip fire stays at hold)
         const t = adsAmount;
         let px = REST_POS.x + (AIM_POS.x - REST_POS.x) * t + bobX;
         let py = REST_POS.y + (AIM_POS.y - REST_POS.y) * t + bobY + recoilKick * 0.5;
         let pz = REST_POS.z + (AIM_POS.z - REST_POS.z) * t + recoilKick;
 
-        // Apply swap offset
         if (wpnState === 'swapDown' || wpnState === 'swapUp') {
             py += wpnLerp * 0.6;
         }
@@ -1767,11 +1596,8 @@ const FLASH_SIZES = [0.20, 0.32, 0.22, 0.28];
         weaponHolder.rotation.set(rx, ry, rz);
 
         updateCrosshairADS(adsAmount);
-
-        // Reload update
         updateReload(dt);
 
-        // Speed boost timer HUD
         const speedEl = document.getElementById('speed-timer');
         if (speedBoostTimer > 0) {
             speedEl.style.display = 'block';
@@ -1804,9 +1630,6 @@ const FLASH_SIZES = [0.20, 0.32, 0.22, 0.28];
         }
     }
 
-         // ═══════════════════════════════════════
-    // FLOATING DAMAGE NUMBERS
-    // ═══════════════════════════════════════
     function spawnDamageNumber(position, damage, isCritical) {
         const canvas = document.createElement('canvas');
         canvas.width = 256;
@@ -1848,9 +1671,6 @@ const FLASH_SIZES = [0.20, 0.32, 0.22, 0.28];
         }
     }
 
-    // ═══════════════════════════════════════
-    // ENEMY HEALTH BARS + NAME LABELS
-    // ═══════════════════════════════════════
     function createHealthBar(typeName) {
         const canvas = document.createElement('canvas');
         canvas.width = 256;
@@ -1893,9 +1713,6 @@ const FLASH_SIZES = [0.20, 0.32, 0.22, 0.28];
         );
     }
 
-    // ═══════════════════════════════════════
-    // AIM CONTROLS
-    // ═══════════════════════════════════════
     let pitch = 0, yaw = 0;
     const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
     let aimTouchId = null, aimX = 0, aimY = 0;
@@ -1935,22 +1752,114 @@ const FLASH_SIZES = [0.20, 0.32, 0.22, 0.28];
     }, { passive: true });
 
     // ═══════════════════════════════════════
-    // SHOOTING — magazine system, shotgun falloff, no powerup raycaster
+    // ASSET LOADING
+    // ═══════════════════════════════════════
+    const gltfLoader = new GLTFLoader();
+    const dracoLoader = new DRACOLoader();
+    gltfLoader.setDRACOLoader(dracoLoader);
+    dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
+    const models = {};
+    const anims = {};
+    const weaponGLBs = {};
+    let loaded = 0;
+    const TOTAL_ASSETS = 9;
+
+    function updateLoadBar() {
+        loaded++;
+        document.getElementById('loading-fill').style.width =
+            (loaded / TOTAL_ASSETS * 100) + '%';
+    }
+
+    function loadZombie(name) {
+        return new Promise(resolve => {
+            gltfLoader.load(`Zombies/${name}.glb`, gltf => {
+                gltf.scene.traverse(c => {
+                    if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; }
+                });
+                models[name] = gltf.scene;
+                const box = new THREE.Box3().setFromObject(gltf.scene);
+                const center = box.getCenter(new THREE.Vector3());
+                gltf.scene.position.set(-center.x, 0, -center.z);
+                anims[name] = gltf.animations;
+                updateLoadBar();
+                resolve();
+            }, undefined, () => {
+                console.warn(`Missing: ${name}.glb`);
+                updateLoadBar();
+                resolve();
+            });
+        });
+    }
+
+    function loadWeapon(name) {
+        return new Promise(resolve => {
+            gltfLoader.load(`${name}.glb`, gltf => {
+                const model = gltf.scene;
+                model.traverse(c => {
+                    if (c.isMesh) {
+                        c.castShadow = false;
+                        c.receiveShadow = false;
+                        c.material = c.material.clone();
+                        c.material.fog = false;
+                    }
+                });
+                weaponGLBs[name] = model;
+                updateLoadBar();
+                resolve();
+            }, undefined, () => {
+                console.warn(`Missing weapon: ${name}.glb`);
+                updateLoadBar();
+                resolve();
+            });
+        });
+    }
+
+    async function init() {
+        await Promise.all([
+            loadZombie('shambler'),
+            loadZombie('runner'),
+            loadZombie('brute'),
+            loadZombie('tank'),
+            loadZombie('boss'),
+            loadWeapon('pistol'),
+            loadWeapon('shotgun'),
+            loadWeapon('rifle'),
+            loadWeapon('raygun')
+        ]);
+
+        for (const [name, model] of Object.entries(models)) {
+            if (model) {
+                const box = new THREE.Box3().setFromObject(model);
+                const size = new THREE.Vector3();
+                box.getSize(size);
+                console.log(`${name}: ${size.x.toFixed(1)} x ${size.y.toFixed(1)} x ${size.z.toFixed(1)}`);
+            }
+        }
+
+        equipWeapon(0);
+        state = 'menu';
+        document.getElementById('start-text').textContent = 'TAP TO START';
+        document.getElementById('loading-bar').style.display = 'none';
+        document.getElementById('login-fields').style.display = 'flex';
+        fetchLeaderboard();
+    }
+    init();
+
+    // ═══════════════════════════════════════
+    // SHOOTING
     // ═══════════════════════════════════════
     const raycaster = new THREE.Raycaster();
     raycaster.far = 80;
 
     function shoot() {
-        if (state !== 'playing') return;
+        if (state !== 'playing' || isPaused) return;
         if (isReloading) return;
 
         const now = performance.now() / 1000;
         const w = CONFIG.weapons[curWeapon];
         if (now - lastShotTime < w.rate) return;
 
-        // Magazine system: check clip
         if (clipAmmo[curWeapon] <= 0) {
-            // Auto-reload if reserve available
             if (reserveAmmo[curWeapon] > 0 || reserveAmmo[curWeapon] === Infinity) {
                 startReload();
             } else {
@@ -1963,7 +1872,6 @@ const FLASH_SIZES = [0.20, 0.32, 0.22, 0.28];
         clipAmmo[curWeapon]--;
         updateAmmoHUD();
 
-        // Recoil kick (hip fire shoots from hold position)
         recoilKick = RECOIL_AMT;
         executeShot();
 
@@ -2001,7 +1909,6 @@ const FLASH_SIZES = [0.20, 0.32, 0.22, 0.28];
                         let found = false;
                         enemy.group.traverse(c => { if (c === hitObj) found = true; });
                         if (found) {
-                            // Shotgun damage falloff
                             let effectiveDamage = w.damage;
                             if (w.falloffStart !== undefined && w.falloffEnd !== undefined) {
                                 const hitDist = camera.position.distanceTo(hit.point);
@@ -2018,17 +1925,15 @@ const FLASH_SIZES = [0.20, 0.32, 0.22, 0.28];
                     }
                 }
             }
-            // NOTE: power-up raycaster REMOVED — pickup is proximity-only now
         }
 
-        // Auto-reload if clip just emptied
         if (clipAmmo[curWeapon] <= 0 && (reserveAmmo[curWeapon] > 0 || reserveAmmo[curWeapon] === Infinity)) {
             setTimeout(() => { if (state === 'playing' && !isReloading) startReload(); }, 300);
         }
     }
 
-        // ═══════════════════════════════════════
-    // PROCEDURAL POWER-UP MODELS
+    // ═══════════════════════════════════════
+    // POWER-UPS
     // ═══════════════════════════════════════
     function createBulletModel(color, length, radius) {
         const group = new THREE.Group();
@@ -2091,9 +1996,7 @@ const FLASH_SIZES = [0.20, 0.32, 0.22, 0.28];
         const sphere = new THREE.Mesh(new THREE.SphereGeometry(0.15, 12, 12), mat);
         sphere.position.y = 0.15;
         group.add(sphere);
-        const ring = new THREE.Mesh(
-            new THREE.TorusGeometry(0.25, 0.03, 8, 24), mat
-        );
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(0.25, 0.03, 8, 24), mat);
         ring.position.y = 0.15;
         ring.rotation.x = Math.PI / 2;
         group.add(ring);
@@ -2189,21 +2092,24 @@ const FLASH_SIZES = [0.20, 0.32, 0.22, 0.28];
 
     function collectPowerup(pu, index) {
         playPickupChime(pu.type);
+
+        const waveBonus = 1 + (wave - 1) * 0.05;
+
         switch (pu.type) {
             case 'health':
                 hp = Math.min(hp + 25, CONFIG.player.health);
                 updateHealthHUD();
                 break;
             case 'pistol_ammo':
-                score += 50;
+                score += Math.round(50 * waveBonus);
                 updateHUD();
                 break;
             case 'rifle_ammo':
-                reserveAmmo[2] = Math.min(reserveAmmo[2] + 15, maxReserve[2]);
+                reserveAmmo[2] = Math.min(reserveAmmo[2] + Math.round(15 * waveBonus), maxReserve[2]);
                 updateAmmoHUD();
                 break;
             case 'shotgun_ammo':
-                reserveAmmo[1] = Math.min(reserveAmmo[1] + 6, maxReserve[1]);
+                reserveAmmo[1] = Math.min(reserveAmmo[1] + Math.round(6 * waveBonus), maxReserve[1]);
                 updateAmmoHUD();
                 break;
             case 'nuke':
@@ -2219,7 +2125,6 @@ const FLASH_SIZES = [0.20, 0.32, 0.22, 0.28];
                 speedBoostTimer = 8;
                 break;
             case 'max_ammo':
-                // Refill all reserves AND all clips
                 reserveAmmo[1] = maxReserve[1];
                 reserveAmmo[2] = maxReserve[2];
                 for (let i = 0; i < maxClip.length; i++) {
@@ -2253,7 +2158,6 @@ const FLASH_SIZES = [0.20, 0.32, 0.22, 0.28];
         activePowerups.push({ group, type: puType.id, life: 15 });
     }
 
-    // Proximity-only pickup — no shoot-to-collect
     function updatePowerups(dt) {
         if (speedBoostTimer > 0) speedBoostTimer -= dt;
 
@@ -2263,7 +2167,6 @@ const FLASH_SIZES = [0.20, 0.32, 0.22, 0.28];
             p.group.rotation.y += dt * 2;
             p.group.position.y = 0.3 + Math.sin(performance.now() / 1000 * 2 + i) * 0.08;
 
-            // Walk over to collect
             const dist = camera.position.distanceTo(p.group.position);
             if (dist < 1.5) {
                 collectPowerup(p, i);
@@ -2281,9 +2184,6 @@ const FLASH_SIZES = [0.20, 0.32, 0.22, 0.28];
         }
     }
 
-    // ═══════════════════════════════════════
-    // SHOCKWAVE (nuke visual)
-    // ═══════════════════════════════════════
     function spawnShockwave(pos) {
         const geo = new THREE.RingGeometry(0.5, 1.5, 32);
         const mat = new THREE.MeshBasicMaterial({
@@ -2313,24 +2213,18 @@ const FLASH_SIZES = [0.20, 0.32, 0.22, 0.28];
         }
     }
 
-         // ═══════════════════════════════════════
+    // ═══════════════════════════════════════
     // ENEMIES
     // ═══════════════════════════════════════
     function spawnEnemy(type) {
         const modelKey = type === 'boss' ? 'boss' : type;
-        if (!models[modelKey]) {
-            if (type === 'boss' && models['brute']) {
-                // fallback
-            } else return;
-        }
+        if (!models[modelKey]) return;
 
         const cfg = CONFIG.enemies[type];
-        const sourceModel = models[modelKey] || models['brute'];
+        const sourceModel = models[modelKey];
         const group = skeletonClone(sourceModel);
         group.traverse((child) => {
-            if (child.isMesh) {
-                child.material = child.material.clone();
-            }
+            if (child.isMesh) child.material = child.material.clone();
         });
         group.scale.setScalar(cfg.scale);
 
@@ -2342,27 +2236,19 @@ const FLASH_SIZES = [0.20, 0.32, 0.22, 0.28];
         );
 
         const mixer = new THREE.AnimationMixer(group);
-        const clips = anims[modelKey] || anims['brute'] || [];
-        let walkAction = null, deadAction = null;
-
-        // --- Categorize all clips explicitly ---
-        let walkClip = null, runClip = null, deathClip = null;
+        const clips = anims[modelKey] || [];
+        let walkClip = null, deathClip = null;
         for (const clip of clips) {
             const n = clip.name.toLowerCase();
             if (n.includes('dead') || n.includes('death') || n.includes('die') || n.includes('dying') || n.includes('shot') || n.includes('fall')) {
                 deathClip = clip;
             } else if (n.includes('walk')) {
                 walkClip = clip;
-            } else if (n.includes('run') || n.includes('sprint') || n.includes('jog')) {
-                runClip = clip;
             }
         }
-        // Fallback by index if names are unexpected
         if (!walkClip && clips.length > 0) walkClip = clips[0];
-        if (!runClip && clips.length > 1) runClip = clips[1];
         if (!deathClip && clips.length > 2) deathClip = clips[2];
 
-        // --- Per-zombie animation tuning ---
         const animConfig = {
             shambler: { useClip: 'walk', timeScale: 0.45 },
             runner:   { useClip: 'walk', timeScale: 0.05 },
@@ -2370,19 +2256,15 @@ const FLASH_SIZES = [0.20, 0.32, 0.22, 0.28];
             tank:     { useClip: 'walk', timeScale: 0.35 }
         };
         const aCfg = animConfig[modelKey] || { useClip: 'walk', timeScale: 0.7 };
-        console.log('CLIPS for', modelKey, clips.map(c => c.name));
-        const moveClip = (aCfg.useClip === 'run' && runClip) ? runClip : (walkClip || runClip || clips[0]);
+        const moveClip = walkClip || clips[0];
 
-        walkAction = mixer.clipAction(moveClip);
+        const walkAction = mixer.clipAction(moveClip);
         walkAction.timeScale = aCfg.timeScale;
         walkAction.play();
 
+        let deadAction = null;
         if (deathClip) {
             deadAction = mixer.clipAction(deathClip);
-            deadAction.loop = THREE.LoopOnce;
-            deadAction.clampWhenFinished = true;
-        } else if (clips.length > 2) {
-            deadAction = mixer.clipAction(clips[2]);
             deadAction.loop = THREE.LoopOnce;
             deadAction.clampWhenFinished = true;
         }
@@ -2408,12 +2290,16 @@ const FLASH_SIZES = [0.20, 0.32, 0.22, 0.28];
         const scaledHealth = Math.round(cfg.health * waveScale);
         const bossWaveNum = Math.floor(wave / 10);
 
+        const speedScale = Math.min(2.0, 1 + (wave - 1) * 0.08);
+        const scaledSpeed = cfg.speed * speedScale;
+
         const enemy = {
             type, group, mixer,
             walkAction, deadAction,
             health: scaledHealth,
             maxHealth: scaledHealth,
-            speed: cfg.speed,
+            speed: scaledSpeed,
+            baseSpeed: scaledSpeed,
             damage: cfg.damage,
             points: cfg.points,
             dead: false,
@@ -2421,10 +2307,11 @@ const FLASH_SIZES = [0.20, 0.32, 0.22, 0.28];
             hitFlashTimer: 0,
             healthBar: hb,
             isBoss: type === 'boss',
-            bossWaveNum: type === 'boss' ? bossWaveNum : 0,
+            bossWaveNum,
             enraged: false,
             slamCooldown: 0,
-            redPulseTimer: 0
+            redPulseTimer: 0,
+            lastLane: Math.floor(Math.random() * 3)
         };
 
         activeEnemies.push(enemy);
@@ -2471,14 +2358,14 @@ const FLASH_SIZES = [0.20, 0.32, 0.22, 0.28];
             if (enemy.bossWaveNum >= 4 && !enemy.enraged &&
                 enemy.health < enemy.maxHealth * 0.25) {
                 enemy.enraged = true;
-                enemy.speed *= 2.5;
+                enemy.speed = enemy.baseSpeed * 2.5;
                 enemy.slamCooldown = 0;
                 showWaveAnnounce('⚠ ENRAGED ⚠');
             }
             else if (enemy.bossWaveNum < 4 && !enemy.enraged &&
                 enemy.health < enemy.maxHealth * 0.3) {
                 enemy.enraged = true;
-                enemy.speed *= 2;
+                enemy.speed = enemy.baseSpeed * 2;
                 showWaveAnnounce('⚠ ENRAGED ⚠');
             }
         } else {
@@ -2533,7 +2420,6 @@ const FLASH_SIZES = [0.20, 0.32, 0.22, 0.28];
             if (enemy.healthBar) scene.remove(enemy.healthBar.sprite);
         }
 
-        // Unified death animation for ALL enemy types (including brute)
         if (enemy.deadAction) {
             if (enemy.mixer) enemy.mixer.stopAllAction();
             enemy.deadAction.reset();
@@ -2591,6 +2477,20 @@ const FLASH_SIZES = [0.20, 0.32, 0.22, 0.28];
             }
 
             if (dist > CONFIG.meleeRange) {
+                const laneSpread = 2.5;
+                const myLane = Math.floor((e.group.position.x + ARENA_BOUNDS) / (ARENA_BOUNDS * 2 / 3));
+                for (const other of activeEnemies) {
+                    if (other === e || other.dead) continue;
+                    const otherLane = Math.floor((other.group.position.x + ARENA_BOUNDS) / (ARENA_BOUNDS * 2 / 3));
+                    if (myLane === otherLane) {
+                        const awayX = e.group.position.x - other.group.position.x;
+                        if (Math.abs(awayX) < laneSpread && Math.abs(awayX) > 0.1) {
+                            dir.x += (awayX / Math.abs(awayX)) * 0.4;
+                            dir.normalize();
+                        }
+                    }
+                }
+
                 e.group.position.addScaledVector(dir, e.speed * dt);
 
                 if (e.walkAction) {
@@ -2607,9 +2507,7 @@ const FLASH_SIZES = [0.20, 0.32, 0.22, 0.28];
                     }
                 }
             } else {
-                if (e.walkAction) {
-                    e.walkAction.timeScale = 0.3;
-                }
+                if (e.walkAction) e.walkAction.timeScale = 0.3;
                 if (!e.growlCooldown) e.growlCooldown = 0;
                 e.growlCooldown -= dt;
                 if (e.growlCooldown <= 0) {
@@ -2661,6 +2559,10 @@ const FLASH_SIZES = [0.20, 0.32, 0.22, 0.28];
         const isBossWave = (wave % 10 === 0);
         waveEnemiesLeft = totalEnemies + (isBossWave ? 1 : 0);
 
+        if (wave > 0 && wave % PAUSE_CHARGE_INTERVAL === 0 && pauseCharges < 1) {
+            pauseCharges = 1;
+        }
+
         updateHUD();
         showWaveAnnounce(`WAVE ${wave}`);
         playWaveKlaxon(wave % 10 === 0);
@@ -2697,12 +2599,11 @@ const FLASH_SIZES = [0.20, 0.32, 0.22, 0.28];
         }
     }
 
-    function checkWaveComplete() {
+   function checkWaveComplete() {
         if (waveEnemiesLeft <= 0 && !betweenWaves && state === 'playing') {
             betweenWaves = true;
             waveTimer = 4;
 
-            // Between-wave ammo refill (reserve)
             reserveAmmo[1] += 4;
             reserveAmmo[2] += 15;
             if (reserveAmmo[1] > maxReserve[1]) reserveAmmo[1] = maxReserve[1];
@@ -2712,7 +2613,39 @@ const FLASH_SIZES = [0.20, 0.32, 0.22, 0.28];
     }
 
     // ═══════════════════════════════════════
-    // ZOMBIE PROXIMITY INDICATOR
+    // PAUSE SYSTEM
+    // ═══════════════════════════════════════
+    function activatePause() {
+        if (pauseCharges <= 0 || isPaused) return;
+        pauseCharges = 0;
+        isPaused = true;
+        pauseTimer = PAUSE_DURATION;
+        showWaveAnnounce('⏸ PAUSED');
+        for (const e of activeEnemies) {
+            if (e.mixer) {
+                e._prevTimeScale = e.mixer.timeScale;
+                e.mixer.timeScale = 0;
+            }
+        }
+    }
+
+    function updatePause(dt) {
+        if (!isPaused) return;
+        pauseTimer -= dt;
+        if (pauseTimer <= 0) {
+            isPaused = false;
+            for (const e of activeEnemies) {
+                if (e.mixer && e._prevTimeScale !== undefined) {
+                    e.mixer.timeScale = e._prevTimeScale;
+                    delete e._prevTimeScale;
+                }
+            }
+            showWaveAnnounce('▶ RESUMED');
+        }
+    }
+
+    // ═══════════════════════════════════════
+    // THREAT INDICATORS
     // ═══════════════════════════════════════
     const threatEls = {
         left:   document.getElementById('threat-left'),
@@ -2795,9 +2728,6 @@ const FLASH_SIZES = [0.20, 0.32, 0.22, 0.28];
         setTimeout(() => { el.style.display = 'none'; }, 2000);
     }
 
-    // ═══════════════════════════════════════
-    // SCREEN SHAKE + HEAD BOB
-    // ═══════════════════════════════════════
     function updateScreenShake(dt) {
         const camSmooth = Math.min(1, dt * 25);
         camera.position.x += (playerPos.x - camera.position.x) * camSmooth;
@@ -2825,18 +2755,16 @@ const FLASH_SIZES = [0.20, 0.32, 0.22, 0.28];
         }
     }
 
-       // ═══════════════════════════════════════
-    // PLAYER MOVEMENT (WASD + Joystick + Gamepad)
+    // ═══════════════════════════════════════
+    // PLAYER MOVEMENT
     // ═══════════════════════════════════════
     const _moveForward = new THREE.Vector3();
     const _moveRight = new THREE.Vector3();
     const _yAxis = new THREE.Vector3(0, 1, 0);
 
     function updateMovement(dt) {
-        const moveX = (moveJoyDeltaX || 0);
-        const moveY = (moveJoyDeltaY || 0);
-        let inputX = moveX;
-        let inputY = moveY;
+        let inputX = moveJoyDeltaX || 0;
+        let inputY = moveJoyDeltaY || 0;
 
         if (keys['w'] || keys['arrowup'])    inputY += 1;
         if (keys['s'] || keys['arrowdown'])  inputY -= 1;
@@ -2859,9 +2787,7 @@ const FLASH_SIZES = [0.20, 0.32, 0.22, 0.28];
         if (len > 1) { inputX /= len; inputY /= len; }
 
         isMoving = len > 0.1;
-
         if (isADS || !isMoving) isSprinting = false;
-
         if (!isMoving) return;
 
         const sprintMult = isSprinting ? SPRINT_MULT : 1.0;
@@ -2880,7 +2806,7 @@ const FLASH_SIZES = [0.20, 0.32, 0.22, 0.28];
     }
 
     // ═══════════════════════════════════════
-    // GAMEPAD SUPPORT (PS5 + Xbox)
+    // GAMEPAD SUPPORT
     // ═══════════════════════════════════════
     window.addEventListener('gamepadconnected', e => {
         gamepadIndex = e.gamepad.index;
@@ -2899,24 +2825,18 @@ const FLASH_SIZES = [0.20, 0.32, 0.22, 0.28];
         return gamepads[gamepadIndex] || null;
     }
 
-    // ═══════════════════════════════════════
-    // AIM ASSIST (gamepad only)
-    // ═══════════════════════════════════════
     const _aaDir = new THREE.Vector3();
     const _aaToTarget = new THREE.Vector3();
     const _aaInvQuat = new THREE.Quaternion();
 
     function getAimAssistTarget() {
         if (gamepadIndex === null) return null;
-
         let best = null;
         let bestAngle = 0.5;
-
         _aaDir.set(0, 0, -1).applyEuler(camera.rotation);
 
         for (const e of activeEnemies) {
             if (e.dead) continue;
-
             _aaToTarget.set(
                 e.group.position.x - camera.position.x,
                 (e.group.position.y + 1.3) - camera.position.y,
@@ -2924,16 +2844,12 @@ const FLASH_SIZES = [0.20, 0.32, 0.22, 0.28];
             );
             const dist = _aaToTarget.length();
             if (dist > 50 || dist < 1) continue;
-
             _aaToTarget.normalize();
             const angle = _aaDir.angleTo(_aaToTarget);
-
             if (angle < bestAngle) {
                 bestAngle = angle;
-
                 _aaInvQuat.copy(camera.quaternion).invert();
                 const local = _aaToTarget.clone().applyQuaternion(_aaInvQuat);
-
                 best = {
                     yawOffset: Math.atan2(local.x, -local.z),
                     pitchOffset: Math.atan2(local.y, -local.z),
@@ -2961,7 +2877,6 @@ const FLASH_SIZES = [0.20, 0.32, 0.22, 0.28];
         if (aaTarget) {
             const frictionBase = isADS ? 0.2 : 0.4;
             aimSens = frictionBase + (1 - frictionBase) * (aaTarget.angle / 0.35);
-
             const stickMag = Math.sqrt(rx * rx + ry * ry);
             if (stickMag > 0.05) {
                 const pullBase = isADS ? 4.0 : 2.5;
@@ -2972,7 +2887,6 @@ const FLASH_SIZES = [0.20, 0.32, 0.22, 0.28];
         }
 
         const adsTurnMult = isADS ? 0.6 : 1.0;
-
         yaw -= rx * 3.0 * aimSens * adsTurnMult * dt;
         pitch -= ry * 2.0 * aimSens * adsTurnMult * dt;
         pitch = Math.max(-1.2, Math.min(1.2, pitch));
@@ -2998,26 +2912,19 @@ const FLASH_SIZES = [0.20, 0.32, 0.22, 0.28];
 
         const maxWpn = document.getElementById('raygun-slot').style.display !== 'none' ? 4 : 3;
 
-const l2 = gp.buttons[6] ? gp.buttons[6].pressed : false;
-if (l2 && !gpLBPrev) {
-    swapWeapon((curWeapon + maxWpn - 1) % maxWpn);
-}
-gpLBPrev = l2;
+        const l2 = gp.buttons[6] ? gp.buttons[6].pressed : false;
+        if (l2 && !gpLBPrev) swapWeapon((curWeapon + maxWpn - 1) % maxWpn);
+        gpLBPrev = l2;
 
-const r2 = gp.buttons[7] ? gp.buttons[7].pressed : false;
-if (r2 && !gpRBPrev) {
-    swapWeapon((curWeapon + 1) % maxWpn);
-}
-gpRBPrev = r2;
+        const r2 = gp.buttons[7] ? gp.buttons[7].pressed : false;
+        if (r2 && !gpRBPrev) swapWeapon((curWeapon + 1) % maxWpn);
+        gpRBPrev = r2;
 
-        // X button (index 2) to reload on gamepad
-        if (gp.buttons[2] && gp.buttons[2].pressed) {
-            startReload();
-        }
+        if (gp.buttons[2] && gp.buttons[2].pressed) startReload();
     }
 
     // ═══════════════════════════════════════
-    // SHOW MAIN MENU
+    // MENU
     // ═══════════════════════════════════════
     function showMainMenu() {
         state = 'menu';
@@ -3036,6 +2943,8 @@ gpRBPrev = r2;
         adsAmount = 0;
         isReloading = false;
         reloadTimer = 0;
+        isPaused = false;
+        pauseCharges = 0;
         document.getElementById('reload-indicator').style.display = 'none';
         document.getElementById('speed-timer').style.display = 'none';
 
@@ -3073,12 +2982,11 @@ gpRBPrev = r2;
         document.getElementById('move-joystick-zone').style.display = 'none';
 
         if (document.pointerLockElement) document.exitPointerLock();
-
         fetchLeaderboard();
     }
 
     // ═══════════════════════════════════════
-    // START / RESTART / GAME OVER
+    // START / GAME OVER
     // ═══════════════════════════════════════
     async function startGame() {
         const csVal = callsignInput.value.trim();
@@ -3098,11 +3006,12 @@ gpRBPrev = r2;
         hp = CONFIG.player.health;
         curWeapon = 0;
 
-        // Magazine system reset
         clipAmmo    = [12, 6, 30, 5];
         reserveAmmo = [Infinity, 20, 60, 0];
         isReloading = false;
         reloadTimer = 0;
+        pauseCharges = 0;
+        isPaused = false;
         document.getElementById('reload-indicator').style.display = 'none';
         document.getElementById('speed-timer').style.display = 'none';
 
@@ -3195,6 +3104,7 @@ gpRBPrev = r2;
         adsAmount = 0;
         isReloading = false;
         reloadTimer = 0;
+        isPaused = false;
         document.getElementById('reload-indicator').style.display = 'none';
         document.getElementById('speed-timer').style.display = 'none';
         document.getElementById('boss-bar').style.display = 'none';
@@ -3205,14 +3115,12 @@ gpRBPrev = r2;
             `WAVE ${wave}<br>SCORE: ${score}<br>KILLS: ${kills}`;
 
         if (document.pointerLockElement) document.exitPointerLock();
-
         submitScore(score, wave, kills);
     }
 
     // ═══════════════════════════════════════
     // INPUT EVENTS
     // ═══════════════════════════════════════
-
     document.getElementById('blocker').addEventListener('click', () => {
         if (state === 'menu') startGame();
     });
@@ -3303,24 +3211,22 @@ gpRBPrev = r2;
         if (e.key === '2') swapWeapon(1);
         if (e.key === '3') swapWeapon(2);
         if (e.key === '4') {
-            // Only swap to raygun if slot is visible (has ammo)
             if (document.getElementById('raygun-slot').style.display !== 'none') {
                 swapWeapon(3);
             }
         }
         if (e.key === 'q' || e.key === 'Q') {
             let next = (curWeapon + 1) % CONFIG.weapons.length;
-            // Skip raygun if not available
             if (next === 3 && document.getElementById('raygun-slot').style.display === 'none') {
                 next = 0;
             }
             swapWeapon(next);
         }
-        // R to reload
-        if (e.key === 'r' || e.key === 'R') {
-            startReload();
-        }
+        if (e.key === 'r' || e.key === 'R') startReload();
+
+        if (e.key === 'p' || e.key === 'P') activatePause();
     });
+
     document.addEventListener('keyup', e => {
         keys[e.key.toLowerCase()] = false;
         if (e.key === 'Shift') isSprinting = false;
@@ -3340,7 +3246,7 @@ gpRBPrev = r2;
     });
 
     // ═══════════════════════════════════════
-    // MOBILE MOVE JOYSTICK
+    // MOBILE JOYSTICK
     // ═══════════════════════════════════════
     const joyZone = document.getElementById('move-joystick-zone');
     const joyBase = document.getElementById('move-joystick-base');
@@ -3424,21 +3330,25 @@ gpRBPrev = r2;
             updateGamepad(dt);
             updateMovement(dt);
 
-            if (fireHeld && CONFIG.weapons[curWeapon].auto && !isReloading) shoot();
+            if (fireHeld && CONFIG.weapons[curWeapon].auto && !isReloading && !isPaused) shoot();
 
-            updateEnemies(dt);
-            updatePowerups(dt);
-            updateDamageNumbers(dt);
-            updateWeaponSystem(dt);
-            updateCasings(dt);
-            updateShockwaves(dt);
-            updateThreatIndicators();
-            updateScreenShake(dt);
-            checkWaveComplete();
+            updatePause(dt);
 
-            if (betweenWaves) {
-                waveTimer -= dt;
-                if (waveTimer <= 0) startWave();
+            if (!isPaused) {
+                updateEnemies(dt);
+                updatePowerups(dt);
+                updateDamageNumbers(dt);
+                updateWeaponSystem(dt);
+                updateCasings(dt);
+                updateShockwaves(dt);
+                updateThreatIndicators();
+                updateScreenShake(dt);
+                checkWaveComplete();
+
+                if (betweenWaves) {
+                    waveTimer -= dt;
+                    if (waveTimer <= 0) startWave();
+                }
             }
         }
 
@@ -3446,9 +3356,6 @@ gpRBPrev = r2;
     }
     gameLoop();
 
-    // ═══════════════════════════════════════
-    // RESIZE
-    // ═══════════════════════════════════════
     window.addEventListener('resize', () => {
         camera.aspect = innerWidth / innerHeight;
         camera.updateProjectionMatrix();
