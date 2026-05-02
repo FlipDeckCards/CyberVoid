@@ -1448,7 +1448,7 @@
         pistol:  { scale: 0.18, rotY: -Math.PI / 2 },
         shotgun: { scale: 0.60, rotY: -Math.PI / 2 },
         rifle:   { scale: 0.55, rotY: -Math.PI / 2 },
-        raygun:  { scale: 0.40, rotY: -Math.PI / 2 },
+        raygun:  { scale: 0.18, rotY: -Math.PI / 2 },
     };
 
     const REST_POS = new THREE.Vector3(0.2, -0.25, -0.45);
@@ -2995,17 +2995,19 @@
             }
         }
 
-        const l2 = gp.buttons[6] ? gp.buttons[6].pressed : false;
-        if (l2 && !gpLBPrev) {
-            swapWeapon((curWeapon + 2) % 3);
-        }
-        gpLBPrev = l2;
+        const maxWpn = document.getElementById('raygun-slot').style.display !== 'none' ? 4 : 3;
 
-        const r2 = gp.buttons[7] ? gp.buttons[7].pressed : false;
-        if (r2 && !gpRBPrev) {
-            swapWeapon((curWeapon + 1) % 3);
-        }
-        gpRBPrev = r2;
+const l2 = gp.buttons[6] ? gp.buttons[6].pressed : false;
+if (l2 && !gpLBPrev) {
+    swapWeapon((curWeapon + maxWpn - 1) % maxWpn);
+}
+gpLBPrev = l2;
+
+const r2 = gp.buttons[7] ? gp.buttons[7].pressed : false;
+if (r2 && !gpRBPrev) {
+    swapWeapon((curWeapon + 1) % maxWpn);
+}
+gpRBPrev = r2;
 
         // X button (index 2) to reload on gamepad
         if (gp.buttons[2] && gp.buttons[2].pressed) {
