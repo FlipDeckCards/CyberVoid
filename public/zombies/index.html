@@ -99,22 +99,28 @@
             font-family: 'Courier New', monospace;
             display: none;
         }
+
+        /* ── CROSSHAIR: dot for hip fire, weapon-specific ADS ── */
         #crosshair {
             position: absolute; top: 50%; left: 50%;
             transform: translate(-50%, -50%);
-            width: 30px; height: 30px;
-            transition: transform 0.1s, opacity 0.1s;
+            pointer-events: none;
         }
-        #crosshair::before, #crosshair::after {
-            content: ''; position: absolute; background: rgba(255,255,255,0.85);
+        #ch-dot {
+            width: 4px; height: 4px; border-radius: 50%;
+            background: rgba(255,255,255,0.9);
+            box-shadow: 0 0 4px rgba(255,255,255,0.4);
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
         }
-        #crosshair::before {
-            top: 50%; left: 0; width: 100%; height: 2px;
-            transform: translateY(-50%);
-        }
-        #crosshair::after {
-            top: 0; left: 50%; width: 2px; height: 100%;
-            transform: translateX(-50%);
+        #ch-cross-h, #ch-cross-v { position: absolute; background: rgba(255,255,255,0.85); display: none; }
+        #ch-cross-h { top: 50%; left: 0; width: 100%; height: 1px; transform: translateY(-50%); }
+        #ch-cross-v { left: 50%; top: 0; width: 1px; height: 100%; transform: translateX(-50%); }
+        #ch-ring {
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            border-radius: 50%; border: 1px solid rgba(255,255,255,0.6);
+            display: none;
         }
 
         .hud-top {
@@ -143,6 +149,22 @@
         #ammo-label {
             position: absolute; bottom: 72px; left: 240px;
             color: #666; font-size: 0.6rem; letter-spacing: 2px;
+        }
+        #reload-indicator {
+            position: absolute; bottom: 44px; left: 240px;
+            color: #ffaa00; font-size: 0.6rem; letter-spacing: 3px;
+            display: none;
+            animation: pulse 0.5s ease-in-out infinite;
+        }
+
+        /* ── SPEED BOOST TIMER ── */
+        #speed-timer {
+            position: absolute; bottom: 100px; left: 50%;
+            transform: translateX(-50%);
+            color: #4488ff; font-size: 0.9rem;
+            letter-spacing: 3px; text-transform: uppercase;
+            text-shadow: 0 0 12px rgba(68,136,255,0.6);
+            display: none;
         }
 
         #weapon-bar {
@@ -270,6 +292,7 @@
             #health-bar-bg { width: 120px; }
             #ammo-display { left: 160px; }
             #ammo-label { left: 160px; }
+            #reload-indicator { left: 160px; }
             #wave-announce { font-size: 3rem; }
             #boss-bar { width: 200px; }
         }
@@ -296,7 +319,12 @@
     </div>
 
     <div id="hud">
-        <div id="crosshair"></div>
+        <div id="crosshair">
+            <div id="ch-dot"></div>
+            <div id="ch-cross-h"></div>
+            <div id="ch-cross-v"></div>
+            <div id="ch-ring"></div>
+        </div>
         <div class="hud-top">
             <div id="wave-display">WAVE 1</div>
             <div id="score-display">0</div>
@@ -310,11 +338,13 @@
         <div id="health-bar-bg"><div id="health-bar"></div></div>
         <div id="ammo-display">∞</div>
         <div id="ammo-label">AMMO</div>
+        <div id="reload-indicator">RELOADING</div>
+        <div id="speed-timer"></div>
         <div id="weapon-bar">
             <div class="weapon-slot active" data-weapon="0">1 PISTOL</div>
             <div class="weapon-slot" data-weapon="1">2 SHOTGUN</div>
             <div class="weapon-slot" data-weapon="2">3 RIFLE</div>
-            <div class="weapon-slot" data-weapon="3" id="Partical Gun-slot" style="display:none;">4 Partical Gun</div>
+            <div class="weapon-slot" data-weapon="3" id="raygun-slot" style="display:none;">4 PARTICLE GUN</div>
         </div>
         <div class="threat-edge" id="threat-left"></div>
         <div class="threat-edge" id="threat-right"></div>
@@ -340,7 +370,7 @@
         </div>
     </div>
 
-    <script type="importmap">
+        <script type="importmap">
     {
         "imports": {
             "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
@@ -449,16 +479,17 @@
     callsignInput.addEventListener('touchend', e => e.stopPropagation());
     emailInput.addEventListener('click', e => e.stopPropagation());
     emailInput.addEventListener('touchend', e => e.stopPropagation());
-        // ═══════════════════════════════════════
+
+    // ═══════════════════════════════════════
     // CONFIG
     // ═══════════════════════════════════════
     const CONFIG = {
         player: { height: 1.6, health: 100 },
         weapons: [
-            { name: 'Pistol',  damage: 25, rate: 0.3,  ammo: Infinity, spread: 0,    pellets: 1, auto: false },
-            { name: 'Shotgun', damage: 15, rate: 0.8,  ammo: 20,        spread: 0.08, pellets: 6, auto: false },
-            { name: 'Rifle',   damage: 35, rate: 0.12, ammo: 60,       spread: 0.02, pellets: 1, auto: true  },
-            { name: 'Partical Gun',  damage: 9999, rate: 0.5, ammo: 0,  spread: 0,    pellets: 1, auto: false, pierce: 3 },
+            { name: 'Pistol',        damage: 25,   rate: 0.3,  spread: 0,    pellets: 1, auto: false, clipSize: 12, reloadTime: 1.2 },
+            { name: 'Shotgun',       damage: 15,   rate: 0.8,  spread: 0.08, pellets: 6, auto: false, clipSize: 6,  reloadTime: 2.0, falloffStart: 10, falloffEnd: 25 },
+            { name: 'Rifle',         damage: 35,   rate: 0.12, spread: 0.02, pellets: 1, auto: true,  clipSize: 30, reloadTime: 1.8 },
+            { name: 'Particle Gun',  damage: 9999, rate: 0.5,  spread: 0,    pellets: 1, auto: false, clipSize: 5,  reloadTime: 2.5, pierce: 3 },
         ],
         enemies: {
             shambler: { speed: 1.8, health: 100, damage: 10, points: 10,  scale: 1.2 },
@@ -480,8 +511,18 @@
     let score = 0, kills = 0, wave = 0;
     let hp = CONFIG.player.health;
     let curWeapon = 0;
-    let ammo = [Infinity, 20, 60];
-    let maxAmmo = [Infinity, 20, 60, 25];
+
+    // ── Magazine / Reload system ──
+    // clipAmmo = rounds currently in magazine
+    // reserveAmmo = total spare rounds (pistol is Infinity)
+    let clipAmmo    = [12, 6, 30, 5];
+    let reserveAmmo = [Infinity, 20, 60, 0];
+    const maxClip   = [12, 6, 30, 5];
+    const maxReserve = [Infinity, 40, 90, 25];
+    let isReloading = false;
+    let reloadTimer = 0;
+    let reloadDuration = 0;
+
     let lastShotTime = 0;
     let waveEnemiesLeft = 0;
     let waveTimer = 0;
@@ -535,7 +576,7 @@
     const activeShockwaves = [];
     const clock = new THREE.Clock();
 
-    // ═══════════════════════════════════════
+      // ═══════════════════════════════════════
     // PROCEDURAL AUDIO SYSTEM (zero files)
     // ═══════════════════════════════════════
     let audioCtx = null;
@@ -651,7 +692,8 @@
         sub.connect(subGain).connect(audioCtx.destination);
         sub.start(now); sub.stop(now + 0.11);
     }
-       // ── 3. Zombie Growls ──
+
+    // ── 3. Zombie Growls ──
     const GROWL_PROFILES = {
         shambler: { freq: 75, freqEnd: 55, modRate: 3, modDepth: 20, dur: 0.6, vol: 0.08, type: 'sawtooth' },
         runner:   { freq: 140, freqEnd: 100, modRate: 12, modDepth: 40, dur: 0.3, vol: 0.07, type: 'square' },
@@ -862,7 +904,7 @@
         noise.stop(now + raspDur + 0.01); thud.stop(now + thudDelay + 0.13);
     }
 
-    // ── 6. Wave Klaxon ──
+          // ── 6. Wave Klaxon ──
     function playWaveKlaxon(isBossWave) {
         if (!audioCtx) return;
         const now = audioCtx.currentTime;
@@ -957,7 +999,8 @@
             max_ammo:     { notes: [330, 440, 554, 659], dur: 0.07, gap: 0.05, vol: 0.08, type: 'triangle', ff: 3500 },
             speed:        { notes: [587, 784, 988],      dur: 0.05, gap: 0.04, vol: 0.08, type: 'square',   ff: 2000 },
             nuke:         { notes: [262, 330, 392, 523], dur: 0.10, gap: 0.07, vol: 0.12, type: 'sawtooth', ff: 2500 },
-            Partical Gun_ammo: { notes: [220, 440, 660, 880], dur: 0.12, gap: 0.06, vol: 0.10, type: 'sine',     ff: 4000 },
+            raygun_ammo:  { notes: [228, 440, 668, 880], dur: 0.12, gap: 0.06, vol: 0.10, type: 'sine',     ff: 4000 },
+            reload:       { notes: [600, 800],           dur: 0.05, gap: 0.06, vol: 0.06, type: 'triangle', ff: 3000 },
         };
         const p = profiles[pickupType] || profiles.health;
         for (let i = 0; i < p.notes.length; i++) {
@@ -1181,7 +1224,8 @@
     // ═══════════════════════════════════════
     // END AUDIO SYSTEM
     // ═══════════════════════════════════════
-        // ═══════════════════════════════════════
+
+            // ═══════════════════════════════════════
     // SCENE
     // ═══════════════════════════════════════
     const scene = new THREE.Scene();
@@ -1371,7 +1415,7 @@
             loadWeapon('pistol'),
             loadWeapon('shotgun'),
             loadWeapon('rifle'),
-            loadWeapon('Partical Gun')
+            loadWeapon('raygun')
         ]);
 
         for (const [name, model] of Object.entries(models)) {
@@ -1392,19 +1436,19 @@
     }
     init();
 
-    // ═══════════════════════════════════════
+          // ═══════════════════════════════════════
     // FIRST-PERSON WEAPON SYSTEM
     // ═══════════════════════════════════════
     const weaponHolder = new THREE.Group();
     camera.add(weaponHolder);
 
-    const WEAPON_NAMES = ['pistol', 'shotgun', 'rifle', 'Partical Gun'];
+    const WEAPON_NAMES = ['pistol', 'shotgun', 'rifle', 'raygun'];
 
     const FP = {
         pistol:  { scale: 0.18, rotY: -Math.PI / 2 },
         shotgun: { scale: 0.60, rotY: -Math.PI / 2 },
         rifle:   { scale: 0.55, rotY: -Math.PI / 2 },
-        Partical Gun:  { scale: 0.40, rotY: -Math.PI / 2 },
+        raygun:  { scale: 0.40, rotY: -Math.PI / 2 },
     };
 
     const REST_POS = new THREE.Vector3(0.2, -0.25, -0.45);
@@ -1419,18 +1463,15 @@
     let wpnBobTime = 0;
     let pendingSwap = -1;
 
-    const RAISE_SPD    = 10;
-    const LOWER_SPD    = 5;
     const RECOIL_AMT   = 0.035;
     const RECOIL_RECOVER = 8;
-    const HOLD_TIME    = 0.45;
 
     const activeCasings = [];
     const casingGeo = new THREE.CylinderGeometry(0.008, 0.008, 0.03, 6);
     const casingMat = new THREE.MeshStandardMaterial({
         color: 0xccaa44, metalness: 0.8, roughness: 0.3
     });
-    const CASING_Y_OFFSET = { pistol: 0.07, shotgun: 0, rifle: 0, Partical Gun: -999 };
+    const CASING_Y_OFFSET = { pistol: 0.07, shotgun: 0, rifle: 0, raygun: -999 };
 
     const mFlashCanvas = document.createElement('canvas');
     mFlashCanvas.width = 64;
@@ -1452,10 +1493,10 @@
     mFlashSprite.scale.set(0.08, 0.08, 0.08);
     mFlashSprite.visible = false;
     const MUZZLE_OFFSETS = [
-    { x: 0, y: 0.06, z: -0.30 },
-    { x: 0, y: 0.04, z: -0.95 },
-    { x: 0, y: 0.07, z: -0.90 },
-    { x: 0, y: 0.05, z: -0.40 },
+        { x: 0, y: 0.06, z: -0.30 },
+        { x: 0, y: 0.04, z: -0.95 },
+        { x: 0, y: 0.07, z: -0.90 },
+        { x: 0, y: 0.05, z: -0.40 },
     ];
     mFlashSprite.position.set(0, 0.02, -0.35);
     weaponHolder.add(mFlashSprite);
@@ -1494,17 +1535,48 @@
     function swapWeapon(newIndex) {
         if (newIndex === curWeapon) return;
         if (wpnState === 'swapDown' || wpnState === 'swapUp') return;
+        // Cancel reload on swap
+        if (isReloading) {
+            isReloading = false;
+            reloadTimer = 0;
+            document.getElementById('reload-indicator').style.display = 'none';
+        }
         pendingFire = false;
         pendingSwap = newIndex;
         wpnState = 'swapDown';
         playWeaponDown();
     }
 
-    function triggerFire() {
-        if (pendingFire) return;
-        pendingFire = true;
-        if (wpnState === 'rest' || wpnState === 'lowering') {
-            wpnState = 'raising';
+    // ── RELOAD SYSTEM ──
+    function startReload() {
+        if (isReloading) return;
+        if (clipAmmo[curWeapon] >= maxClip[curWeapon]) return;
+        if (reserveAmmo[curWeapon] <= 0 && reserveAmmo[curWeapon] !== Infinity) return;
+
+        isReloading = true;
+        reloadDuration = CONFIG.weapons[curWeapon].reloadTime;
+        reloadTimer = reloadDuration;
+        playPickupChime('reload');
+        document.getElementById('reload-indicator').style.display = 'block';
+    }
+
+    function updateReload(dt) {
+        if (!isReloading) return;
+        reloadTimer -= dt;
+        if (reloadTimer <= 0) {
+            isReloading = false;
+            document.getElementById('reload-indicator').style.display = 'none';
+
+            const needed = maxClip[curWeapon] - clipAmmo[curWeapon];
+            if (reserveAmmo[curWeapon] === Infinity) {
+                clipAmmo[curWeapon] = maxClip[curWeapon];
+            } else {
+                const take = Math.min(needed, reserveAmmo[curWeapon]);
+                clipAmmo[curWeapon] += take;
+                reserveAmmo[curWeapon] -= take;
+            }
+            updateAmmoHUD();
+            playWeaponUp(curWeapon);
         }
     }
 
@@ -1517,7 +1589,7 @@
         mFlashSprite.position.set(mPos.x, mPos.y, mPos.z);
         mFlashSprite.visible = true;
         mFlashSprite.material.rotation = Math.random() * Math.PI * 2;
-        const FLASH_SIZES = [0.20, 0.32, 0.22];
+        const FLASH_SIZES = [0.20, 0.32, 0.22, 0.28];
         const flashSize = FLASH_SIZES[curWeapon] + Math.random() * 0.08;
         mFlashSprite.scale.set(flashSize, flashSize, flashSize);
         mFlashVis = 0.06;
@@ -1526,11 +1598,14 @@
     }
 
     function spawnCasing() {
+        const yOff = CASING_Y_OFFSET[WEAPON_NAMES[curWeapon]];
+        if (yOff === -999) return; // raygun has no casings
+
         const casing = new THREE.Mesh(casingGeo, casingMat);
         const worldPos = new THREE.Vector3();
         weaponHolder.getWorldPosition(worldPos);
         casing.position.copy(worldPos);
-        casing.position.y += CASING_Y_OFFSET[WEAPON_NAMES[curWeapon]] || 0;
+        casing.position.y += yOff;
 
         scene.add(casing);
 
@@ -1550,36 +1625,83 @@
         });
     }
 
-    function updateCrosshairADS(t) {
+    // ── CROSSHAIR: dot for hip, weapon-specific ADS ──
+    function updateCrosshairADS(adsT) {
         const ch = document.getElementById('crosshair');
-        const size = 30 - (t * 16);
-        ch.style.width = size + 'px';
-        ch.style.height = size + 'px';
+        const dot = document.getElementById('ch-dot');
+        const crossH = document.getElementById('ch-cross-h');
+        const crossV = document.getElementById('ch-cross-v');
+        const ring = document.getElementById('ch-ring');
+
+        if (adsT < 0.3) {
+            // Hip fire: small white dot only
+            ch.style.width = '30px';
+            ch.style.height = '30px';
+            dot.style.display = 'block';
+            dot.style.width = '4px';
+            dot.style.height = '4px';
+            crossH.style.display = 'none';
+            crossV.style.display = 'none';
+            ring.style.display = 'none';
+        } else {
+            // ADS: weapon-specific reticle
+            const size = 30 - (adsT * 8);
+            ch.style.width = size + 'px';
+            ch.style.height = size + 'px';
+
+            switch (curWeapon) {
+                case 0: // Pistol — simple cross
+                    dot.style.display = 'block';
+                    dot.style.width = '3px';
+                    dot.style.height = '3px';
+                    crossH.style.display = 'block';
+                    crossV.style.display = 'block';
+                    ring.style.display = 'none';
+                    break;
+                case 1: // Shotgun — ring/circle
+                    dot.style.display = 'none';
+                    crossH.style.display = 'none';
+                    crossV.style.display = 'none';
+                    ring.style.display = 'block';
+                    ring.style.width = '22px';
+                    ring.style.height = '22px';
+                    break;
+                case 2: // Rifle — cross + center dot
+                    dot.style.display = 'block';
+                    dot.style.width = '2px';
+                    dot.style.height = '2px';
+                    crossH.style.display = 'block';
+                    crossV.style.display = 'block';
+                    ring.style.display = 'none';
+                    break;
+                case 3: // Raygun — ring + dot
+                    dot.style.display = 'block';
+                    dot.style.width = '3px';
+                    dot.style.height = '3px';
+                    crossH.style.display = 'none';
+                    crossV.style.display = 'none';
+                    ring.style.display = 'block';
+                    ring.style.width = '18px';
+                    ring.style.height = '18px';
+                    ring.style.borderColor = 'rgba(160,80,255,0.7)';
+                    break;
+            }
+        }
     }
 
+    // ── WEAPON SYSTEM UPDATE ──
+    // Hip fire: weapon stays at REST_POS (hold position)
+    // ADS: weapon lerps to AIM_POS
+    // No raise/lower on hip fire — just recoil kick
     function updateWeaponSystem(dt) {
-        const now = performance.now() / 1000;
-        const timeSinceShot = now - lastFiredAt;
-
-        const raiseSpeed = pendingFire ? RAISE_SPD * 3 : RAISE_SPD;
+        const SWAP_SPEED = 10;
 
         switch (wpnState) {
             case 'rest':
-                wpnLerp = Math.max(0, wpnLerp - LOWER_SPD * dt);
-                break;
-            case 'raising':
-                wpnLerp = Math.min(1, wpnLerp + raiseSpeed * dt);
-                if (wpnLerp >= 1) wpnState = 'aimed';
-                break;
-            case 'aimed':
-                if (timeSinceShot > HOLD_TIME && !fireHeld) wpnState = 'lowering';
-                break;
-            case 'lowering':
-                wpnLerp = Math.max(0, wpnLerp - LOWER_SPD * dt);
-                if (wpnLerp <= 0) wpnState = 'rest';
+                // nothing — weapon at rest
                 break;
             case 'swapDown':
-                wpnLerp = Math.max(-0.5, wpnLerp - RAISE_SPD * dt);
+                wpnLerp = Math.max(-0.5, wpnLerp - SWAP_SPEED * dt);
                 if (wpnLerp <= -0.5) {
                     curWeapon = pendingSwap;
                     pendingSwap = -1;
@@ -1590,17 +1712,12 @@
                 }
                 break;
             case 'swapUp':
-                wpnLerp = Math.min(0, wpnLerp + RAISE_SPD * dt);
+                wpnLerp = Math.min(0, wpnLerp + SWAP_SPEED * dt);
                 if (wpnLerp >= 0) {
                     wpnLerp = 0;
                     wpnState = 'rest';
                 }
                 break;
-        }
-
-        if (pendingFire && wpnLerp >= 0.95) {
-            pendingFire = false;
-            executeShot();
         }
 
         if (mFlashVis > 0) {
@@ -1613,26 +1730,33 @@
 
         recoilKick = Math.max(0, recoilKick - RECOIL_RECOVER * dt);
 
+        // ADS lerp
         const adsTarget = isADS ? 1 : 0;
         adsAmount += (adsTarget - adsAmount) * Math.min(1, ADS_LERP_SPEED * dt);
 
+        // FOV
         const baseFov = isSprinting ? SPRINT_FOV : BASE_FOV;
         const targetFOV = baseFov + (ADS_FOV - baseFov) * adsAmount;
         camera.fov += (targetFOV - camera.fov) * Math.min(1, 10 * dt);
         camera.updateProjectionMatrix();
 
-        const effectiveAim = Math.max(Math.max(0, Math.min(1, wpnLerp)), adsAmount);
-
+        // Weapon bob
         const bobMoveAmp = isMoving ? 0.004 : 0.001;
         const bobAmp = bobMoveAmp * (1 - adsAmount * 0.7);
         wpnBobTime += dt * (isMoving ? 3 : 1);
         const bobX = Math.sin(wpnBobTime * 1.5) * bobAmp;
         const bobY = Math.sin(wpnBobTime * 2.0) * bobAmp;
 
-        const t = effectiveAim;
-        const px = REST_POS.x + (AIM_POS.x - REST_POS.x) * t + bobX;
-        const py = REST_POS.y + (AIM_POS.y - REST_POS.y) * t + bobY + recoilKick * 0.5;
-        const pz = REST_POS.z + (AIM_POS.z - REST_POS.z) * t + recoilKick;
+        // Position: rest ↔ aim based on ADS only (hip fire stays at hold)
+        const t = adsAmount;
+        let px = REST_POS.x + (AIM_POS.x - REST_POS.x) * t + bobX;
+        let py = REST_POS.y + (AIM_POS.y - REST_POS.y) * t + bobY + recoilKick * 0.5;
+        let pz = REST_POS.z + (AIM_POS.z - REST_POS.z) * t + recoilKick;
+
+        // Apply swap offset
+        if (wpnState === 'swapDown' || wpnState === 'swapUp') {
+            py += wpnLerp * 0.6;
+        }
 
         weaponHolder.position.set(px, py, pz);
 
@@ -1641,7 +1765,19 @@
         const rz = REST_ROT_BASE.z + (AIM_ROT_BASE.z - REST_ROT_BASE.z) * t;
         weaponHolder.rotation.set(rx, ry, rz);
 
-        updateCrosshairADS(t);
+        updateCrosshairADS(adsAmount);
+
+        // Reload update
+        updateReload(dt);
+
+        // Speed boost timer HUD
+        const speedEl = document.getElementById('speed-timer');
+        if (speedBoostTimer > 0) {
+            speedEl.style.display = 'block';
+            speedEl.textContent = `⚡ SPEED ${speedBoostTimer.toFixed(1)}s`;
+        } else {
+            speedEl.style.display = 'none';
+        }
     }
 
     function updateCasings(dt) {
@@ -1666,7 +1802,8 @@
             }
         }
     }
-     // ═══════════════════════════════════════
+
+         // ═══════════════════════════════════════
     // FLOATING DAMAGE NUMBERS
     // ═══════════════════════════════════════
     function spawnDamageNumber(position, damage, isCritical) {
@@ -1797,22 +1934,37 @@
     }, { passive: true });
 
     // ═══════════════════════════════════════
-    // SHOOTING — semi-auto gated, ADS spread
+    // SHOOTING — magazine system, shotgun falloff, no powerup raycaster
     // ═══════════════════════════════════════
     const raycaster = new THREE.Raycaster();
     raycaster.far = 80;
 
     function shoot() {
         if (state !== 'playing') return;
+        if (isReloading) return;
+
         const now = performance.now() / 1000;
         const w = CONFIG.weapons[curWeapon];
         if (now - lastShotTime < w.rate) return;
-        if (ammo[curWeapon] <= 0) { playDryFire(); return; }
+
+        // Magazine system: check clip
+        if (clipAmmo[curWeapon] <= 0) {
+            // Auto-reload if reserve available
+            if (reserveAmmo[curWeapon] > 0 || reserveAmmo[curWeapon] === Infinity) {
+                startReload();
+            } else {
+                playDryFire();
+            }
+            return;
+        }
+
         lastShotTime = now;
-        if (ammo[curWeapon] !== Infinity) ammo[curWeapon]--;
+        clipAmmo[curWeapon]--;
         updateAmmoHUD();
 
-        triggerFire();
+        // Recoil kick (hip fire shoots from hold position)
+        recoilKick = RECOIL_AMT;
+        executeShot();
 
         const dir = new THREE.Vector3(0, 0, -1);
         dir.applyEuler(camera.rotation);
@@ -1834,49 +1986,47 @@
             });
 
             const hits = raycaster.intersectObjects(meshes, false);
-        if (hits.length > 0) {
-            const maxPierce = w.pierce || 1;
-            let pierced = 0;
-            const hitEnemies = new Set();
+            if (hits.length > 0) {
+                const maxPierce = w.pierce || 1;
+                let pierced = 0;
+                const hitEnemies = new Set();
 
-            for (const hit of hits) {
-                if (pierced >= maxPierce) break;
-                const hitObj = hit.object;
+                for (const hit of hits) {
+                    if (pierced >= maxPierce) break;
+                    const hitObj = hit.object;
 
-                for (const enemy of activeEnemies) {
-                    if (enemy.dead || hitEnemies.has(enemy)) continue;
-                    let found = false;
-                    enemy.group.traverse(c => { if (c === hitObj) found = true; });
-                    if (found) {
-                        damageEnemy(enemy, w.damage, hit.point);
-                        hitEnemies.add(enemy);
-                        pierced++;
-                        break;
+                    for (const enemy of activeEnemies) {
+                        if (enemy.dead || hitEnemies.has(enemy)) continue;
+                        let found = false;
+                        enemy.group.traverse(c => { if (c === hitObj) found = true; });
+                        if (found) {
+                            // Shotgun damage falloff
+                            let effectiveDamage = w.damage;
+                            if (w.falloffStart !== undefined && w.falloffEnd !== undefined) {
+                                const hitDist = camera.position.distanceTo(hit.point);
+                                if (hitDist > w.falloffStart) {
+                                    const falloff = 1 - Math.min(1, (hitDist - w.falloffStart) / (w.falloffEnd - w.falloffStart));
+                                    effectiveDamage = w.damage * Math.max(0.1, falloff);
+                                }
+                            }
+                            damageEnemy(enemy, effectiveDamage, hit.point);
+                            hitEnemies.add(enemy);
+                            pierced++;
+                            break;
+                        }
                     }
                 }
             }
+            // NOTE: power-up raycaster REMOVED — pickup is proximity-only now
         }
 
-            const puMeshes = [];
-            activePowerups.forEach(pu => {
-                pu.group.traverse(c => { if (c.isMesh) puMeshes.push(c); });
-            });
-            const puHits = raycaster.intersectObjects(puMeshes, false);
-            if (puHits.length > 0) {
-                const hitMesh = puHits[0].object;
-                for (let pi = activePowerups.length - 1; pi >= 0; pi--) {
-                    let found = false;
-                    activePowerups[pi].group.traverse(c => { if (c === hitMesh) found = true; });
-                    if (found) {
-                        collectPowerup(activePowerups[pi], pi);
-                        break;
-                    }
-                }
-            }
+        // Auto-reload if clip just emptied
+        if (clipAmmo[curWeapon] <= 0 && (reserveAmmo[curWeapon] > 0 || reserveAmmo[curWeapon] === Infinity)) {
+            setTimeout(() => { if (state === 'playing' && !isReloading) startReload(); }, 300);
         }
     }
 
-    // ═══════════════════════════════════════
+        // ═══════════════════════════════════════
     // PROCEDURAL POWER-UP MODELS
     // ═══════════════════════════════════════
     function createBulletModel(color, length, radius) {
@@ -1986,6 +2136,28 @@
         return group;
     }
 
+    function createRaygunAmmoModel() {
+        const group = new THREE.Group();
+        const mat = new THREE.MeshStandardMaterial({
+            color: 0xaa00ff, emissive: 0xaa00ff, emissiveIntensity: 0.9, metalness: 0.6, roughness: 0.2
+        });
+        const core = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 10), mat);
+        core.position.y = 0.2;
+        group.add(core);
+        const ringMat = new THREE.MeshStandardMaterial({
+            color: 0x44ff88, emissive: 0x44ff88, emissiveIntensity: 0.7
+        });
+        const ring1 = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.02, 8, 20), ringMat);
+        ring1.position.y = 0.2;
+        ring1.rotation.x = Math.PI / 2;
+        group.add(ring1);
+        const ring2 = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.02, 8, 20), ringMat);
+        ring2.position.y = 0.2;
+        ring2.rotation.z = Math.PI / 2;
+        group.add(ring2);
+        return group;
+    }
+
     function addGlow(group, color) {
         const light = new THREE.PointLight(color, 1.5, 5);
         light.position.y = 0.3;
@@ -1993,14 +2165,14 @@
     }
 
     const POWERUP_TYPES = [
-        { id: 'pistol_ammo', weight: 20, create: () => { const g = createBulletModel(0xffcc44, 0.2, 0.04); addGlow(g, 0xffcc44); return g; } },
-        { id: 'rifle_ammo',  weight: 20, create: () => { const g = createBulletModel(0xff8833, 0.3, 0.05); addGlow(g, 0xff8833); return g; } },
-        { id: 'shotgun_ammo',weight: 15, create: () => { const g = createShotgunShellModel(); addGlow(g, 0xff3333); return g; } },
-        { id: 'health',      weight: 25, create: () => { const g = createMedkitModel(); addGlow(g, 0x39FF14); return g; } },
-        { id: 'nuke',        weight: 5,  create: () => { const g = createNukeModel(); addGlow(g, 0x39FF14); return g; } },
-        { id: 'speed',       weight: 8,  create: () => { const g = createSpeedModel(); addGlow(g, 0x4488ff); return g; } },
-        { id: 'max_ammo',    weight: 7,  create: () => { const g = createMaxAmmoModel(); addGlow(g, 0xaa44ff); return g; } },
-        { id: 'Partical Gun_ammo', weight: 75, create: () => { const g = createNukeModel(); addGlow(g, 0x00ff44); return g; } },
+        { id: 'pistol_ammo',  weight: 20, create: () => { const g = createBulletModel(0xffcc44, 0.2, 0.04); addGlow(g, 0xffcc44); return g; } },
+        { id: 'rifle_ammo',   weight: 20, create: () => { const g = createBulletModel(0xff8833, 0.3, 0.05); addGlow(g, 0xff8833); return g; } },
+        { id: 'shotgun_ammo', weight: 15, create: () => { const g = createShotgunShellModel(); addGlow(g, 0xff3333); return g; } },
+        { id: 'health',       weight: 25, create: () => { const g = createMedkitModel(); addGlow(g, 0x39FF14); return g; } },
+        { id: 'nuke',         weight: 5,  create: () => { const g = createNukeModel(); addGlow(g, 0x39FF14); return g; } },
+        { id: 'speed',        weight: 8,  create: () => { const g = createSpeedModel(); addGlow(g, 0x4488ff); return g; } },
+        { id: 'max_ammo',     weight: 7,  create: () => { const g = createMaxAmmoModel(); addGlow(g, 0xaa44ff); return g; } },
+        { id: 'raygun_ammo',  weight: 3,  create: () => { const g = createRaygunAmmoModel(); addGlow(g, 0xaa00ff); return g; } },
     ];
 
     const TOTAL_PU_WEIGHT = POWERUP_TYPES.reduce((s, p) => s + p.weight, 0);
@@ -2026,11 +2198,11 @@
                 updateHUD();
                 break;
             case 'rifle_ammo':
-                ammo[2] += 15;
+                reserveAmmo[2] = Math.min(reserveAmmo[2] + 15, maxReserve[2]);
                 updateAmmoHUD();
                 break;
             case 'shotgun_ammo':
-                ammo[1] += 6;
+                reserveAmmo[1] = Math.min(reserveAmmo[1] + 6, maxReserve[1]);
                 updateAmmoHUD();
                 break;
             case 'nuke':
@@ -2046,13 +2218,23 @@
                 speedBoostTimer = 8;
                 break;
             case 'max_ammo':
-                ammo[1] = maxAmmo[1];
-                ammo[2] = maxAmmo[2];
+                // Refill all reserves AND all clips
+                reserveAmmo[1] = maxReserve[1];
+                reserveAmmo[2] = maxReserve[2];
+                for (let i = 0; i < maxClip.length; i++) {
+                    clipAmmo[i] = maxClip[i];
+                }
+                if (isReloading) {
+                    isReloading = false;
+                    reloadTimer = 0;
+                    document.getElementById('reload-indicator').style.display = 'none';
+                }
                 updateAmmoHUD();
                 break;
-                case 'Partical Gun_ammo':
-                ammo[3] = Math.min(ammo[3] + 25, maxAmmo[3]);
-                document.getElementById('Partical gun-slot').style.display = '';
+            case 'raygun_ammo':
+                reserveAmmo[3] = Math.min(reserveAmmo[3] + 10, maxReserve[3]);
+                clipAmmo[3] = maxClip[3];
+                document.getElementById('raygun-slot').style.display = '';
                 updateAmmoHUD();
                 break;
         }
@@ -2070,6 +2252,7 @@
         activePowerups.push({ group, type: puType.id, life: 15 });
     }
 
+    // Proximity-only pickup — no shoot-to-collect
     function updatePowerups(dt) {
         if (speedBoostTimer > 0) speedBoostTimer -= dt;
 
@@ -2079,6 +2262,7 @@
             p.group.rotation.y += dt * 2;
             p.group.position.y = 0.3 + Math.sin(performance.now() / 1000 * 2 + i) * 0.08;
 
+            // Walk over to collect
             const dist = camera.position.distanceTo(p.group.position);
             if (dist < 1.5) {
                 collectPowerup(p, i);
@@ -2127,6 +2311,7 @@
             }
         }
     }
+
          // ═══════════════════════════════════════
     // ENEMIES
     // ═══════════════════════════════════════
@@ -2159,47 +2344,48 @@
         const clips = anims[modelKey] || anims['brute'] || [];
         let walkAction = null, deadAction = null;
 
-       // --- Categorize all 3 clips explicitly ---
-let walkClip = null, runClip = null, deathClip = null;
-for (const clip of clips) {
-    const n = clip.name.toLowerCase();
-    if (n.includes('dead') || n.includes('death') || n.includes('die') || n.includes('dying') || n.includes('shot') || n.includes('fall')) {
-        deathClip = clip;
-    } else if (n.includes('walk')) {
-        walkClip = clip;
-    } else if (n.includes('run') || n.includes('sprint') || n.includes('jog')) {
-        runClip = clip;
-    }
-}
-// Fallback by index if names are unexpected
-if (!walkClip && clips.length > 0) walkClip = clips[0];
-if (!runClip && clips.length > 1) runClip = clips[1];
-if (!deathClip && clips.length > 2) deathClip = clips[2];
+        // --- Categorize all clips explicitly ---
+        let walkClip = null, runClip = null, deathClip = null;
+        for (const clip of clips) {
+            const n = clip.name.toLowerCase();
+            if (n.includes('dead') || n.includes('death') || n.includes('die') || n.includes('dying') || n.includes('shot') || n.includes('fall')) {
+                deathClip = clip;
+            } else if (n.includes('walk')) {
+                walkClip = clip;
+            } else if (n.includes('run') || n.includes('sprint') || n.includes('jog')) {
+                runClip = clip;
+            }
+        }
+        // Fallback by index if names are unexpected
+        if (!walkClip && clips.length > 0) walkClip = clips[0];
+        if (!runClip && clips.length > 1) runClip = clips[1];
+        if (!deathClip && clips.length > 2) deathClip = clips[2];
 
-// --- Per-zombie animation tuning ---
-const animConfig = {
-    shambler: { useClip: 'walk', timeScale: 0.45 },
-    runner:   { useClip: 'walk',  timeScale: 0.05 },
-    brute:    { useClip: 'walk', timeScale: 0.75 },
-    tank:     { useClip: 'walk',  timeScale: 0.35 }
-};
-const aCfg = animConfig[modelKey] || { useClip: 'walk', timeScale: 0.7 };
- console.log('CLIPS for', modelKey, clips.map(c => c.name));       
-const moveClip = (aCfg.useClip === 'run' && runClip) ? runClip : (walkClip || runClip || clips[0]);
+        // --- Per-zombie animation tuning ---
+        const animConfig = {
+            shambler: { useClip: 'walk', timeScale: 0.45 },
+            runner:   { useClip: 'walk', timeScale: 0.05 },
+            brute:    { useClip: 'walk', timeScale: 0.75 },
+            tank:     { useClip: 'walk', timeScale: 0.35 }
+        };
+        const aCfg = animConfig[modelKey] || { useClip: 'walk', timeScale: 0.7 };
+        console.log('CLIPS for', modelKey, clips.map(c => c.name));
+        const moveClip = (aCfg.useClip === 'run' && runClip) ? runClip : (walkClip || runClip || clips[0]);
 
-walkAction = mixer.clipAction(moveClip);
-walkAction.timeScale = aCfg.timeScale;
-walkAction.play();
+        walkAction = mixer.clipAction(moveClip);
+        walkAction.timeScale = aCfg.timeScale;
+        walkAction.play();
 
-if (deathClip) {
-    deadAction = mixer.clipAction(deathClip);
-    deadAction.loop = THREE.LoopOnce;
-    deadAction.clampWhenFinished = true;
-} else if (clips.length > 2) {
-    deadAction = mixer.clipAction(clips[2]);
-    deadAction.loop = THREE.LoopOnce;
-    deadAction.clampWhenFinished = true;
-}
+        if (deathClip) {
+            deadAction = mixer.clipAction(deathClip);
+            deadAction.loop = THREE.LoopOnce;
+            deadAction.clampWhenFinished = true;
+        } else if (clips.length > 2) {
+            deadAction = mixer.clipAction(clips[2]);
+            deadAction.loop = THREE.LoopOnce;
+            deadAction.clampWhenFinished = true;
+        }
+
         const hitRadius = type === 'boss' ? 1.3 : 0.9;
         const hitHeight = type === 'boss' ? 3.2 : 2.5;
         const hitbox = new THREE.Mesh(
@@ -2207,7 +2393,7 @@ if (deathClip) {
             new THREE.MeshBasicMaterial({ visible: false })
         );
         hitbox.position.y = hitHeight / 2;
-        group.add(hitbox); // ★ FIX: add hitbox to group so raycaster can hit it
+        group.add(hitbox);
 
         scene.add(group);
 
@@ -2305,12 +2491,6 @@ if (deathClip) {
 
     function killEnemy(enemy) {
         enemy.dead = true;
-        // Play death animation clip if available
-        if (enemy.deadAction) {
-            if (enemy.walkAction) enemy.walkAction.stop();
-            enemy.deadAction.reset();
-            enemy.deadAction.play();
-        }
         playDeathSound(enemy.type, enemy.group.position);
         kills++;
         score += enemy.points;
@@ -2352,43 +2532,45 @@ if (deathClip) {
             if (enemy.healthBar) scene.remove(enemy.healthBar.sprite);
         }
 
-        if (enemy.deadAction && enemy.type !== 'brute') {
-    if (enemy.mixer) enemy.mixer.stopAllAction();
-    enemy.deadAction.reset();
-    enemy.deadAction.setLoop(THREE.LoopOnce, 1);
-    enemy.deadAction.clampWhenFinished = true;
-    const clipDur = enemy.deadAction.getClip().duration;
-    enemy.deadAction.setEffectiveTimeScale(clipDur < 1.5 ? 0.3 : 1);
-    enemy.deadAction.setEffectiveWeight(1);
-    enemy.deadAction.play();
- } else {
-        if (enemy.mixer) enemy.mixer.stopAllAction();
-        enemy.tumbleX = (Math.random() - 0.5) * 10;
-        enemy.tumbleZ = (Math.random() - 0.5) * 10;
-        enemy.dropSpeed = 0;
-    }
+        // Unified death animation for ALL enemy types (including brute)
+        if (enemy.deadAction) {
+            if (enemy.mixer) enemy.mixer.stopAllAction();
+            enemy.deadAction.reset();
+            enemy.deadAction.setLoop(THREE.LoopOnce, 1);
+            enemy.deadAction.clampWhenFinished = true;
+            const clipDur = enemy.deadAction.getClip().duration;
+            enemy.deadAction.setEffectiveTimeScale(clipDur < 1.5 ? 0.3 : 1);
+            enemy.deadAction.setEffectiveWeight(1);
+            enemy.deadAction.play();
+        } else {
+            if (enemy.mixer) enemy.mixer.stopAllAction();
+            enemy.tumbleX = (Math.random() - 0.5) * 10;
+            enemy.tumbleZ = (Math.random() - 0.5) * 10;
+            enemy.dropSpeed = 0;
+        }
 
-    if (!enemy.isBoss && Math.random() < CONFIG.dropChance) {
-        spawnPowerup(enemy.group.position.clone());
+        if (!enemy.isBoss && Math.random() < CONFIG.dropChance) {
+            spawnPowerup(enemy.group.position.clone());
+        }
     }
-}
 
     function updateEnemies(dt) {
         for (let i = activeEnemies.length - 1; i >= 0; i--) {
             const e = activeEnemies[i];
-            e.mixer.update(dt);
 
             if (e.dead) {
-                    e.despawnTimer += dt;
-                    if (e.mixer) e.mixer.update(dt);
+                e.despawnTimer += dt;
+                if (e.mixer) e.mixer.update(dt);
 
-                    if (e.despawnTimer > CONFIG.despawnTime) {
-                        scene.remove(e.group);
-                        if (e.healthBar) scene.remove(e.healthBar.sprite);
-                        activeEnemies.splice(i, 1);
-                    }
-                    continue;
+                if (e.despawnTimer > CONFIG.despawnTime) {
+                    scene.remove(e.group);
+                    if (e.healthBar) scene.remove(e.healthBar.sprite);
+                    activeEnemies.splice(i, 1);
                 }
+                continue;
+            }
+
+            e.mixer.update(dt);
             if (!e.isBoss) updateHealthBar(e);
 
             const dir = new THREE.Vector3(
@@ -2411,10 +2593,10 @@ if (deathClip) {
                 e.group.position.addScaledVector(dir, e.speed * dt);
 
                 if (e.walkAction) {
-    let tScale = e.speed / ANIM_REFERENCE_SPEED;
-    if (e.type === 'tank') tScale *= 0.45;
-    e.walkAction.timeScale = tScale;
-}
+                    let tScale = e.speed / ANIM_REFERENCE_SPEED;
+                    if (e.type === 'tank') tScale *= 0.45;
+                    e.walkAction.timeScale = tScale;
+                }
                 if (dist < GROWL_RANGE) {
                     if (!e.growlCooldown) e.growlCooldown = Math.random() * 2;
                     e.growlCooldown -= dt;
@@ -2519,8 +2701,11 @@ if (deathClip) {
             betweenWaves = true;
             waveTimer = 4;
 
-            ammo[1] += 4;
-            ammo[2] += 15;
+            // Between-wave ammo refill (reserve)
+            reserveAmmo[1] += 4;
+            reserveAmmo[2] += 15;
+            if (reserveAmmo[1] > maxReserve[1]) reserveAmmo[1] = maxReserve[1];
+            if (reserveAmmo[2] > maxReserve[2]) reserveAmmo[2] = maxReserve[2];
             updateAmmoHUD();
         }
     }
@@ -2586,9 +2771,13 @@ if (deathClip) {
     }
 
     function updateAmmoHUD() {
-        const a = ammo[curWeapon];
-        document.getElementById('ammo-display').textContent =
-            a === Infinity ? '∞' : a;
+        const clip = clipAmmo[curWeapon];
+        const reserve = reserveAmmo[curWeapon];
+        if (reserve === Infinity) {
+            document.getElementById('ammo-display').textContent = `${clip} / ∞`;
+        } else {
+            document.getElementById('ammo-display').textContent = `${clip} / ${reserve}`;
+        }
     }
 
     function updateWeaponHUD() {
@@ -2615,8 +2804,8 @@ if (deathClip) {
         camera.position.y = CONFIG.player.height;
         if (isMoving) {
             const bobFreq = isSprinting ? 9 : 5;
-const bobAmt = isSprinting ? 0.015 : 0.008;
-const swayAmt = isSprinting ? 0.006 : 0.004;
+            const bobAmt = isSprinting ? 0.015 : 0.008;
+            const swayAmt = isSprinting ? 0.006 : 0.004;
             const bobVal = Math.sin(wpnBobTime * bobFreq);
             camera.position.y += bobVal * bobAmt;
             camera.position.x += Math.cos(wpnBobTime * bobFreq * 0.5) * swayAmt;
@@ -2635,7 +2824,7 @@ const swayAmt = isSprinting ? 0.006 : 0.004;
         }
     }
 
-    // ═══════════════════════════════════════
+       // ═══════════════════════════════════════
     // PLAYER MOVEMENT (WASD + Joystick + Gamepad)
     // ═══════════════════════════════════════
     const _moveForward = new THREE.Vector3();
@@ -2688,7 +2877,8 @@ const swayAmt = isSprinting ? 0.006 : 0.004;
         playerPos.x = Math.max(-ARENA_BOUNDS, Math.min(ARENA_BOUNDS, playerPos.x));
         playerPos.z = Math.max(-ARENA_BOUNDS, Math.min(ARENA_BOUNDS, playerPos.z));
     }
-         // ═══════════════════════════════════════
+
+    // ═══════════════════════════════════════
     // GAMEPAD SUPPORT (PS5 + Xbox)
     // ═══════════════════════════════════════
     window.addEventListener('gamepadconnected', e => {
@@ -2816,6 +3006,11 @@ const swayAmt = isSprinting ? 0.006 : 0.004;
             swapWeapon((curWeapon + 1) % 3);
         }
         gpRBPrev = r2;
+
+        // X button (index 2) to reload on gamepad
+        if (gp.buttons[2] && gp.buttons[2].pressed) {
+            startReload();
+        }
     }
 
     // ═══════════════════════════════════════
@@ -2836,6 +3031,10 @@ const swayAmt = isSprinting ? 0.006 : 0.004;
         stopHeartbeat();
         isSprinting = false;
         adsAmount = 0;
+        isReloading = false;
+        reloadTimer = 0;
+        document.getElementById('reload-indicator').style.display = 'none';
+        document.getElementById('speed-timer').style.display = 'none';
 
         playerPos.set(0, 0, 0);
 
@@ -2895,7 +3094,15 @@ const swayAmt = isSprinting ? 0.006 : 0.004;
         score = 0; kills = 0; wave = 0;
         hp = CONFIG.player.health;
         curWeapon = 0;
-        ammo = [Infinity, 20, 60];
+
+        // Magazine system reset
+        clipAmmo    = [12, 6, 30, 5];
+        reserveAmmo = [Infinity, 20, 60, 0];
+        isReloading = false;
+        reloadTimer = 0;
+        document.getElementById('reload-indicator').style.display = 'none';
+        document.getElementById('speed-timer').style.display = 'none';
+
         pitch = 0; yaw = 0;
         fireHeld = false;
         fireTouchId = null;
@@ -2941,6 +3148,7 @@ const swayAmt = isSprinting ? 0.006 : 0.004;
         activeShockwaves.length = 0;
 
         document.getElementById('boss-bar').style.display = 'none';
+        document.getElementById('raygun-slot').style.display = 'none';
 
         wpnLerp = 0;
         wpnState = 'rest';
@@ -2982,6 +3190,10 @@ const swayAmt = isSprinting ? 0.006 : 0.004;
         playDeathSting();
         isSprinting = false;
         adsAmount = 0;
+        isReloading = false;
+        reloadTimer = 0;
+        document.getElementById('reload-indicator').style.display = 'none';
+        document.getElementById('speed-timer').style.display = 'none';
         document.getElementById('boss-bar').style.display = 'none';
         document.getElementById('hud').style.display = 'none';
         document.getElementById('game-over').style.display = 'flex';
@@ -3025,8 +3237,9 @@ const swayAmt = isSprinting ? 0.006 : 0.004;
         e.stopPropagation();
         if (state === 'gameover') showMainMenu();
     });
-        document.getElementById('back-to-deadzone').addEventListener('click', e => { e.stopPropagation(); });
-document.getElementById('back-to-deadzone').addEventListener('touchend', e => { e.stopPropagation(); });
+
+    document.getElementById('back-to-deadzone').addEventListener('click', e => { e.stopPropagation(); });
+    document.getElementById('back-to-deadzone').addEventListener('touchend', e => { e.stopPropagation(); });
 
     renderer.domElement.addEventListener('mousedown', e => {
         if (e.button === 0) {
@@ -3086,8 +3299,23 @@ document.getElementById('back-to-deadzone').addEventListener('touchend', e => { 
         if (e.key === '1') swapWeapon(0);
         if (e.key === '2') swapWeapon(1);
         if (e.key === '3') swapWeapon(2);
+        if (e.key === '4') {
+            // Only swap to raygun if slot is visible (has ammo)
+            if (document.getElementById('raygun-slot').style.display !== 'none') {
+                swapWeapon(3);
+            }
+        }
         if (e.key === 'q' || e.key === 'Q') {
-            swapWeapon((curWeapon + 1) % CONFIG.weapons.length);
+            let next = (curWeapon + 1) % CONFIG.weapons.length;
+            // Skip raygun if not available
+            if (next === 3 && document.getElementById('raygun-slot').style.display === 'none') {
+                next = 0;
+            }
+            swapWeapon(next);
+        }
+        // R to reload
+        if (e.key === 'r' || e.key === 'R') {
+            startReload();
         }
     });
     document.addEventListener('keyup', e => {
@@ -3193,7 +3421,7 @@ document.getElementById('back-to-deadzone').addEventListener('touchend', e => { 
             updateGamepad(dt);
             updateMovement(dt);
 
-            if (fireHeld && CONFIG.weapons[curWeapon].auto) shoot();
+            if (fireHeld && CONFIG.weapons[curWeapon].auto && !isReloading) shoot();
 
             updateEnemies(dt);
             updatePowerups(dt);
@@ -3225,4 +3453,4 @@ document.getElementById('back-to-deadzone').addEventListener('touchend', e => { 
     });
     </script>
 </body>
-</html>
+</html>     
