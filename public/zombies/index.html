@@ -594,29 +594,160 @@
     const PAUSE_DURATION = 3;
 
     // ═══════════════════════════════════════
-    // PROCEDURAL AUDIO SYSTEM
+    // SFX AUDIO SYSTEM
     // ═══════════════════════════════════════
+    const SFX_BASE = '/zombies/sfx/';
+    
+    const sfxFiles = {
+        backgroundSound: 'background_sound.mp3',
+        pistolShot: 'pistol_shot.mp3',
+        rifleShot: 'rifle_shot.mp3',
+        shotgunShot: 'shotgun_shot.mp3',
+        particleShot: 'particle_shot.mp3',
+        playerDeath: 'player_death.mp3',
+        nextWave: 'next_wave.mp3',
+        loadingIn: 'loading_in.mp3',
+        healthPowerup: 'health_powerup.mp3',
+        maxAmmoPowerup: 'max_ammo_powerup.mp3',
+        particleAmmoPowerup: 'particle_ammo_powerup.mp3',
+        rifleAmmoPowerup: 'rifle_ammo_powerup.mp3',
+        shotgunAmmoPowerup: 'shotgun_ammo_powerup.mp3',
+        speedPowerup: 'speed_powerup.mp3',
+        powerUp: 'power_up.mp3',
+        nukePowerup: 'nuke_powerup.mp3',
+        titan: 'titan.mp3',
+        titanEntry: 'titan_entry.mp3',
+        zombieGrowling: 'zombie_growling.mp3',
+        zombieMasses: 'zombie_masses.mp3',
+    };
+    
+    const audioCache = {};
+    let audioInitialized = false;
+    let bgMusicAudio = null;
+    let bossMusicAudio = null;
+    let lastGrowlTime = 0;
+    
+    function loadAllAudio() {
+        if (audioInitialized) return;
+        for (const [key, filename] of Object.entries(sfxFiles)) {
+            audioCache[key] = new Audio(`${SFX_BASE}${filename}`);
+            audioCache[key].preload = 'auto';
+        }
+        audioInitialized = true;
+    }
+    
+    function playSfx(key, volume = 1.0, loop = false) {
+        const audio = audioCache[key];
+        if (!audio) return;
+        audio.volume = volume;
+        audio.loop = loop;
+        audio.currentTime = 0;
+        audio.play().catch(() => {});
+    }
+    
+    function stopSfx(key) {
+        const audio = audioCache[key];
+        if (!audio) return;
+        audio.pause();
+        audio.currentTime = 0;
+    }
+    
+    function startBackgroundMusic() {
+        if (!audioCache.backgroundSound) return;
+        stopBackgroundMusic();
+        bgMusicAudio = audioCache.backgroundSound.cloneNode(true);
+        bgMusicAudio.volume = 0.3;
+        bgMusicAudio.loop = true;
+        bgMusicAudio.play().catch(() => {});
+    }
+    
+    function stopBackgroundMusic() {
+        if (bgMusicAudio) {
+            bgMusicAudio.pause();
+            bgMusicAudio.currentTime = 0;
+            bgMusicAudio = null;
+        }
+    }
+    
+    function startBossMusic() {
+        if (!audioCache.titan) return;
+        stopBossMusic();
+        bossMusicAudio = audioCache.titan.cloneNode(true);
+        bossMusicAudio.volume = 0.6;
+        bossMusicAudio.loop = true;
+        bossMusicAudio.play().catch(() => {});
+    }
+    
+    function stopBossMusic() {
+        if (bossMusicAudio) {
+            bossMusicAudio.pause();
+            bossMusicAudio.currentTime = 0;
+            bossMusicAudio = null;
+        }
+    }
+    
+    // ─── Weapon shots ───
+    function playGunshot(weaponIndex) {
+        const soundMap = ['pistolShot', 'shotgunShot', 'rifleShot', 'particleShot'];
+        playSfx(soundMap[weaponIndex] || 'pistolShot', 0.8);
+    }
+    
+    // ─── Wave transitions ───
+    function playWaveKlaxon(isBossWave) {
+        playSfx('nextWave', isBossWave ? 0.9 : 0.7);
+        if (isBossWave) {
+            setTimeout(() => playSfx('titanEntry', 0.85), 600);
+        }
+    }
+    
+    // ─── Power-up pickups ───
+    function playPickupChime(pickupType) {
+        const pickupMap = {
+            health: 'healthPowerup',
+            speed: 'speedPowerup',
+            max_ammo: 'maxAmmoPowerup',
+            raygun_ammo: 'particleAmmoPowerup',
+            reload: 'powerUp',
+            pistol_ammo: 'powerUp',
+            rifle_ammo: 'rifleAmmoPowerup',
+            shotgun_ammo: 'shotgunAmmoPowerup',
+            nuke: 'nukePowerup',
+        };
+        const key = pickupMap[pickupType] || 'powerUp';
+        playSfx(key, 0.7);
+    }
+    
+    // ─── Death ───
+    function playDeathSting() {
+        playSfx('playerDeath', 0.85);
+    }
+    
+    function playDeathSound(enemyType, position) {
+        if (Date.now() - lastGrowlTime > 2000) {
+            playSfx('zombieGrowling', 0.5);
+            lastGrowlTime = Date.now();
+        }
+    }
+    
+    // ─── Zombie growls ───
+    function playGrowl(enemyType, distance) {
+        if (Date.now() - lastGrowlTime > 3000) {
+            playSfx('zombieGrowling', 0.4 * Math.max(0.3, 1 - distance / 15));
+            lastGrowlTime = Date.now();
+        }
+    }
+    
+    // ─── Footsteps (keep procedural for now) ───
     let audioCtx = null;
     let lastStepTime = 0;
     let stepToggle = false;
-    let heartbeatActive = false;
-    let heartbeatInterval = null;
-    let activeGrowlCount = 0;
-    const MAX_CONCURRENT_GROWLS = 3;
-    const GROWL_COOLDOWN = 2.5;
-    const GROWL_RANGE = 12;
-
+    
     function initAudio() {
         if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+        loadAllAudio();
     }
-    ['click','touchstart','keydown','gamepadconnected'].forEach(evt => {
-        document.addEventListener(evt, () => {
-            if (!audioCtx) initAudio();
-            else if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
-        });
-    });
-
+    
     function playFootstep() {
         if (!audioCtx) return;
         const now = audioCtx.currentTime;
@@ -647,267 +778,69 @@
         noise.connect(filter).connect(noiseGain).connect(audioCtx.destination);
         noise.start(now); noise.stop(now + 0.06);
     }
-
-    function playGunshot(weaponIndex) {
+    
+    // ─── Other procedural sounds (reload, dry fire, weapon swap) ───
+    function playDryFire() {
         if (!audioCtx) return;
         const now = audioCtx.currentTime;
-        const profiles = [
-            { freq: 220, freqEnd: 60, decay: 0.12, vol: 0.25, noiseVol: 0.12, noiseDur: 0.06, filterFreq: 3000 },
-            { freq: 90, freqEnd: 25, decay: 0.22, vol: 0.35, noiseVol: 0.20, noiseDur: 0.10, filterFreq: 1500 },
-            { freq: 300, freqEnd: 80, decay: 0.08, vol: 0.22, noiseVol: 0.15, noiseDur: 0.04, filterFreq: 4500 },
-        ];
-        const p = profiles[weaponIndex] || profiles[0];
         const osc = audioCtx.createOscillator();
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(p.freq + Math.random() * 30, now);
-        osc.frequency.exponentialRampToValueAtTime(p.freqEnd, now + p.decay);
-        const oscGain = audioCtx.createGain();
-        oscGain.gain.setValueAtTime(p.vol, now);
-        oscGain.gain.exponentialRampToValueAtTime(0.001, now + p.decay);
-        const waveshaper = audioCtx.createWaveShaper();
-        const curve = new Float32Array(256);
-        for (let i = 0; i < 256; i++) { const x = (i / 128) - 1; curve[i] = (Math.PI + 3) * x / (Math.PI + 3 * Math.abs(x)); }
-        waveshaper.curve = curve;
-        osc.connect(waveshaper).connect(oscGain).connect(audioCtx.destination);
-        osc.start(now); osc.stop(now + p.decay + 0.01);
-
-        const bufSize = Math.floor(audioCtx.sampleRate * p.noiseDur);
-        const noiseBuf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
-        const nd = noiseBuf.getChannelData(0);
-        for (let i = 0; i < bufSize; i++) nd[i] = (Math.random() * 2 - 1);
-        const noise = audioCtx.createBufferSource();
-        noise.buffer = noiseBuf;
-        const noiseFilter = audioCtx.createBiquadFilter();
-        noiseFilter.type = 'bandpass'; noiseFilter.frequency.value = p.filterFreq; noiseFilter.Q.value = 0.8;
-        const noiseGain = audioCtx.createGain();
-        noiseGain.gain.setValueAtTime(p.noiseVol, now);
-        noiseGain.gain.exponentialRampToValueAtTime(0.001, now + p.noiseDur);
-        noise.connect(noiseFilter).connect(noiseGain).connect(audioCtx.destination);
-        noise.start(now); noise.stop(now + p.noiseDur + 0.01);
-
-        const sub = audioCtx.createOscillator();
-        sub.type = 'sine';
-        const subFreq = weaponIndex === 1 ? 35 : 50;
-        sub.frequency.setValueAtTime(subFreq, now);
-        sub.frequency.exponentialRampToValueAtTime(20, now + 0.1);
-        const subGain = audioCtx.createGain();
-        subGain.gain.setValueAtTime(weaponIndex === 1 ? 0.30 : 0.15, now);
-        subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
-        sub.connect(subGain).connect(audioCtx.destination);
-        sub.start(now); sub.stop(now + 0.11);
-    }
-
-    const GROWL_PROFILES = {
-        shambler: { freq: 75, freqEnd: 55, modRate: 3, modDepth: 20, dur: 0.6, vol: 0.08, type: 'sawtooth' },
-        runner:   { freq: 140, freqEnd: 100, modRate: 12, modDepth: 40, dur: 0.3, vol: 0.07, type: 'square' },
-        brute:    { freq: 55, freqEnd: 35, modRate: 2, modDepth: 15, dur: 0.8, vol: 0.10, type: 'sawtooth' },
-        tank:     { freq: 50, freqEnd: 30, modRate: 1.5, modDepth: 10, dur: 0.9, vol: 0.10, type: 'sawtooth' },
-        boss:     { freq: 40, freqEnd: 25, modRate: 2, modDepth: 25, dur: 1.2, vol: 0.14, type: 'sawtooth' },
-    };
-
-    function playGrowl(enemyType, distance) {
-        if (!audioCtx) return;
-        if (activeGrowlCount >= MAX_CONCURRENT_GROWLS) return;
-        const p = GROWL_PROFILES[enemyType] || GROWL_PROFILES.shambler;
-        const now = audioCtx.currentTime;
-        const distFactor = 1 - Math.min(distance / GROWL_RANGE, 1);
-        const vol = p.vol * distFactor;
-        if (vol < 0.01) return;
-        activeGrowlCount++;
-        const freqRand = (Math.random() - 0.5) * 20;
-        const osc = audioCtx.createOscillator();
-        osc.type = p.type;
-        osc.frequency.setValueAtTime(p.freq + freqRand, now);
-        osc.frequency.linearRampToValueAtTime(p.freqEnd + freqRand * 0.5, now + p.dur);
-        const lfo = audioCtx.createOscillator();
-        lfo.type = 'sine'; lfo.frequency.value = p.modRate + Math.random() * 2;
-        const lfoGain = audioCtx.createGain();
-        lfoGain.gain.value = p.modDepth;
-        lfo.connect(lfoGain).connect(osc.frequency);
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(800 + Math.random() * 200, now);
+        osc.frequency.exponentialRampToValueAtTime(200, now + 0.025);
         const gain = audioCtx.createGain();
-        gain.gain.setValueAtTime(0.001, now);
-        gain.gain.linearRampToValueAtTime(vol, now + p.dur * 0.15);
-        gain.gain.setValueAtTime(vol, now + p.dur * 0.6);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + p.dur);
-        const formant = audioCtx.createBiquadFilter();
-        formant.type = 'bandpass';
-        formant.frequency.setValueAtTime(300 + Math.random() * 200, now);
-        formant.frequency.linearRampToValueAtTime(150 + Math.random() * 100, now + p.dur);
-        formant.Q.value = 2 + Math.random() * 3;
-        const formant2 = audioCtx.createBiquadFilter();
-        formant2.type = 'peaking'; formant2.frequency.value = 600 + Math.random() * 400;
-        formant2.gain.value = 6; formant2.Q.value = 1.5;
-        osc.connect(formant).connect(formant2).connect(gain).connect(audioCtx.destination);
-        lfo.start(now); osc.start(now);
-        lfo.stop(now + p.dur + 0.01); osc.stop(now + p.dur + 0.01);
-        setTimeout(() => { activeGrowlCount = Math.max(0, activeGrowlCount - 1); }, p.dur * 1000 + 50);
+        gain.gain.setValueAtTime(0.08, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'highpass'; filter.frequency.value = 600;
+        osc.connect(filter).connect(gain).connect(audioCtx.destination);
+        osc.start(now); osc.stop(now + 0.05);
     }
-
-    function playHitImpact(distance, isCritical) {
+    
+    function playWeaponDown() {
         if (!audioCtx) return;
         const now = audioCtx.currentTime;
-        const distFactor = 1 - Math.min(distance / 50, 0.85);
-        const osc = audioCtx.createOscillator();
-        osc.type = 'sine';
-        const baseFreq = isCritical ? 180 : 120;
-        osc.frequency.setValueAtTime(baseFreq + Math.random() * 30, now);
-        osc.frequency.exponentialRampToValueAtTime(40, now + 0.08);
-        const oscGain = audioCtx.createGain();
-        oscGain.gain.setValueAtTime((isCritical ? 0.20 : 0.12) * distFactor, now);
-        oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.10);
-        osc.connect(oscGain).connect(audioCtx.destination);
-        osc.start(now); osc.stop(now + 0.11);
-
-        const slapDur = isCritical ? 0.06 : 0.035;
-        const bufSize = Math.floor(audioCtx.sampleRate * slapDur);
-        const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
-        const data = buf.getChannelData(0);
-        for (let i = 0; i < bufSize; i++) { const env = 1 - (i / bufSize); data[i] = (Math.random() * 2 - 1) * env * env; }
-        const noise = audioCtx.createBufferSource();
-        noise.buffer = buf;
-        const nf = audioCtx.createBiquadFilter();
-        nf.type = 'bandpass'; nf.frequency.value = isCritical ? 2500 : 1500; nf.Q.value = 1.2;
-        const nGain = audioCtx.createGain();
-        nGain.gain.setValueAtTime((isCritical ? 0.14 : 0.07) * distFactor, now);
-        nGain.gain.exponentialRampToValueAtTime(0.001, now + slapDur);
-        noise.connect(nf).connect(nGain).connect(audioCtx.destination);
-        noise.start(now); noise.stop(now + slapDur + 0.01);
-
-        if (isCritical) {
-            const ping = audioCtx.createOscillator();
-            ping.type = 'sine';
-            ping.frequency.setValueAtTime(1800 + Math.random() * 400, now);
-            ping.frequency.exponentialRampToValueAtTime(1200, now + 0.08);
-            const pingGain = audioCtx.createGain();
-            pingGain.gain.setValueAtTime(0.06 * distFactor, now);
-            pingGain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
-            ping.connect(pingGain).connect(audioCtx.destination);
-            ping.start(now); ping.stop(now + 0.09);
-        }
+        const click = audioCtx.createOscillator();
+        click.type = 'square';
+        click.frequency.setValueAtTime(1200, now);
+        click.frequency.exponentialRampToValueAtTime(400, now + 0.02);
+        const clickGain = audioCtx.createGain();
+        clickGain.gain.setValueAtTime(0.06, now);
+        clickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+        const clickFilter = audioCtx.createBiquadFilter();
+        clickFilter.type = 'highpass'; clickFilter.frequency.value = 800;
+        click.connect(clickFilter).connect(clickGain).connect(audioCtx.destination);
+        click.start(now); click.stop(now + 0.04);
     }
-
-    function playDeathSound(enemyType, position) {
+    
+    function playWeaponUp(weaponIndex) {
         if (!audioCtx) return;
         const now = audioCtx.currentTime;
-        const dist = camera.position.distanceTo(position);
-        const distFactor = 1 - Math.min(dist / 40, 0.8);
-        if (distFactor < 0.05) return;
-        const profiles = {
-            shambler: { freq: 90, freqEnd: 30, dur: 0.5, vol: 0.12, raspVol: 0.06 },
-            runner:   { freq: 160, freqEnd: 50, dur: 0.35, vol: 0.10, raspVol: 0.08 },
-            brute:    { freq: 65, freqEnd: 20, dur: 0.7, vol: 0.16, raspVol: 0.07 },
-            tank:     { freq: 55, freqEnd: 18, dur: 0.8, vol: 0.16, raspVol: 0.06 },
-            boss:     { freq: 45, freqEnd: 15, dur: 1.2, vol: 0.22, raspVol: 0.10 },
-        };
-        const p = profiles[enemyType] || profiles.shambler;
-        const freqRand = (Math.random() - 0.5) * 20;
-        const osc = audioCtx.createOscillator();
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(p.freq + freqRand, now);
-        osc.frequency.exponentialRampToValueAtTime(p.freqEnd, now + p.dur);
-        const lfo = audioCtx.createOscillator();
-        lfo.type = 'sine';
-        lfo.frequency.setValueAtTime(6 + Math.random() * 4, now);
-        lfo.frequency.linearRampToValueAtTime(1, now + p.dur);
-        const lfoGain = audioCtx.createGain();
-        lfoGain.gain.setValueAtTime(25, now);
-        lfoGain.gain.linearRampToValueAtTime(5, now + p.dur);
-        lfo.connect(lfoGain).connect(osc.frequency);
-        const gain = audioCtx.createGain();
-        const vol = p.vol * distFactor;
-        gain.gain.setValueAtTime(vol, now);
-        gain.gain.setValueAtTime(vol * 0.9, now + p.dur * 0.3);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + p.dur);
-        const formant = audioCtx.createBiquadFilter();
-        formant.type = 'bandpass';
-        formant.frequency.setValueAtTime(350 + Math.random() * 150, now);
-        formant.frequency.linearRampToValueAtTime(120, now + p.dur);
-        formant.Q.value = 3 + Math.random() * 2;
-        osc.connect(formant).connect(gain).connect(audioCtx.destination);
+        const rack1 = audioCtx.createOscillator();
+        rack1.type = 'sawtooth';
+        rack1.frequency.setValueAtTime(600 + Math.random() * 100, now);
+        rack1.frequency.exponentialRampToValueAtTime(250, now + 0.03);
+        const rack1Gain = audioCtx.createGain();
+        rack1Gain.gain.setValueAtTime(0.05, now);
+        rack1Gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+        rack1.connect(rack1Gain).connect(audioCtx.destination);
+        rack1.start(now); rack1.stop(now + 0.05);
 
-        const raspDur = p.dur * 0.7;
-        const bufSize = Math.floor(audioCtx.sampleRate * raspDur);
-        const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
-        const data = buf.getChannelData(0);
-        for (let i = 0; i < bufSize; i++) { const t = i / audioCtx.sampleRate; data[i] = (Math.random() * 2 - 1) * (Math.sin(t * 25) * 0.5 + 0.5); }
-        const noise = audioCtx.createBufferSource();
-        noise.buffer = buf;
-        const raspFilter = audioCtx.createBiquadFilter();
-        raspFilter.type = 'bandpass';
-        raspFilter.frequency.setValueAtTime(500, now);
-        raspFilter.frequency.linearRampToValueAtTime(200, now + raspDur);
-        raspFilter.Q.value = 4;
-        const raspGain = audioCtx.createGain();
-        raspGain.gain.setValueAtTime(p.raspVol * distFactor, now);
-        raspGain.gain.exponentialRampToValueAtTime(0.001, now + raspDur);
-        noise.connect(raspFilter).connect(raspGain).connect(audioCtx.destination);
-
-        const thud = audioCtx.createOscillator();
-        thud.type = 'sine';
-        const thudDelay = p.dur * 0.6;
-        thud.frequency.setValueAtTime(50, now + thudDelay);
-        thud.frequency.exponentialRampToValueAtTime(25, now + thudDelay + 0.1);
-        const thudGain = audioCtx.createGain();
-        thudGain.gain.setValueAtTime(0.001, now);
-        thudGain.gain.setValueAtTime(0.001, now + thudDelay);
-        thudGain.gain.linearRampToValueAtTime(0.14 * distFactor, now + thudDelay + 0.01);
-        thudGain.gain.exponentialRampToValueAtTime(0.001, now + thudDelay + 0.12);
-        thud.connect(thudGain).connect(audioCtx.destination);
-
-        if (enemyType === 'boss') {
-            const osc2 = audioCtx.createOscillator();
-            osc2.type = 'sawtooth';
-            osc2.frequency.setValueAtTime((p.freq + freqRand) * 0.5, now);
-            osc2.frequency.exponentialRampToValueAtTime(p.freqEnd * 0.5, now + p.dur);
-            const gain2 = audioCtx.createGain();
-            gain2.gain.setValueAtTime(vol * 0.5, now);
-            gain2.gain.exponentialRampToValueAtTime(0.001, now + p.dur);
-            osc2.connect(formant).connect(gain2).connect(audioCtx.destination);
-            osc2.start(now); osc2.stop(now + p.dur + 0.01);
-        }
-
-        lfo.start(now); osc.start(now); noise.start(now); thud.start(now);
-        lfo.stop(now + p.dur + 0.01); osc.stop(now + p.dur + 0.01);
-        noise.stop(now + raspDur + 0.01); thud.stop(now + thudDelay + 0.13);
+        const rack2 = audioCtx.createOscillator();
+        rack2.type = 'square';
+        const lockFreq = weaponIndex === 1 ? 500 : weaponIndex === 2 ? 900 : 700;
+        rack2.frequency.setValueAtTime(lockFreq, now + 0.05);
+        rack2.frequency.exponentialRampToValueAtTime(300, now + 0.07);
+        const rack2Gain = audioCtx.createGain();
+        rack2Gain.gain.setValueAtTime(0.07, now + 0.05);
+        rack2Gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+        rack2.connect(rack2Gain).connect(audioCtx.destination);
+        rack2.start(now); rack2.stop(now + 0.09);
     }
-
-    function playWaveKlaxon(isBossWave) {
-        if (!audioCtx) return;
-        const now = audioCtx.currentTime;
-        const honks = isBossWave ? 3 : 2;
-        const gap = 0.18;
-        for (let i = 0; i < honks; i++) {
-            const t = now + i * gap;
-            const osc = audioCtx.createOscillator();
-            osc.type = 'square';
-            const freq = isBossWave ? 280 : 220;
-            osc.frequency.setValueAtTime(freq, t);
-            osc.frequency.setValueAtTime(freq * 0.95, t + 0.06);
-            const gain = audioCtx.createGain();
-            const vol = isBossWave ? 0.10 : 0.07;
-            gain.gain.setValueAtTime(0.001, t);
-            gain.gain.linearRampToValueAtTime(vol, t + 0.015);
-            gain.gain.setValueAtTime(vol, t + 0.08);
-            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.13);
-            const filter = audioCtx.createBiquadFilter();
-            filter.type = 'lowpass'; filter.frequency.value = isBossWave ? 1200 : 900;
-            osc.connect(filter).connect(gain).connect(audioCtx.destination);
-            osc.start(t); osc.stop(t + 0.14);
-        }
-        if (isBossWave) {
-            const dropTime = now + honks * gap + 0.05;
-            const sub = audioCtx.createOscillator();
-            sub.type = 'sine';
-            sub.frequency.setValueAtTime(120, dropTime);
-            sub.frequency.exponentialRampToValueAtTime(30, dropTime + 0.3);
-            const subGain = audioCtx.createGain();
-            subGain.gain.setValueAtTime(0.15, dropTime);
-            subGain.gain.exponentialRampToValueAtTime(0.001, dropTime + 0.3);
-            sub.connect(subGain).connect(audioCtx.destination);
-            sub.start(dropTime); sub.stop(dropTime + 0.31);
-        }
-    }
-
+    
+    // ─── Heartbeat (low health) ───
+    let heartbeatActive = false;
+    let heartbeatInterval = null;
+    
     function startHeartbeat() {
         if (heartbeatActive) return;
         heartbeatActive = true;
@@ -925,8 +858,7 @@
                 osc.frequency.setValueAtTime(freq, t);
                 osc.frequency.exponentialRampToValueAtTime(20, t + 0.1);
                 const gain = audioCtx.createGain();
-                gain.gain.setValueAtTime(0.001, t);
-                gain.gain.linearRampToValueAtTime(i === 0 ? vol : vol * 0.7, t + 0.015);
+                gain.gain.setValueAtTime(i === 0 ? vol : vol * 0.7, t);
                 gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
                 osc.connect(gain).connect(audioCtx.destination);
                 osc.start(t); osc.stop(t + 0.11);
@@ -935,252 +867,25 @@
         beat();
         heartbeatInterval = setInterval(() => {
             if (!heartbeatActive) return;
-            const hpPct = hp / CONFIG.player.health;
-            const rate = hpPct < 0.15 ? 500 : 750;
+            const rate = hp / CONFIG.player.health < 0.15 ? 500 : 750;
             clearInterval(heartbeatInterval);
-            beat();
-            heartbeatInterval = setInterval(() => {
-                if (!heartbeatActive) { clearInterval(heartbeatInterval); return; }
-                beat();
-            }, rate);
+            heartbeatInterval = setInterval(beat, rate);
         }, 750);
     }
+    
     function stopHeartbeat() {
-        if (!heartbeatActive) return;
         heartbeatActive = false;
         if (heartbeatInterval) { clearInterval(heartbeatInterval); heartbeatInterval = null; }
     }
-
-    function playPickupChime(pickupType) {
-        if (!audioCtx) return;
-        const now = audioCtx.currentTime;
-        const profiles = {
-            health:       { notes: [523, 659, 784],     dur: 0.08, gap: 0.06, vol: 0.09, type: 'sine',     ff: 4000 },
-            pistol_ammo:  { notes: [440, 554],           dur: 0.06, gap: 0.05, vol: 0.07, type: 'triangle', ff: 3000 },
-            shotgun_ammo: { notes: [392, 494],           dur: 0.06, gap: 0.05, vol: 0.07, type: 'triangle', ff: 2800 },
-            rifle_ammo:   { notes: [494, 622],           dur: 0.06, gap: 0.05, vol: 0.07, type: 'triangle', ff: 3200 },
-            max_ammo:     { notes: [330, 440, 554, 659], dur: 0.07, gap: 0.05, vol: 0.08, type: 'triangle', ff: 3500 },
-            speed:        { notes: [587, 784, 988],      dur: 0.05, gap: 0.04, vol: 0.08, type: 'square',   ff: 2000 },
-            nuke:         { notes: [262, 330, 392, 523], dur: 0.10, gap: 0.07, vol: 0.12, type: 'sawtooth', ff: 2500 },
-            raygun_ammo:  { notes: [228, 440, 668, 880], dur: 0.12, gap: 0.06, vol: 0.10, type: 'sine',     ff: 4000 },
-            reload:       { notes: [600, 800],           dur: 0.05, gap: 0.06, vol: 0.06, type: 'triangle', ff: 3000 },
-        };
-        const p = profiles[pickupType] || profiles.health;
-        for (let i = 0; i < p.notes.length; i++) {
-            const t = now + i * p.gap;
-            const osc = audioCtx.createOscillator();
-            osc.type = p.type; osc.frequency.setValueAtTime(p.notes[i], t);
-            const gain = audioCtx.createGain();
-            gain.gain.setValueAtTime(0.001, t);
-            gain.gain.linearRampToValueAtTime(p.vol, t + 0.008);
-            gain.gain.exponentialRampToValueAtTime(0.001, t + p.dur);
-            const filter = audioCtx.createBiquadFilter();
-            filter.type = 'lowpass'; filter.frequency.value = p.ff;
-            osc.connect(filter).connect(gain).connect(audioCtx.destination);
-            osc.start(t); osc.stop(t + p.dur + 0.01);
-        }
-        if (pickupType === 'nuke') {
-            const sub = audioCtx.createOscillator();
-            sub.type = 'sine';
-            sub.frequency.setValueAtTime(60, now);
-            sub.frequency.exponentialRampToValueAtTime(200, now + 0.4);
-            const subGain = audioCtx.createGain();
-            subGain.gain.setValueAtTime(0.12, now);
-            subGain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
-            sub.connect(subGain).connect(audioCtx.destination);
-            sub.start(now); sub.stop(now + 0.41);
-        }
-    }
-
-    function playDryFire() {
-        if (!audioCtx) return;
-        const now = audioCtx.currentTime;
-        const osc = audioCtx.createOscillator();
-        osc.type = 'square';
-        osc.frequency.setValueAtTime(800 + Math.random() * 200, now);
-        osc.frequency.exponentialRampToValueAtTime(200, now + 0.025);
-        const gain = audioCtx.createGain();
-        gain.gain.setValueAtTime(0.08, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
-        const filter = audioCtx.createBiquadFilter();
-        filter.type = 'highpass'; filter.frequency.value = 600;
-        osc.connect(filter).connect(gain).connect(audioCtx.destination);
-        osc.start(now); osc.stop(now + 0.05);
-
-        const bufSize = Math.floor(audioCtx.sampleRate * 0.02);
-        const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
-        const data = buf.getChannelData(0);
-        for (let i = 0; i < bufSize; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / bufSize);
-        const noise = audioCtx.createBufferSource();
-        noise.buffer = buf;
-        const nGain = audioCtx.createGain();
-        nGain.gain.setValueAtTime(0.04, now + 0.01);
-        nGain.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
-        const nf = audioCtx.createBiquadFilter();
-        nf.type = 'bandpass'; nf.frequency.value = 2500; nf.Q.value = 2;
-        noise.connect(nf).connect(nGain).connect(audioCtx.destination);
-        noise.start(now + 0.01); noise.stop(now + 0.04);
-    }
-
-    function playWeaponDown() {
-        if (!audioCtx) return;
-        const now = audioCtx.currentTime;
-        const click = audioCtx.createOscillator();
-        click.type = 'square';
-        click.frequency.setValueAtTime(1200, now);
-        click.frequency.exponentialRampToValueAtTime(400, now + 0.02);
-        const clickGain = audioCtx.createGain();
-        clickGain.gain.setValueAtTime(0.06, now);
-        clickGain.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
-        const clickFilter = audioCtx.createBiquadFilter();
-        clickFilter.type = 'highpass'; clickFilter.frequency.value = 800;
-        click.connect(clickFilter).connect(clickGain).connect(audioCtx.destination);
-        click.start(now); click.stop(now + 0.04);
-
-        const bufSize = Math.floor(audioCtx.sampleRate * 0.08);
-        const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
-        const data = buf.getChannelData(0);
-        for (let i = 0; i < bufSize; i++) { const t = i / audioCtx.sampleRate; data[i] = (Math.random() * 2 - 1) * Math.max(0, 1 - t / 0.08) * 0.5; }
-        const noise = audioCtx.createBufferSource();
-        noise.buffer = buf;
-        const nFilter = audioCtx.createBiquadFilter();
-        nFilter.type = 'bandpass'; nFilter.frequency.value = 1800; nFilter.Q.value = 1.5;
-        const nGain = audioCtx.createGain();
-        nGain.gain.setValueAtTime(0.05, now + 0.02);
-        nGain.gain.exponentialRampToValueAtTime(0.001, now + 0.09);
-        noise.connect(nFilter).connect(nGain).connect(audioCtx.destination);
-        noise.start(now + 0.02); noise.stop(now + 0.10);
-    }
-
-    function playWeaponUp(weaponIndex) {
-        if (!audioCtx) return;
-        const now = audioCtx.currentTime;
-        const rack1 = audioCtx.createOscillator();
-        rack1.type = 'sawtooth';
-        rack1.frequency.setValueAtTime(600 + Math.random() * 100, now);
-        rack1.frequency.exponentialRampToValueAtTime(250, now + 0.03);
-        const rack1Gain = audioCtx.createGain();
-        rack1Gain.gain.setValueAtTime(0.05, now);
-        rack1Gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
-        const rack1Filter = audioCtx.createBiquadFilter();
-        rack1Filter.type = 'bandpass'; rack1Filter.frequency.value = 2000; rack1Filter.Q.value = 2;
-        rack1.connect(rack1Filter).connect(rack1Gain).connect(audioCtx.destination);
-        rack1.start(now); rack1.stop(now + 0.05);
-
-        const rack2 = audioCtx.createOscillator();
-        rack2.type = 'square';
-        const lockFreq = weaponIndex === 1 ? 500 : weaponIndex === 2 ? 900 : 700;
-        rack2.frequency.setValueAtTime(lockFreq, now + 0.05);
-        rack2.frequency.exponentialRampToValueAtTime(300, now + 0.07);
-        const rack2Gain = audioCtx.createGain();
-        rack2Gain.gain.setValueAtTime(0.001, now);
-        rack2Gain.gain.setValueAtTime(0.07, now + 0.05);
-        rack2Gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
-        const rack2Filter = audioCtx.createBiquadFilter();
-        rack2Filter.type = 'highpass'; rack2Filter.frequency.value = 600;
-        rack2.connect(rack2Filter).connect(rack2Gain).connect(audioCtx.destination);
-        rack2.start(now); rack2.stop(now + 0.09);
-
-        const ring = audioCtx.createOscillator();
-        ring.type = 'sine';
-        const ringFreq = weaponIndex === 1 ? 1400 : weaponIndex === 2 ? 2200 : 1800;
-        ring.frequency.setValueAtTime(ringFreq, now + 0.05);
-        const ringGain = audioCtx.createGain();
-        ringGain.gain.setValueAtTime(0.001, now);
-        ringGain.gain.setValueAtTime(0.03, now + 0.05);
-        ringGain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
-        ring.connect(ringGain).connect(audioCtx.destination);
-        ring.start(now); ring.stop(now + 0.16);
-
-        const bufSize = Math.floor(audioCtx.sampleRate * 0.06);
-        const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
-        const data = buf.getChannelData(0);
-        for (let i = 0; i < bufSize; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / bufSize) * 0.4;
-        const noise = audioCtx.createBufferSource();
-        noise.buffer = buf;
-        const nFilter = audioCtx.createBiquadFilter();
-        nFilter.type = 'lowpass'; nFilter.frequency.value = 1200;
-        const nGain = audioCtx.createGain();
-        nGain.gain.setValueAtTime(0.04, now);
-        nGain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
-        noise.connect(nFilter).connect(nGain).connect(audioCtx.destination);
-        noise.start(now); noise.stop(now + 0.07);
-    }
-
-    function playDeathSting() {
-        if (!audioCtx) return;
-        const now = audioCtx.currentTime;
-        const notes = [220, 165, 110];
-        const endNotes = [80, 55, 35];
-        for (let i = 0; i < notes.length; i++) {
-            const osc = audioCtx.createOscillator();
-            osc.type = 'sawtooth';
-            osc.frequency.setValueAtTime(notes[i], now);
-            osc.frequency.exponentialRampToValueAtTime(endNotes[i], now + 1.5);
-            const gain = audioCtx.createGain();
-            const vol = 0.08 - i * 0.015;
-            gain.gain.setValueAtTime(vol, now);
-            gain.gain.setValueAtTime(vol * 0.8, now + 0.8);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + 1.8);
-            const filter = audioCtx.createBiquadFilter();
-            filter.type = 'lowpass';
-            filter.frequency.setValueAtTime(2000, now);
-            filter.frequency.exponentialRampToValueAtTime(200, now + 1.5);
-            osc.connect(filter).connect(gain).connect(audioCtx.destination);
-            osc.start(now); osc.stop(now + 1.81);
-        }
-        const sub = audioCtx.createOscillator();
-        sub.type = 'sine';
-        sub.frequency.setValueAtTime(80, now);
-        sub.frequency.exponentialRampToValueAtTime(15, now + 1.2);
-        const subGain = audioCtx.createGain();
-        subGain.gain.setValueAtTime(0.20, now);
-        subGain.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
-        sub.connect(subGain).connect(audioCtx.destination);
-        sub.start(now); sub.stop(now + 1.21);
-
-        const hit = audioCtx.createOscillator();
-        hit.type = 'square';
-        hit.frequency.setValueAtTime(150, now);
-        hit.frequency.exponentialRampToValueAtTime(30, now + 0.15);
-        const hitGain = audioCtx.createGain();
-        hitGain.gain.setValueAtTime(0.18, now);
-        hitGain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
-        const distortion = audioCtx.createWaveShaper();
-        const dcurve = new Float32Array(256);
-        for (let i = 0; i < 256; i++) { const x = (i / 128) - 1; dcurve[i] = (Math.PI + 4) * x / (Math.PI + 4 * Math.abs(x)); }
-        distortion.curve = dcurve;
-        hit.connect(distortion).connect(hitGain).connect(audioCtx.destination);
-        hit.start(now); hit.stop(now + 0.21);
-
-        const tailDur = 2.0;
-        const bufSize = Math.floor(audioCtx.sampleRate * tailDur);
-        const buf = audioCtx.createBuffer(1, bufSize, audioCtx.sampleRate);
-        const data = buf.getChannelData(0);
-        for (let i = 0; i < bufSize; i++) { const env = Math.pow(1 - i / bufSize, 2); data[i] = (Math.random() * 2 - 1) * env; }
-        const noise = audioCtx.createBufferSource();
-        noise.buffer = buf;
-        const nFilter = audioCtx.createBiquadFilter();
-        nFilter.type = 'bandpass';
-        nFilter.frequency.setValueAtTime(3000, now);
-        nFilter.frequency.exponentialRampToValueAtTime(800, now + tailDur);
-        nFilter.Q.value = 2;
-        const nGain = audioCtx.createGain();
-        nGain.gain.setValueAtTime(0.06, now);
-        nGain.gain.exponentialRampToValueAtTime(0.001, now + tailDur);
-        noise.connect(nFilter).connect(nGain).connect(audioCtx.destination);
-        noise.start(now); noise.stop(now + tailDur + 0.01);
-
-        const flatline = audioCtx.createOscillator();
-        flatline.type = 'sine'; flatline.frequency.value = 1000;
-        const flatGain = audioCtx.createGain();
-        flatGain.gain.setValueAtTime(0.001, now + 0.5);
-        flatGain.gain.linearRampToValueAtTime(0.05, now + 0.7);
-        flatGain.gain.setValueAtTime(0.05, now + 1.5);
-        flatGain.gain.exponentialRampToValueAtTime(0.001, now + 2.5);
-        flatline.connect(flatGain).connect(audioCtx.destination);
-        flatline.start(now + 0.5); flatline.stop(now + 2.51);
-    }
+    
+    // ─── Init audio on first interaction ───
+    ['click','touchstart','keydown','gamepadconnected'].forEach(evt => {
+        document.addEventListener(evt, () => {
+            if (!audioCtx) initAudio();
+            else if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {});
+        });
+    });
+    
     // ═══════════════════════════════════════
     // END AUDIO SYSTEM
     // ═══════════════════════════════════════
@@ -1200,7 +905,7 @@
     renderer.setSize(innerWidth, innerHeight);
     renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.2;
     document.body.appendChild(renderer.domElement);
@@ -1491,7 +1196,6 @@
         const ring = document.getElementById('ch-ring');
         const horseshoe = document.getElementById('ch-horseshoe');
 
-        // Reset all
         dot.style.display = 'none';
         crossH.style.display = 'none';
         crossV.style.display = 'none';
@@ -1499,38 +1203,36 @@
         horseshoe.style.display = 'none';
 
         if (adsT < 0.3) {
-            // Hip fire: small white dot
             ch.style.width = '30px';
             ch.style.height = '30px';
             dot.style.display = 'block';
             dot.style.width = '4px';
             dot.style.height = '4px';
         } else {
-            // ADS modes
             const size = 30 - (adsT * 8);
             ch.style.width = size + 'px';
             ch.style.height = size + 'px';
 
             switch (curWeapon) {
-                case 0: // Pistol: Blue glowing dot
+                case 0:
                     dot.style.display = 'block';
                     dot.style.width = '5px';
                     dot.style.height = '5px';
                     dot.style.background = 'rgba(0,150,255,1)';
                     dot.style.boxShadow = '0 0 6px rgba(0,150,255,0.9), 0 0 12px rgba(0,150,255,0.5)';
                     break;
-                case 1: // Shotgun: ring
+                case 1:
                     dot.style.display = 'none';
                     ring.style.display = 'block';
                     ring.style.width = '22px';
                     ring.style.height = '22px';
                     break;
-                case 2: // Rifle: orange horseshoe with red dot
+                case 2:
                     horseshoe.style.display = 'block';
                     horseshoe.style.width = '32px';
                     horseshoe.style.height = '32px';
                     break;
-                case 3: // Particle Gun: purple ring
+                case 3:
                     dot.style.display = 'block';
                     dot.style.width = '3px';
                     dot.style.height = '3px';
@@ -1544,7 +1246,8 @@
             }
         }
     }
-function updateWeaponSystem(dt) {
+
+    function updateWeaponSystem(dt) {
         const SWAP_SPEED = 10;
 
         switch (wpnState) {
@@ -1764,8 +1467,7 @@ function updateWeaponSystem(dt) {
             if (t.identifier === aimTouchId) aimTouchId = null;
         }
     }, { passive: true });
-
-    // ═══════════════════════════════════════
+        // ═══════════════════════════════════════
     // ASSET LOADING
     // ═══════════════════════════════════════
     const gltfLoader = new GLTFLoader();
@@ -2177,7 +1879,6 @@ function updateWeaponSystem(dt) {
                 collectPowerup(p, i);
                 continue;
             }
-
             if (p.life <= 3) {
                 p.group.visible = Math.sin(p.life * 10) > 0;
             }
@@ -2287,10 +1988,8 @@ function updateWeaponSystem(dt) {
         const scaledHealth = Math.round(cfg.health * waveScale);
         const bossWaveNum = Math.floor(wave / 10);
 
-        // ── RUNNER: Gentler speed scaling, use run anim after wave 8 ──
         let baseSpeed = cfg.speed;
         if (type === 'runner') {
-            // Slower scaling curve: only +2% per wave instead of 8%
             const speedScale = Math.min(1.4, 1 + (wave - 1) * 0.02);
             baseSpeed = cfg.speed * speedScale;
         } else {
@@ -2325,6 +2024,7 @@ function updateWeaponSystem(dt) {
         if (type === 'boss') {
             activeBoss = enemy;
             showWaveAnnounce('⚠ TITAN ⚠');
+            startBossMusic();
             const bossBar = document.getElementById('boss-bar');
             bossBar.style.display = 'block';
             updateBossHUD();
@@ -2393,6 +2093,7 @@ function updateWeaponSystem(dt) {
 
         if (enemy.isBoss) {
             activeBoss = null;
+            stopBossMusic();
             document.getElementById('boss-bar').style.display = 'none';
             screenShake = 0.5;
             spawnShockwave(enemy.group.position.clone());
@@ -2465,7 +2166,6 @@ function updateWeaponSystem(dt) {
 
             e.mixer.update(dt);
 
-            // ── Runner animation swap after wave 8 ──
             if (e.type === 'runner' && e.runClip && wave >= 8) {
                 if (e.walkAction && e.walkAction.isRunning() && e.walkAction.getClip() !== e.runClip) {
                     e.walkAction.fadeOut(0.2);
@@ -2515,12 +2215,12 @@ function updateWeaponSystem(dt) {
                     if (e.type === 'tank') tScale *= 0.45;
                     e.walkAction.timeScale = tScale;
                 }
-                if (dist < GROWL_RANGE) {
+                if (dist < 12) {
                     if (!e.growlCooldown) e.growlCooldown = Math.random() * 2;
                     e.growlCooldown -= dt;
                     if (e.growlCooldown <= 0) {
                         playGrowl(e.type, dist);
-                        e.growlCooldown = GROWL_COOLDOWN + Math.random() * 2.0;
+                        e.growlCooldown = 2.5 + Math.random() * 2.0;
                     }
                 }
             } else {
@@ -2529,7 +2229,7 @@ function updateWeaponSystem(dt) {
                 e.growlCooldown -= dt;
                 if (e.growlCooldown <= 0) {
                     playGrowl(e.type, dist);
-                    e.growlCooldown = GROWL_COOLDOWN + Math.random() * 1.5;
+                    e.growlCooldown = 2.5 + Math.random() * 1.5;
                 }
                 hp -= e.damage * dt;
                 updateHealthHUD();
@@ -2944,8 +2644,7 @@ function updateWeaponSystem(dt) {
 
         if (gp.buttons[2] && gp.buttons[2].pressed) startReload();
     }
-
-    // ═══════════════════════════════════════
+        // ═══════════════════════════════════════
     // MENU
     // ═══════════════════════════════════════
     function showMainMenu() {
@@ -2961,6 +2660,8 @@ function updateWeaponSystem(dt) {
         moveJoyDeltaY = 0;
         isADS = false;
         stopHeartbeat();
+        stopBackgroundMusic();
+        stopBossMusic();
         isSprinting = false;
         adsAmount = 0;
         isReloading = false;
@@ -3021,6 +2722,7 @@ function updateWeaponSystem(dt) {
         const ok = await registerPlayer(csVal, emVal || null);
         if (!ok) return;
         initAudio();
+        startBackgroundMusic();
 
         state = 'playing';
         score = 0; kills = 0; wave = 0;
@@ -3031,7 +2733,7 @@ function updateWeaponSystem(dt) {
         reserveAmmo = [Infinity, 20, 60, 0];
         isReloading = false;
         reloadTimer = 0;
-        pauseCharges = 1; // ← START WITH 1 CHARGE
+        pauseCharges = 1;
         isPaused = false;
         document.getElementById('reload-indicator').style.display = 'none';
         document.getElementById('speed-timer').style.display = 'none';
@@ -3121,6 +2823,8 @@ function updateWeaponSystem(dt) {
         isADS = false;
         stopHeartbeat();
         playDeathSting();
+        stopBackgroundMusic();
+        stopBossMusic();
         isSprinting = false;
         adsAmount = 0;
         isReloading = false;
@@ -3384,4 +3088,4 @@ function updateWeaponSystem(dt) {
     });
     </script>
 </body>
-</html>   
+</html>
