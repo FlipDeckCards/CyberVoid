@@ -690,7 +690,7 @@
     // ─── Weapon shots ───
     function playGunshot(weaponIndex) {
         const soundMap = ['pistolShot', 'shotgunShot', 'rifleShot', 'particleShot'];
-        playSfx(soundMap[weaponIndex] || 'pistolShot', 0.8);
+        playSfx(soundMap[weaponIndex] || 'pistolShot', 0.7);
     }
     
     // ─── Wave transitions ───
@@ -715,7 +715,7 @@
             nuke: 'nukePowerup',
         };
         const key = pickupMap[pickupType] || 'powerUp';
-        playSfx(key, 0.7);
+        playSfx(key, 0.9);
     }
     
     // ─── Death ───
@@ -725,7 +725,7 @@
     
     function playDeathSound(enemyType, position) {
         if (Date.now() - lastGrowlTime > 2000) {
-            playSfx('zombieGrowling', 0.5);
+            playSfx('zombieGrowling', 0.4);
             lastGrowlTime = Date.now();
         }
     }
@@ -733,7 +733,7 @@
     // ─── Zombie growls ───
     function playGrowl(enemyType, distance) {
         if (Date.now() - lastGrowlTime > 3000) {
-            playSfx('zombieGrowling', 0.4 * Math.max(0.3, 1 - distance / 15));
+            playSfx('zombieGrowling', 0.3 * Math.max(0.3, 1 - distance / 15));
             lastGrowlTime = Date.now();
         }
     }
