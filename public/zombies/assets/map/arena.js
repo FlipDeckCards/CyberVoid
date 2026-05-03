@@ -18,15 +18,16 @@ window.initArena = async function() {
     (gltf) => {
       const mesh = gltf.scene;
       const box = new THREE.Box3().setFromObject(mesh);
+      const center = box.getCenter(new THREE.Vector3());
       const size = box.getSize(new THREE.Vector3());
       
-      // Scale so village fills more of the arena
+      // Center village on arena (80x80), scale so it fills ~70%
       const scale = (40 / Math.max(size.x, size.z)) * 1.5;
-      mesh.position.set(0, 0, 0);
+      mesh.position.set(-center.x * scale, 0, -center.z * scale);
       mesh.scale.setScalar(scale);
       
       scene.add(mesh);
-      console.log("mega village loaded", "scale:", scale.toFixed(3));
+      console.log("mega village loaded", "scale:", scale.toFixed(3), "center:", center.x.toFixed(1), center.z.toFixed(1));
     }
   );
 };
