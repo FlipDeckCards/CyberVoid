@@ -20,8 +20,8 @@ window.initArena = async function() {
       const box = new THREE.Box3().setFromObject(mesh);
       const size = box.getSize(new THREE.Vector3());
       
-      // Scale so village fits in 80x80 arena
-      const scale = 40 / Math.max(size.x, size.z);
+      // Scale so village fills more of the arena
+      const scale = (40 / Math.max(size.x, size.z)) * 1.5;
       mesh.position.set(0, 0, 0);
       mesh.scale.setScalar(scale);
       
