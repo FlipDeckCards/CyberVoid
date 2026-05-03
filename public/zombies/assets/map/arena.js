@@ -17,10 +17,18 @@ window.initArena = async function() {
     './assets/map/mega_village.glb',
     (gltf) => {
       const mesh = gltf.scene;
-      mesh.scale.setScalar(50);
+      
+      // Center on ground, scale to arena size
+      const box = new THREE.Box3().setFromObject(mesh);
+      const center = box.getCenter(new THREE.Vector3());
+      const size = box.getSize(new THREE.Vector3());
+      
+      // Place floor at y=0, scale so it spans the arena
       mesh.position.set(0, 0, 0);
+      mesh.scale.setScalar(50);
+      
       scene.add(mesh);
-      console.log("mega village loaded");
+      console.log("mega village loaded", "box:", size.x, size.y, size.z);
     }
   );
 };
