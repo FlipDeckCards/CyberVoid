@@ -44,7 +44,7 @@ function place(key, x, z, rotY = 0) {
   const base = cache[key];
   if (!base) return;
   const mesh = base.clone();
-  mesh.scale.setScalar(40);
+  mesh.scale.setScalar(50);
   mesh.position.set(x, 0, z);
   mesh.rotation.y = rotY;
   scene.add(mesh);
@@ -94,10 +94,10 @@ window.initArena = async function() {
   });
 
   const blocks = [
-    { key: 'block_a', x: -20, z: -20 },
-    { key: 'block_b', x:  20, z: -20 },
-    { key: 'block_c', x: -20, z:  20 },
-    { key: 'block_d', x:  20, z:  20 },
+    { key: 'block_a', x: -30, z: -30 },
+    { key: 'block_b', x:  30, z: -30 },
+    { key: 'block_c', x: -30, z:  30 },
+    { key: 'block_d', x:  30, z:  30 },
   ];
   blocks.forEach(({ key, x, z }) => place(key, x, z));
 };
