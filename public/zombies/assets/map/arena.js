@@ -6,6 +6,7 @@ const loader = new GLTFLoader();
 const cache = {};
 
 // ─── Scene (from window) ────────────────────────────────────────────
+console.log("scene from window:", scene);
 const scene = window.scene;
 
 // ─── File Paths ─────────────────────────────────────────────────────
@@ -31,7 +32,7 @@ function loadGLB(key, url) {
   return new Promise((resolve) => {
     loader.load(url, (gltf) => {
       cache[key] = gltf.scene;
-      resolve();
+      console.log("loaded:", key, url); resolve();
     });
   });
 }
@@ -52,7 +53,7 @@ const FENCE_LENGTH = 16;
 const FENCE_OFFSET = ARENA_HALF + FENCE_LENGTH / 2;
 
 // ─── Init ────────────────────────────────────────────────────────────
-window.initArena = async function() {
+window.initArena = async function() { console.log("initArena called"); {
   // Load all assets
   await Promise.all([
     loadGLB('intact',      fenceMap.intact),
