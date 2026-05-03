@@ -643,7 +643,6 @@
     }
     
     function playSfx(key, volume = 1.0, loop = false) {
-        console.log('playSfx called:', key, volume);
         const audio = audioCache[key];
         if (!audio) return;
         audio.volume = volume;
@@ -701,7 +700,6 @@
 
     // ─── Reload ───
     function playReloadSound(weaponIndex) {
-        console.log('playReloadSound:', weaponIndex, reloadMap[weaponIndex]);
         const reloadMap = ['pistolReload', 'shotgunReload', 'rifleReload', 'particleReload'];
         playSfx(reloadMap[weaponIndex] || 'pistolReload', 0.4);
     }
@@ -1137,13 +1135,13 @@
         reloadDuration = CONFIG.weapons[curWeapon].reloadTime;
         reloadTimer = reloadDuration;
         document.getElementById('reload-indicator').style.display = 'block';
-        playReloadSound(curWeapon);
+        playSfx(["pistolReload","shotgunReload","rifleReload","particleReload"][curWeapon] || "pistolReload", 0.4);
     }
     function updateReload(dt) {
         if (!isReloading) return;
         reloadTimer -= dt;
         if (reloadTimer <= 0) {
-            playReloadSound(curWeapon);
+            playSfx(["pistolReload","shotgunReload","rifleReload","particleReload"][curWeapon] || "pistolReload", 0.4);
             isReloading = false;
             document.getElementById('reload-indicator').style.display = 'none';
 
