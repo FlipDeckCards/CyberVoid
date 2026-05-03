@@ -1137,6 +1137,7 @@
         reloadTimer = reloadDuration;
         document.getElementById('reload-indicator').style.display = 'block';
         playSfx(["pistolReload","shotgunReload","rifleReload","particleReload"][curWeapon] || "pistolReload", 0.4);
+            setTimeout(() => stopSfx(["pistolReload","shotgunReload","rifleReload","particleReload"][curWeapon] || "pistolReload"), 400);
     }
     function updateReload(dt) {
         if (!isReloading) return;
