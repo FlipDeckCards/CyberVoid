@@ -624,7 +624,7 @@
         rifleReload: 'rifle_reload.mp3',
         shotgunReload: 'shotgun_reload.mp3',
         particleReload: 'particle_reload.mp3',
-        weaponSwitch: 'weapon_switch.mp3',
+        weaponSwitch: 'change_weapon.mp3',
     };
     
     const audioCache = {};
@@ -643,6 +643,7 @@
     }
     
     function playSfx(key, volume = 1.0, loop = false) {
+        console.log('playSfx called:', key, volume);
         const audio = audioCache[key];
         if (!audio) return;
         audio.volume = volume;
@@ -700,6 +701,7 @@
 
     // ─── Reload ───
     function playReloadSound(weaponIndex) {
+        console.log(playReloadSound:, weaponIndex, reloadMap[weaponIndex]);
         const reloadMap = ['pistolReload', 'shotgunReload', 'rifleReload', 'particleReload'];
         playSfx(reloadMap[weaponIndex] || 'pistolReload', 0.4);
     }
@@ -711,7 +713,7 @@
     
     // ─── Wave transitions ───
     function playWaveKlaxon(isBossWave) {
-        playSfx('nextWave', isBossWave ? 1.0 : 0.85);
+        playSfx('nextWave', isBossWave ? 1.0 : 1.0);
         if (isBossWave) {
             setTimeout(() => playSfx('titanEntry', 1.0), 600);
         }
@@ -1135,11 +1137,13 @@
         reloadDuration = CONFIG.weapons[curWeapon].reloadTime;
         reloadTimer = reloadDuration;
         document.getElementById('reload-indicator').style.display = 'block';
+        playReloadSound(curWeapon);
     }
     function updateReload(dt) {
         if (!isReloading) return;
         reloadTimer -= dt;
         if (reloadTimer <= 0) {
+            playReloadSound(curWeapon);
             isReloading = false;
             document.getElementById('reload-indicator').style.display = 'none';
 
