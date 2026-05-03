@@ -1086,6 +1086,7 @@
 
     function equipWeapon(index) {
         const name = WEAPON_NAMES[index];
+        playWeaponSwitch();
         const model = weaponGLBs[name];
         if (!model) return;
 
