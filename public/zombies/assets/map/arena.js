@@ -1,10 +1,12 @@
 // assets/map/arena.js
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { scene } from './scene.js';
 
 const loader = new GLTFLoader();
 const cache = {};
+
+// ─── Scene (from window) ────────────────────────────────────────────
+const scene = window.scene;
 
 // ─── File Paths ─────────────────────────────────────────────────────
 const PIECES = './assets/map/pieces/';
@@ -45,19 +47,9 @@ function place(key, x, z, rotY = 0) {
 }
 
 // ─── Perimeter Fence Config ─────────────────────────────────────────
-// 80×80 arena: 5 fence sections per side, ~16 units each
-const FENCE_PER_SIDE = 5;
 const ARENA_HALF = 40;
 const FENCE_LENGTH = 16;
 const FENCE_OFFSET = ARENA_HALF + FENCE_LENGTH / 2;
-
-// ─── Build Border ────────────────────────────────────────────────────
-function buildBorder(side, pattern, getCoords, rotY) {
-  pattern.forEach((type, i) => {
-    const pos = getCoords(i);
-    place(type, pos.x, pos.z, rotY);
-  });
-}
 
 // ─── Init ────────────────────────────────────────────────────────────
 export async function initArena() {
@@ -78,28 +70,28 @@ export async function initArena() {
   const north = ['intact','intact','broken','intact','collapsed'];
   north.forEach((type, i) => {
     const x = -FENCE_OFFSET + i * FENCE_LENGTH + FENCE_LENGTH / 2;
-    place(type, x, 0, -FENCE_OFFSET, 0);
+    place(type, x, -FENCE_OFFSET, 0);
   });
 
   // ── South Border (z = +40) ──
   const south = ['collapsed','intact','gate','intact','broken'];
   south.forEach((type, i) => {
     const x = -FENCE_OFFSET + i * FENCE_LENGTH + FENCE_LENGTH / 2;
-    place(type, x, 0, FENCE_OFFSET, Math.PI);
+    place(type, x, FENCE_OFFSET, Math.PI);
   });
 
   // ── East Border (x = +40) ──
   const east = ['intact','broken','gateIntact','collapsed','intact'];
   east.forEach((type, i) => {
     const z = -FENCE_OFFSET + i * FENCE_LENGTH + FENCE_LENGTH / 2;
-    place(type, FENCE_OFFSET, 0, z, Math.PI / 2);
+    place(type, FENCE_OFFSET, z, Math.PI / 2);
   });
 
   // ── West Border (x = -40) ──
   const west = ['gateIntact','intact','intact','broken','intact'];
   west.forEach((type, i) => {
     const z = -FENCE_OFFSET + i * FENCE_LENGTH + FENCE_LENGTH / 2;
-    place(type, -FENCE_OFFSET, 0, z, -Math.PI / 2);
+    place(type, -FENCE_OFFSET, z, -Math.PI / 2);
   });
 
   // ── City Blocks (2×2 grid) ──
@@ -109,5 +101,5 @@ export async function initArena() {
     { key: 'block_c', x: -20, z:  20 },
     { key: 'block_d', x:  20, z:  20 },
   ];
-  blocks.forEach(({ key, x, z }) => place(key, x, 0, z));
+  blocks.forEach(({ key, x, z }) => place(key, x, z));
 }
