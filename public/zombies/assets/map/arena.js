@@ -52,7 +52,7 @@ const FENCE_LENGTH = 16;
 const FENCE_OFFSET = ARENA_HALF + FENCE_LENGTH / 2;
 
 // ─── Init ────────────────────────────────────────────────────────────
-export async function initArena() {
+window.initArena = async function() {
   // Load all assets
   await Promise.all([
     loadGLB('intact',      fenceMap.intact),
