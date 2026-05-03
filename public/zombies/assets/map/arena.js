@@ -44,6 +44,7 @@ function place(key, x, z, rotY = 0) {
   const base = cache[key];
   if (!base) return;
   const mesh = base.clone();
+  mesh.scale.setScalar(10);
   mesh.position.set(x, 0, z);
   mesh.rotation.y = rotY;
   scene.add(mesh);
@@ -51,7 +52,7 @@ function place(key, x, z, rotY = 0) {
 
 const ARENA_HALF = 40;
 const FENCE_LENGTH = 16;
-const FENCE_OFFSET = ARENA_HALF + FENCE_LENGTH / 2;
+const FENCE_OFFSET = ARENA_HALF;
 
 window.initArena = async function() {
   console.log("initArena called");
