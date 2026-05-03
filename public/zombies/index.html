@@ -701,7 +701,7 @@
 
     // ─── Reload ───
     function playReloadSound(weaponIndex) {
-        console.log(playReloadSound:, weaponIndex, reloadMap[weaponIndex]);
+        console.log('playReloadSound:', weaponIndex, reloadMap[weaponIndex]);
         const reloadMap = ['pistolReload', 'shotgunReload', 'rifleReload', 'particleReload'];
         playSfx(reloadMap[weaponIndex] || 'pistolReload', 0.4);
     }
