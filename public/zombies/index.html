@@ -3095,6 +3095,7 @@
 
         renderer.render(scene, camera);
     }
+    initArena();
     gameLoop();
 
     window.addEventListener('resize', () => {
@@ -3103,9 +3104,6 @@
         renderer.setSize(innerWidth, innerHeight);
     });
     </script>
-    <script type="module">
-      import { initArena } from './assets/map/arena.js';
-      initArena();
     </script>
 </body>
 </html>
