@@ -103,5 +103,4 @@ window.initArena = async function() { console.log("initArena called"); {
     { key: 'block_d', x:  20, z:  20 },
   ];
   blocks.forEach(({ key, x, z }) => place(key, x, z));
-}
 });
