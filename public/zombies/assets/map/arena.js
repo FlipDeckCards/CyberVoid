@@ -95,3 +95,4 @@ window.initArena = async function() {
   ];
   blocks.forEach(({ key, x, z }) => place(key, x, z));
 };
+window.initArena();
