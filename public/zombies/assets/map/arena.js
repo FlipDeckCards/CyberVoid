@@ -44,7 +44,7 @@ function place(key, x, z, rotY = 0) {
   const base = cache[key];
   if (!base) return;
   const mesh = base.clone();
-  mesh.scale.setScalar(10);
+  mesh.scale.setScalar(100);
   mesh.position.set(x, 0, z);
   mesh.rotation.y = rotY;
   scene.add(mesh);
