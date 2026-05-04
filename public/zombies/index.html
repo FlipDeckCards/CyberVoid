@@ -962,6 +962,12 @@
         scene.add(pole);
     }
 
+    // --- ARENA BOUNDARY (expands every 10 waves) ---
+    const ARENA_BASE = 40;
+    const ARENA_MAX = 200;
+    const ARENA_GROW = 20;
+    let arenaHalf = ARENA_BASE;
+
     const ground = new THREE.Mesh(
         new THREE.PlaneGeometry(80, 80),
         new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.95 })
@@ -978,6 +984,7 @@
         color: 0x2a2a2a, roughness: 0.8, metalness: 0.2
     });
     const wallGeo = new THREE.BoxGeometry(80, 4, 0.5);
+    const arenaWalls = [];
     const wallPositions = [
         { pos: [0, 2, -40], rot: 0 },
         { pos: [0, 2, 40], rot: 0 },
@@ -990,7 +997,24 @@
         wall.rotation.y = w.rot;
         wall.receiveShadow = true;
         scene.add(wall);
+        arenaWalls.push(wall);
     }
+
+    function expandArena(w) {
+        const newHalf = Math.min(ARENA_MAX, ARENA_BASE + Math.floor(w / 10) * ARENA_GROW);
+        if (newHalf === arenaHalf && w > 0) return;
+        arenaHalf = newHalf;
+        const s = arenaHalf / ARENA_BASE;
+        ground.scale.set(s, s, 1);
+        gridHelper.scale.set(s, 1, s);
+        arenaWalls[0].position.z = -arenaHalf;
+        arenaWalls[1].position.z = arenaHalf;
+        arenaWalls[2].position.x = -arenaHalf;
+        arenaWalls[3].position.x = arenaHalf;
+        for (const aw of arenaWalls) aw.scale.x = s;
+        CONFIG.spawnRadius = arenaHalf + 20;
+    }
+    expandArena(0);
 
     const skyGeo = new THREE.SphereGeometry(150, 32, 32);
     const skyMat = new THREE.ShaderMaterial({
@@ -2286,6 +2310,7 @@
     // ═══════════════════════════════════════
       function startWave() {
         wave++;
+	expandArena(wave);
         betweenWaves = false;
 
         const totalEnemies = 3 + wave * 2;
@@ -2742,6 +2767,7 @@
 
         state = 'playing';
         score = 0; kills = 0; wave = 0;
+	expandArena(0);
         hp = CONFIG.player.health;
         curWeapon = 0;
 
