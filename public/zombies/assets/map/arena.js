@@ -11,7 +11,7 @@ const scene = window.scene;
 
 loader.load('./assets/map/mega_village.glb', (gltf) => {
   const mesh = gltf.scene;
-  mesh.scale.setScalar(1);
+  mesh.scale.setScalar(10);
   mesh.position.set(0, 0, 0);
   scene.add(mesh);
   console.log("map loaded");
