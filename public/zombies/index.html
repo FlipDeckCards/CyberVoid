@@ -1899,7 +1899,7 @@
         const puType = pickPowerupType();
         const group = puType.create();
         group.position.copy(pos);
-        group.position.y = 0.3;
+        group.position.y = 1.0;
         group.scale.setScalar(2.0);
         scene.add(group);
         activePowerups.push({ group, type: puType.id, life: 15 });
@@ -1912,7 +1912,7 @@
             const p = activePowerups[i];
             p.life -= dt;
             p.group.rotation.y += dt * 2;
-            p.group.position.y = 0.3 + Math.sin(performance.now() / 1000 * 2 + i) * 0.08;
+            p.group.position.y = 1.0 + Math.sin(performance.now() / 1000 * 2 + i) * 0.08;
 
             const dist = camera.position.distanceTo(p.group.position);
             if (dist < 1.5) {
@@ -2206,13 +2206,6 @@
 
             e.mixer.update(dt);
 
-            if (e.type === 'runner' && e.runClip && wave >= 8) {
-                if (e.walkAction && e.walkAction.isRunning() && e.walkAction.getClip() !== e.runClip) {
-                    e.walkAction.fadeOut(0.2);
-                    const newAction = e.mixer.clipAction(e.runClip);
-                    newAction.reset().fadeIn(0.2).play();
-                    e.walkAction = newAction;
-                }
             }
 
             if (!e.isBoss) updateHealthBar(e);
@@ -2564,8 +2557,8 @@
         playerPos.x += (_moveForward.x * inputY + _moveRight.x * inputX) * speed;
         playerPos.z += (_moveForward.z * inputY + _moveRight.z * inputX) * speed;
 
-        playerPos.x = Math.max(-ARENA_BOUNDS, Math.min(ARENA_BOUNDS, playerPos.x));
-        playerPos.z = Math.max(-ARENA_BOUNDS, Math.min(ARENA_BOUNDS, playerPos.z));
+        playerPos.x = Math.max(-arenaHalf, Math.min(arenaHalf, playerPos.x));
+        playerPos.z = Math.max(-arenaHalf, Math.min(arenaHalf, playerPos.z));
     }
 
     // ═══════════════════════════════════════
