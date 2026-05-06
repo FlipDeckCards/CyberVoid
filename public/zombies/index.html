@@ -980,40 +980,6 @@
     gridHelper.position.y = 0.01;
     scene.add(gridHelper);
 
-    const wallMat = new THREE.MeshStandardMaterial({
-        color: 0x2a2a2a, roughness: 0.8, metalness: 0.2
-    });
-    const wallGeo = new THREE.BoxGeometry(80, 4, 0.5);
-    const arenaWalls = [];
-    const wallPositions = [
-        { pos: [0, 2, -40], rot: 0 },
-        { pos: [0, 2, 40], rot: 0 },
-        { pos: [-40, 2, 0], rot: Math.PI / 2 },
-        { pos: [40, 2, 0], rot: Math.PI / 2 }
-    ];
-    for (const w of wallPositions) {
-        const wall = new THREE.Mesh(wallGeo, wallMat);
-        wall.position.set(w.pos[0], w.pos[1], w.pos[2]);
-        wall.rotation.y = w.rot;
-        wall.receiveShadow = true;
-        scene.add(wall);
-        arenaWalls.push(wall);
-    }
-
-    function expandArena(w) {
-        const newHalf = Math.min(ARENA_MAX, ARENA_BASE + Math.floor(w / 10) * ARENA_GROW);
-        if (newHalf === arenaHalf && w > 0) return;
-        arenaHalf = newHalf;
-        const s = arenaHalf / ARENA_BASE;
-        ground.scale.set(s, s, 1);
-        gridHelper.scale.set(s, 1, s);
-        arenaWalls[0].position.z = -arenaHalf;
-        arenaWalls[1].position.z = arenaHalf;
-        arenaWalls[2].position.x = -arenaHalf;
-        arenaWalls[3].position.x = arenaHalf;
-        for (const aw of arenaWalls) aw.scale.x = s;
-        CONFIG.spawnRadius = arenaHalf + 20;
-    }
     expandArena(0);
 
     const skyGeo = new THREE.SphereGeometry(150, 32, 32);
