@@ -11,8 +11,8 @@ const scene = window.scene;
 
 loader.load('./assets/map/MIKE2.0_compressed.glb', (gltf) => {
   const mesh = gltf.scene;
-  mesh.scale.setScalar(1.5);
-  mesh.position.set(0, -4.75, 0);
+  mesh.scale.setScalar(1.2);
+  mesh.position.set(0, -3.75, 0);
   scene.add(mesh);
   console.log("map loaded");
 });
