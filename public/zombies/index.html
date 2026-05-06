@@ -962,12 +962,6 @@
         scene.add(pole);
     }
 
-    // --- ARENA BOUNDARY (expands every 10 waves) ---
-    const ARENA_BASE = 40;
-    const ARENA_MAX = 200;
-    const ARENA_GROW = 20;
-    let arenaHalf = ARENA_BASE;
-
     const ground = new THREE.Mesh(
         new THREE.PlaneGeometry(80, 80),
         new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.95 })
@@ -980,7 +974,7 @@
     gridHelper.position.y = 0.01;
     scene.add(gridHelper);
 
-    expandArena(0);
+
 
     const skyGeo = new THREE.SphereGeometry(150, 32, 32);
     const skyMat = new THREE.ShaderMaterial({
@@ -2268,7 +2262,6 @@
     // ═══════════════════════════════════════
       function startWave() {
         wave++;
-	expandArena(wave);
         betweenWaves = false;
 
         const totalEnemies = 3 + wave * 2;
@@ -2523,8 +2516,6 @@
         playerPos.z += (_moveForward.z * inputY + _moveRight.z * inputX) * speed;
 
         playerPos.x = Math.max(-arenaHalf, Math.min(arenaHalf, playerPos.x));
-        playerPos.z = Math.max(-arenaHalf, Math.min(arenaHalf, playerPos.z));
-    }
 
     // ═══════════════════════════════════════
     // GAMEPAD SUPPORT
@@ -2725,7 +2716,6 @@
 
         state = 'playing';
         score = 0; kills = 0; wave = 0;
-	expandArena(0);
         hp = CONFIG.player.health;
         curWeapon = 0;
 
