@@ -9,7 +9,7 @@ loader.setDRACOLoader(dracoLoader);
 
 const scene = window.scene;
 
-loader.load('./assets/map/mega_village.glb', (gltf) => {
+loader.load('./assets/map/MIKE2.0_compressed.glb', (gltf) => {
   const mesh = gltf.scene;
   mesh.scale.setScalar(10);
   mesh.position.set(0, 0, 0);
