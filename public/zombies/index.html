@@ -49,7 +49,7 @@
             background: rgba(57,255,20,0.05);
         }
         #login-status {
-            color: #666; font-size: 0.7rem; letter-spacing: 2px;
+            color: #666; font-size: 1.5rem; letter-spacing: 2px;
             min-height: 16px; text-align: center;
         }
 
@@ -58,13 +58,13 @@
             overflow-y: auto;
         }
         #menu-leaderboard h3 {
-            color: #ff4444; font-size: 0.75rem;
+            color: #ff4444; font-size: 1.55rem;
             letter-spacing: 4px; text-transform: uppercase;
             text-align: center; margin-bottom: 8px;
         }
         .lb-row {
             display: flex; justify-content: space-between;
-            padding: 4px 8px; font-size: 0.7rem;
+            padding: 4px 8px; font-size: 1.5rem;
             letter-spacing: 1px; border-bottom: 1px solid #1a1a1a;
         }
         .lb-row .lb-rank { color: #555; width: 30px; }
@@ -146,7 +146,7 @@
         }
         #health-label {
             position: absolute; bottom: 72px; left: 20px;
-            color: #39FF14; font-size: 0.7rem; letter-spacing: 2px;
+            color: #39FF14; font-size: 1.5rem; letter-spacing: 2px;
         }
         #ammo-display {
             position: absolute; bottom: 60px; left: 240px;
@@ -182,7 +182,7 @@
             border: 1px solid #333;
             border-radius: 4px;
             color: #666;
-            font-size: 0.72rem;
+            font-size: 1.52rem;
             font-weight: bold;
             letter-spacing: 2px;
             text-transform: uppercase;
@@ -217,7 +217,7 @@
             display: none; pointer-events: none;
         }
         #boss-name {
-            color: #ff4444; font-size: 0.7rem; text-align: center;
+            color: #ff4444; font-size: 1.5rem; text-align: center;
             letter-spacing: 3px; margin-bottom: 4px;
         }
         #boss-bar-bg {
@@ -996,7 +996,7 @@
         starVerts[i + 2] = r * Math.cos(p);
     }
     starGeo.setAttribute('position', new THREE.BufferAttribute(starVerts, 3));
-    const starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.7, transparent: true });
+    const starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 1.5, transparent: true });
     const starField = new THREE.Points(starGeo, starMat);
     scene.add(starField);
 
@@ -1019,7 +1019,7 @@
         }
         moonMesh.position.copy(sunVec).multiplyScalar(-250);
         moonMesh.visible = elevation < 0.1;
-        const starOpacity = Math.max(0, Math.min(1, -elevation * 3 + 0.2));
+        const starOpacity = Math.max(0, Math.min(1, -elevation * 3 + 0.8));
         starMat.opacity = starOpacity;
         starField.visible = starOpacity > 0.01;
     }
