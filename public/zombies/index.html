@@ -403,6 +403,7 @@
     import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
     import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
     import { clone as skeletonClone } from 'three/addons/utils/SkeletonUtils.js';
+    import { Sky } from 'three/addons/objects/Sky.js';
 
     // ═══════════════════════════════════════
     // CALLSIGN / EMAIL / LEADERBOARD API
@@ -929,7 +930,7 @@
     document.body.appendChild(renderer.domElement);
 
     scene.add(new THREE.AmbientLight(0xffffff, 2.0));
-
+    const ambientLight = new THREE.AmbientLight(0xffffff, 2.0); scene.add(ambientLight);
     const moon = new THREE.DirectionalLight(0x6699bb, 1.5);
     moon.position.set(-10, 20, -10);
     moon.castShadow = true;
@@ -963,6 +964,66 @@
     ground.rotation.x = -Math.PI / 2;
     ground.receiveShadow = true;
     scene.add(ground);
+
+    // === DYNAMIC SKY SYSTEM ===
+    const sky = new Sky();
+    sky.scale.setScalar(450000);
+    scene.add(sky);
+    const skyUniforms = sky.material.uniforms;
+    skyUniforms['turbidity'].value = 10;
+    skyUniforms['rayleigh'].value = 3;
+    skyUniforms['mieCoefficient'].value = 0.005;
+    skyUniforms['mieDirectionalG'].value = 0.7;
+
+    const sunVec = new THREE.Vector3();
+    const sunLight = new THREE.DirectionalLight(0xffffff, 2);
+    scene.add(sunLight);
+
+    const moonMesh = new THREE.Mesh(
+        new THREE.SphereGeometry(5, 16, 16),
+        new THREE.MeshBasicMaterial({ color: 0xffffee })
+    );
+    scene.add(moonMesh);
+
+    const starGeo = new THREE.BufferGeometry();
+    const starVerts = new Float32Array(1500);
+    for (let i = 0; i < 1500; i += 3) {
+        const r = 400 + Math.random() * 50;
+        const t = Math.random() * Math.PI * 2;
+        const p = Math.acos(2 * Math.random() - 1);
+        starVerts[i] = r * Math.sin(p) * Math.cos(t);
+        starVerts[i + 1] = Math.abs(r * Math.sin(p) * Math.sin(t));
+        starVerts[i + 2] = r * Math.cos(p);
+    }
+    starGeo.setAttribute('position', new THREE.BufferAttribute(starVerts, 3));
+    const starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 0.7, transparent: true });
+    const starField = new THREE.Points(starGeo, starMat);
+    scene.add(starField);
+
+    function updateSky() {
+        const now = new Date();
+        const h = now.getHours() + now.getMinutes() / 60 + now.getSeconds() / 3600;
+        const angle = ((h - 6) / 24) * Math.PI * 2;
+        const elevation = Math.sin(angle);
+        const phi = Math.acos(Math.max(-1, Math.min(1, elevation)));
+        const theta = angle;
+        sunVec.setFromSphericalCoords(1, phi, theta);
+        sky.material.uniforms['sunPosition'].value.copy(sunVec);
+        sunLight.position.copy(sunVec).multiplyScalar(100);
+        sunLight.intensity = Math.max(0, elevation) * 2.5;
+        ambientLight.intensity = 0.15 + Math.max(0, elevation) * 1.85;
+        if (elevation > 0) {
+            ambientLight.color.setHSL(0.1, 0.2, 0.7);
+        } else {
+            ambientLight.color.setHSL(0.65, 0.3, 0.3);
+        }
+        moonMesh.position.copy(sunVec).multiplyScalar(-250);
+        moonMesh.visible = elevation < 0.1;
+        const starOpacity = Math.max(0, Math.min(1, -elevation * 3 + 0.2));
+        starMat.opacity = starOpacity;
+        starField.visible = starOpacity > 0.01;
+    }
+    updateSky();
 
     const gridHelper = new THREE.GridHelper(80, 40, 0x333333, 0x222222);
     gridHelper.position.y = 0.01;
@@ -3028,6 +3089,7 @@
     // ═══════════════════════════════════════
     function gameLoop() {
         requestAnimationFrame(gameLoop);
+        updateSky();
 
         const dt = Math.min(clock.getDelta(), 0.1);
 
