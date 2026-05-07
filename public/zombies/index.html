@@ -954,12 +954,6 @@
         scene.add(fl);
         scene.add(fl.target);
 
-        const pole = new THREE.Mesh(
-            new THREE.CylinderGeometry(0.15, 0.15, 12, 6),
-            new THREE.MeshStandardMaterial({ color: 0x444444, metalness: 0.8, roughness: 0.3 })
-        );
-        pole.position.set(pos[0], 6, pos[2]);
-        scene.add(pole);
     }
 
     const ground = new THREE.Mesh(
