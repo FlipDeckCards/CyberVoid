@@ -12,6 +12,7 @@ A top-down wave-survival shooter for the Deadzone Games site. Lives at `/feral/`
 ```
 node tools-feral/sim-test.js 10 25     # map checks + a bot plays up to 25 rounds on 10 seeds (no softlocks)
 node tools-feral/rules-test.js         # shop, perks, windows, power-ups, creatures, safety nets
+node tools-feral/rules-trap-test.js    # the player can never get stuck in a window, door, wall or scenery
 node tools-feral/serve.js 5173         # local server; open http://localhost:5173/feral/
 ```
 `tools-feral/` is for development only and is not needed to run the game.

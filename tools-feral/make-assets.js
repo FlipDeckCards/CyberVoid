@@ -33,19 +33,8 @@
     x.fillStyle = '#150b26'; x.beginPath(); x.moveTo(0, 520); x.quadraticCurveTo(160, 440, 330, 520); x.quadraticCurveTo(470, 580, 600, 500); x.lineTo(600, H); x.lineTo(0, H); x.fill();
     x.fillStyle = '#2a1840'; x.fillRect(60, 470, 150, 90); x.beginPath(); x.moveTo(50, 470); x.lineTo(135, 410); x.lineTo(220, 470); x.fill(); x.fillStyle = '#ffb347'; x.fillRect(120, 505, 26, 40); x.fillRect(80, 490, 14, 14); x.fillRect(172, 490, 14, 14);
     const fg = x.createLinearGradient(0, 560, 0, H); fg.addColorStop(0, '#2a3f2e'); fg.addColorStop(1, '#10180f'); x.fillStyle = fg; x.beginPath(); x.moveTo(0, 600); x.quadraticCurveTo(300, 540, 600, 610); x.lineTo(600, H); x.lineTo(0, H); x.fill();
-    // title
-    x.textAlign = 'center'; x.lineJoin = 'round'; x.font = '900 86px "Trebuchet MS", "Segoe UI", sans-serif';
-    x.lineWidth = 14; x.strokeStyle = '#2a0610'; x.strokeText('DEAD ZONE', W / 2, 108); x.fillStyle = '#ff6a6a'; x.fillText('DEAD ZONE', W / 2, 108);
-    x.font = '900 118px "Trebuchet MS", "Segoe UI", sans-serif'; x.lineWidth = 16; x.strokeStyle = '#0a2a08'; x.strokeText('FERAL', W / 2, 218); x.fillStyle = '#8cff6a'; x.fillText('FERAL', W / 2, 218);
     // the cast
-    const base = 575;
-    stamp(x, A.wisp[0], 92, 355, 6.5); x.globalAlpha = 1;
-    stamp(x, A.spit[0], 545, 540, 6);
-    shadow(x, 150, base - 10, 90); stamp(x, A.glump[3][0], 150, base, 9, true);
-    shadow(x, 460, base - 10, 110); stamp(x, A.moss[0], 450, base + 4, 7);
-    shadow(x, 300, base + 40, 70); stamp(x, A.zap[0], 232, base + 30, 7); stamp(x, A.boom[0], 372, base + 30, 7);
-    shadow(x, 300, base - 40, 80); stamp(x, A.pip[4], 300, base - 20, 10);
-    x.save(); x.translate(300 + 54, base - 20 - 110); x.imageSmoothingEnabled = false; x.drawImage(A.weapon.pip, 0, -6 * 8, 18 * 8, 12 * 8); x.restore();
+const base = 560;    stamp(x, A.wisp[0], 105, 330, 7); x.globalAlpha = 1;    stamp(x, A.spit[0], 540, 470, 6);    shadow(x, 120, base - 6, 95); stamp(x, A.glump[3][0], 120, base, 7.5, true);    shadow(x, 478, base - 6, 115); stamp(x, A.moss[0], 478, base + 2, 6);    shadow(x, 300, base - 4, 95); stamp(x, A.pip[4], 300, base, 12);    shadow(x, 205, base + 52, 55); stamp(x, A.zap[0], 205, base + 56, 7);    shadow(x, 395, base + 52, 55); stamp(x, A.boom[0], 395, base + 56, 7);    x.save(); x.translate(300 + 54, base - 128); x.imageSmoothingEnabled = false; x.drawImage(A.weapon.pip, 0, -6 * 7, 18 * 7, 12 * 7); x.restore();
     const vg = x.createRadialGradient(W / 2, H / 2, H * 0.3, W / 2, H / 2, H * 0.75); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(1, 'rgba(0,0,0,0.5)'); x.fillStyle = vg; x.fillRect(0, 0, W, H);
     return c;
   }

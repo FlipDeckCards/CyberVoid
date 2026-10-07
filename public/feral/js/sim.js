@@ -47,10 +47,14 @@
       return true;                                              // wall, closed door, scenery, water, machines
     }
     function bulletSolid(tx, ty) { const k = kindAt(tx, ty); return k === K.WALL || k === K.DOOR || k === K.BLOCK || k === K.MACHINE; }   // shots fly over water and through windows
-    function blocked(x, y, r) {
+    // The player may only ever stand on open floor: every wall, window opening (boarded or broken), window yard, closed door, crate and machine is solid for the player.
+    // (Creatures use solid(): they do walk through a window once its boards are gone.)
+    function solidPlayer(tx, ty) { return kindAt(tx, ty) !== K.FLOOR; }
+    function blocked(x, y, r, fn) {
+      fn = fn || solid;
       const x0 = Math.floor((x - r) / T), x1 = Math.floor((x + r) / T), y0 = Math.floor((y - r) / T), y1 = Math.floor((y + r) / T);
       for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) {
-        if (!solid(tx, ty)) continue;
+        if (!fn(tx, ty)) continue;
         const cx = clamp(x, tx * T, tx * T + T), cy = clamp(y, ty * T, ty * T + T);
         if ((x - cx) * (x - cx) + (y - cy) * (y - cy) < r * r) return true;
       }
@@ -58,9 +62,20 @@
     }
     function move(e, dx, dy, ghost) {
       if (ghost) { e.x = clamp(e.x + dx, 8, W * T - 8); e.y = clamp(e.y + dy, 8, H * T - 8); return; }
-      if (dx && !blocked(e.x + dx, e.y, e.r)) e.x += dx;
-      if (dy && !blocked(e.x, e.y + dy, e.r)) e.y += dy;
+      const fn = e === P ? solidPlayer : solid;
+      if (dx && !blocked(e.x + dx, e.y, e.r, fn)) e.x += dx;
+      if (dy && !blocked(e.x, e.y + dy, e.r, fn)) e.y += dy;       // each axis on its own, so the player slides along a wall instead of sticking to it
     }
+    // If the player ever overlaps something solid (a board nailed back while standing in the opening, a teleport, anything), put them on the nearest free spot.
+    function unstick() {
+      if (!blocked(P.x, P.y, P.r, solidPlayer)) return false;
+      for (let rad = 1; rad <= 96; rad += 1) for (let i = 0; i < 32; i++) {
+        const a = i / 32 * Math.PI * 2, x = P.x + Math.cos(a) * rad, y = P.y + Math.sin(a) * rad;
+        if (x > 8 && y > 8 && x < W * T - 8 && y < H * T - 8 && !blocked(x, y, P.r, solidPlayer)) { P.x = x; P.y = y; g.events.length < EV_CAP && emit({ t: 'unstick' }); return true; }
+      }
+      return false;
+    }
+    g.unstick = unstick; g.playerStuck = () => blocked(P.x, P.y, P.r, solidPlayer);
     function lineClear(x0, y0, x1, y1, fn) {                    // is the straight line free of tiles where fn(tx,ty) is true?
       const d = Math.hypot(x1 - x0, y1 - y0), n = Math.max(1, Math.ceil(d / 5));
       for (let i = 1; i < n; i++) { const t = i / n; if (fn(Math.floor((x0 + (x1 - x0) * t) / T), Math.floor((y0 + (y1 - y0) * t) / T))) return false; }
@@ -358,6 +373,7 @@
     }
 
     function updatePlayer(dt, inp) {
+      unstick();
       if (inp.aim != null) P.aim = inp.aim;
       const sp = P.speed * (P.perks.boots ? 1.22 : 1) * (P.reload > 0 ? 0.92 : 1);
       let mx = inp.mx || 0, my = inp.my || 0; const ml = Math.hypot(mx, my); if (ml > 1) { mx /= ml; my /= ml; }
