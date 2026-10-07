@@ -20,10 +20,10 @@ const STYLE = {
 
 // ---------- small geometry helpers ----------
 function GeoBuf() { this.p = []; this.n = []; this.u = []; this.c = []; this.i = []; this.v = 0; }
-GeoBuf.prototype.quad = function (O, U, V, uvw, uvh, shadeBot, shadeTop) {
+GeoBuf.prototype.quad = function (O, U, V, uvw, uvh, shadeBot, shadeTop, u0 = 0, v0 = 0) {
   const nx = U[1] * V[2] - U[2] * V[1], ny = U[2] * V[0] - U[0] * V[2], nz = U[0] * V[1] - U[1] * V[0], nl = Math.hypot(nx, ny, nz) || 1;
   const pts = [O, [O[0] + U[0], O[1] + U[1], O[2] + U[2]], [O[0] + U[0] + V[0], O[1] + U[1] + V[1], O[2] + U[2] + V[2]], [O[0] + V[0], O[1] + V[1], O[2] + V[2]]];
-  const uvs = [[0, 0], [uvw, 0], [uvw, uvh], [0, uvh]], sh = [shadeBot, shadeBot, shadeTop, shadeTop];
+  const uvs = [[u0, v0], [u0 + uvw, v0], [u0 + uvw, v0 + uvh], [u0, v0 + uvh]], sh = [shadeBot, shadeBot, shadeTop, shadeTop];
   for (let k = 0; k < 4; k++) { this.p.push(pts[k][0], pts[k][1], pts[k][2]); this.n.push(nx / nl, ny / nl, nz / nl); this.u.push(uvs[k][0], uvs[k][1]); this.c.push(sh[k], sh[k], sh[k]); }
   this.i.push(this.v, this.v + 1, this.v + 2, this.v, this.v + 2, this.v + 3); this.v += 4;
 };
@@ -126,14 +126,14 @@ export function buildWorld(map, quality, game) {
     if (dir === 0) { O = [x1, y0, z1]; U = [0, 0, -TS]; V = [0, h, 0]; } else if (dir === 1) { O = [x0, y0, z0]; U = [0, 0, TS]; V = [0, h, 0]; }
     else if (dir === 2) { O = [x0, y0, z1]; U = [TS, 0, 0]; V = [0, h, 0]; } else { O = [x1, y0, z0]; U = [-TS, 0, 0]; V = [0, h, 0]; }
     const B = wb(st.s.wall, st.s.tint, st.s.uvw).buf, segs = Math.max(1, Math.round(h / 3));
-    for (let s = 0; s < segs; s++) { const a = s / segs, b = (s + 1) / segs, O2 = [O[0], y0 + h * a, O[2]]; B.quad(O2, U, [0, h / segs, 0], TS / st.s.uvw, (h / segs) / st.s.uvw, 0.55 + 0.45 * Math.min(1, (y0 + h * a) / 3), 0.55 + 0.45 * Math.min(1, (y0 + h * b) / 3)); }
+    for (let s = 0; s < segs; s++) { const a = s / segs, b = (s + 1) / segs, O2 = [O[0], y0 + h * a, O[2]]; const uw = st.s.uvw, uu0 = dir === 0 ? -O[2] / uw : dir === 1 ? O[2] / uw : dir === 2 ? O[0] / uw : -O[0] / uw; B.quad(O2, U, [0, h / segs, 0], TS / uw, (h / segs) / uw, 0.55 + 0.45 * Math.min(1, (y0 + h * a) / 3), 0.55 + 0.45 * Math.min(1, (y0 + h * b) / 3), uu0, O2[1] / uw); }
   }
   const DX = [1, -1, 0, 0], DY = [0, 0, 1, -1];
   for (let ty = 0; ty < H; ty++) for (let tx = 0; tx < W; tx++) {
     const k = tiles[ty * W + tx]; if (k === K.WALL) continue;
     const st = styleOf(tx, ty), x0 = tx * TS, z0 = ty * TS, Hh = st.s.H;
-    if (k !== K.BARRIER && k !== K.WATER) { const f = fb(st.room, st.key, st.s.floor, st.s.floorB); f.buf.quad([x0, 0, z0 + TS], [TS, 0, 0], [0, 0, -TS], TS / 4, TS / 4, 1, 1); }
-    if (k !== K.BARRIER && st.s.ceil) { const c = ceilBufs[st.s.ceil] || (ceilBufs[st.s.ceil] = { buf: new GeoBuf(), name: st.s.ceil }); c.buf.quad([x0, Hh, z0], [TS, 0, 0], [0, 0, TS], TS / 5, TS / 5, 0.5, 0.5); }
+    if (k !== K.BARRIER && k !== K.WATER) { const f = fb(st.room, st.key, st.s.floor, st.s.floorB); f.buf.quad([x0, 0, z0 + TS], [TS, 0, 0], [0, 0, -TS], TS / 4, TS / 4, 1, 1, x0 / 4, -(z0 + TS) / 4); }
+    if (k !== K.BARRIER && st.s.ceil) { const c = ceilBufs[st.s.ceil] || (ceilBufs[st.s.ceil] = { buf: new GeoBuf(), name: st.s.ceil }); c.buf.quad([x0, Hh, z0], [TS, 0, 0], [0, 0, TS], TS / 5, TS / 5, 0.5, 0.5, x0 / 5, z0 / 5); }
     for (let d = 0; d < 4; d++) {
       const nx = tx + DX[d], ny = ty + DY[d], nk = kindAt(nx, ny), faceDir = d === 0 ? 1 : d === 1 ? 0 : d === 2 ? 3 : 2;
       if (nk === K.WALL) wallFace(st, nx, ny, faceDir, 0, Hh);
@@ -141,7 +141,7 @@ export function buildWorld(map, quality, game) {
     }
   }
   const tileGroup = new THREE.Group(); root.add(tileGroup);
-  for (const f of Object.values(floorBufs)) { if (!f.buf.v) continue; const g = f.buf.geometry(), m = f.b ? getMat('ground:' + f.a + f.b, () => groundMaterial(f.a, f.b)) : getMat('floor:' + f.a, () => pbr(f.a, { ns: f.a === 'basalt' ? 1.4 : 1, emissive: f.a === 'basalt' ? 1.6 : 0 })); const me = new THREE.Mesh(g, m); me.receiveShadow = true; me.castShadow = false; me.matrixAutoUpdate = false; tileGroup.add(me); }
+  for (const f of Object.values(floorBufs)) { if (!f.buf.v) continue; const g = f.buf.geometry(), m = f.b ? getMat('ground:' + f.a + f.b, () => groundMaterial(f.a, f.b)) : getMat('floor:' + f.a, () => pbr(f.a, { ns: f.a === 'basalt' ? 1.4 : 1, emissive: f.a === 'basalt' ? 0.6 : 0 })); const me = new THREE.Mesh(g, m); me.receiveShadow = true; me.castShadow = false; me.matrixAutoUpdate = false; tileGroup.add(me); }
   for (const w of Object.values(wallBufs)) { const g = w.buf.geometry(), me = new THREE.Mesh(g, wallMat(w.name, w.tint)); me.receiveShadow = true; me.castShadow = true; me.matrixAutoUpdate = false; tileGroup.add(me); }
   for (const c of Object.values(ceilBufs)) { const me = new THREE.Mesh(c.buf.geometry(), wallMat(c.name, 0x777777)); me.receiveShadow = false; me.castShadow = false; me.matrixAutoUpdate = false; tileGroup.add(me); }
 
@@ -211,7 +211,7 @@ export function buildWorld(map, quality, game) {
       case 'container': { const al = b.w >= b.h, L = (al ? fw : fd) - 0.3, Wd = 2.5, mk = ['paintRed', 'paintBlue', 'paintOlive'][(b.x + b.y) % 3]; box(mk, M[mk], cx, 0.05, cz, al ? L : Wd, 2.6, al ? Wd : L); for (let i = 1; i < 12; i++) { const t = (i / 12 - 0.5) * L; box(...P('steel', al ? cx + t : cx, 0.05, al ? cz : cz + t, al ? 0.12 : Wd + 0.1, 2.6, al ? Wd + 0.1 : 0.12)); } break; }
       case 'generator': { box(...P('paintOlive', cx, 0, cz, 3.2, 2.0, 2.2)); cyl('steel', M.steel, cx - 1.1, 2.0, cz, 0.16, 0.16, 1.4, 8); box(...P('steel', cx + 0.4, 2.0, cz, 1.2, 0.3, 1.8)); break; }
       case 'hangar': { const h = 7.5; box(...P('steel', cx, 0, cz, fw, 5.5, fd)); const g = new THREE.CylinderGeometry(1, 1, 1, 24, 1, false, 0, Math.PI); put('steel', M.steel, g, cx, 5.5, cz, { sx: fd / 2, sy: fw, sz: (fd / 2) * 0.0 + (h - 5.5) * 1.1, rz: Math.PI / 2, uv: [6, 6] }); box(...P('concrete', cx, 0, cz + fd / 2 + 0.2, fw - 6, 0.25, 0.8)); box(...P('glass', cx, 0.6, cz + fd / 2 + 0.06, 9, 4, 0.2)); break; }
-      case 'lab': { box(...P('lab', cx, 0, cz, fw, 4.6, fd)); box(...P('concrete', cx, 4.6, cz, fw + 0.8, 0.4, fd + 0.8)); for (let i = 0; i < 4; i++) box(...P('steel', cx - fw * 0.3 + i * (fw * 0.2), 5.0, cz - 0.6, 1.4, 0.9, 1.4)); box(...P('glass', cx, 1.1, cz + fd / 2 + 0.05, fw * 0.7, 1.9, 0.12)); addLight(cx, 3.0, cz + fd / 2 + 1.2, 0x9affc8, 34, 18, { group: 'lab', flicker: 0.5 }); break; }
+      case 'lab': { box(...P('lab', cx, 0, cz, fw, 4.6, fd)); box(...P('concrete', cx, 4.6, cz, fw + 0.8, 0.4, fd + 0.8)); for (let i = 0; i < 4; i++) box(...P('steel', cx - fw * 0.3 + i * (fw * 0.2), 5.0, cz - 0.6, 1.4, 0.9, 1.4)); box(...P('glass', cx, 1.1, cz + fd / 2 + 0.05, fw * 0.7, 1.9, 0.12)); addLight(cx, 3.4, cz + fd / 2 + 3.5, 0x9affc8, 18, 16, { group: 'lab', flicker: 0.5 }); break; }
       case 'heli': { const al = b.w >= b.h; const ry = (al ? 0 : Math.PI / 2) + 0.2; const bodyG = new THREE.SphereGeometry(1, 20, 12); put('paintOlive', M.paintOlive, bodyG, cx, 1.5, cz, { sx: 2.6, sy: 1.3, sz: 1.2, ry, rz: 0.1, uv: [3, 2] }); const tail = new THREE.CylinderGeometry(0.15, 0.4, 4.5, 10); put('paintOlive', M.paintOlive, tail, cx + Math.cos(ry) * -4.4, 1.9, cz + Math.sin(ry) * 4.4, { rz: Math.PI / 2, ry, uv: [1, 3] }); for (let i = 0; i < 3; i++) box(...P('rustmetal', cx, 2.5, cz, 7.6, 0.07, 0.4, { ry: ry + i * 2.1 + 0.4, rz: 0.1 })); break; }
       case 'tree': { addTree(cx, cz, 0.7 + rnd() * 0.2, 17 + rnd() * 5, true); break; }
       case 'rock': case 'stalag': {
@@ -228,6 +228,7 @@ export function buildWorld(map, quality, game) {
   for (const [tx, ty, c, i, r, g] of [[48, 44, 0xffd29a, 90, 24, 'plaza'], [84, 44, 0xffd29a, 90, 24, 'plaza'], [48, 70, 0xffd29a, 90, 24, 'plaza'], [84, 70, 0xffd29a, 90, 24, 'plaza'], [66, 53, 0xffe0b0, 80, 22, 'plaza'], [56, 60, 0xffd29a, 70, 22, 'plaza'], [76, 60, 0xffd29a, 70, 22, 'plaza'],
     [14, 16, 0xcfe4ff, 110, 26, 'compound'], [30, 24, 0xcfe4ff, 100, 26, 'compound'], [44, 16, 0xcfe4ff, 110, 26, 'compound'], [20, 28, 0xcfe4ff, 90, 24, 'compound'],
     [12, 60, 0xffb060, 70, 20, 'jungle'], [22, 54, 0xffb060, 70, 20, 'jungle'], [32, 48, 0xffb060, 70, 20, 'jungle'], [20, 40, 0xffb060, 70, 20, 'jungle'], [28, 70, 0xffb060, 70, 20, 'jungle']]) lamp((tx + 0.5) * TS, (ty + 0.5) * TS, c, i, r, g, g === 'jungle' ? 3.6 : 5.6);
+  { const cv = D.ROOMS[3]; for (let j = 0; j < 3; j++) for (let i = 0; i < 5; i++) addLight((cv.x + 4 + i * (cv.w - 8) / 4) * TS, 4.5, (cv.y + 4 + j * (cv.h - 8) / 2) * TS, 0xff5a20, 260, 38, { group: 'cave', flicker: 0.22 }); }
   for (const l of wd.lights) l.baseIntensity = l.intensity;
 
   // trees: trunks as merged cylinders, canopies as instanced leaf cards
@@ -286,13 +287,13 @@ export function buildWorld(map, quality, game) {
     if (l.kind === 'water') { const g = new THREE.PlaneGeometry(gw, gd); g.rotateX(-Math.PI / 2); scaleUV(g, gw / 6, gd / 6); const me = new THREE.Mesh(g, waterMat); me.position.set(cx, -0.25, cz); me.receiveShadow = true; me.userData.noAO = true; root.add(me); }
     else { const g = new THREE.PlaneGeometry(gw, gd); g.rotateX(-Math.PI / 2); scaleUV(g, gw / 5, gd / 5); const me = new THREE.Mesh(g, lavaMat); me.position.set(cx, -0.45, cz); me.receiveShadow = false; me.userData.noAO = true; root.add(me); for (let i = 0; i < 2; i++) addLight(cx + (i - 0.5) * gw * 0.35, 1.2, cz + (i - 0.5) * gd * 0.2, 0xff6a20, 520, 38, { group: 'lava', flicker: 0.3 }); }
     // a stone rim around the liquid
-    const rim = l.kind === 'water' ? 'concrete' : 'basalt'; for (const [rx, rz, w, d] of [[cx, cz - gd / 2 - 0.3, gw + 1.2, 0.6], [cx, cz + gd / 2 + 0.3, gw + 1.2, 0.6], [cx - gw / 2 - 0.3, cz, 0.6, gd], [cx + gw / 2 + 0.3, cz, 0.6, gd]]) { const mk = rim; const bg = new THREE.BoxGeometry(w, l.kind === 'water' ? 0.55 : 0.4, d); const m2 = new THREE.Mesh(bg, M[mk]()); m2.position.set(rx, l.kind === 'water' ? 0.1 : 0.0, rz); m2.castShadow = true; m2.receiveShadow = true; scaleUV(bg, Math.max(w, d) / 4, 0.3); root.add(m2); }
+    const rim = l.kind === 'water' ? 'concrete' : 'basalt'; for (const [rx, rz, w, d] of [[cx, cz - gd / 2 - 0.3, gw + 1.2, 0.6], [cx, cz + gd / 2 + 0.3, gw + 1.2, 0.6], [cx - gw / 2 - 0.3, cz, 0.6, gd], [cx + gw / 2 + 0.3, cz, 0.6, gd]]) { const mk = rim; const bg = whiten(new THREE.BoxGeometry(w, l.kind === 'water' ? 0.55 : 0.4, d)); const m2 = new THREE.Mesh(bg, M[mk]()); m2.position.set(rx, l.kind === 'water' ? 0.1 : 0.0, rz); m2.castShadow = true; m2.receiveShadow = true; scaleUV(bg, Math.max(w, d) / 4, 0.3); root.add(m2); }
   }
   wd.waterMat = waterMat; wd.lavaMat = lavaMat;
   // the stream that runs under the boardwalk bridge, and the fountain statue
   { const g = new THREE.PlaneGeometry(22 * TS * 0.5, 3 * TS); g.rotateX(-Math.PI / 2); const sm = new THREE.Mesh(g, waterMat); sm.position.set((19 + 11) * TS, -0.35, 58.5 * TS); root.add(sm); }
-  { const bw = new THREE.Group(); const m2 = M.wood(); for (let i = 0; i < 11; i++) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.1, 3.1), m2); p.position.set((19 + i * 0.5 + 0.2) * TS * 1.0 - 0.0, 0.08, 58.5 * TS); p.receiveShadow = true; p.castShadow = true; bw.add(p); } root.add(bw);
-    const stat = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 1.0, 2.2, 14), M.concrete()); stat.position.set(66 * TS, 1.1, 60.5 * TS); stat.castShadow = true; root.add(stat); const top = new THREE.Mesh(new THREE.SphereGeometry(0.8, 14, 10), M.steel()); top.position.set(66 * TS, 3.0, 60.5 * TS); top.castShadow = true; root.add(top); }
+  { const bw = new THREE.Group(); const m2 = M.wood(); for (let i = 0; i < 11; i++) { const p = new THREE.Mesh(whiten(new THREE.BoxGeometry(0.42, 0.1, 3.1)), m2); p.position.set((19 + i * 0.5 + 0.2) * TS * 1.0 - 0.0, 0.08, 58.5 * TS); p.receiveShadow = true; p.castShadow = true; bw.add(p); } root.add(bw);
+    const stat = new THREE.Mesh(whiten(new THREE.CylinderGeometry(0.7, 1.0, 2.2, 14)), M.concrete()); stat.position.set(66 * TS, 1.1, 60.5 * TS); stat.castShadow = true; root.add(stat); const top = new THREE.Mesh(whiten(new THREE.SphereGeometry(0.8, 14, 10)), M.steel()); top.position.set(66 * TS, 3.0, 60.5 * TS); top.castShadow = true; root.add(top); }
   // helipad marking
   { const hp = D.DECOR.helipad, sz = hp[2] * TS, tex = canvasTexture(512, 512, (x, w, h) => { x.clearRect(0, 0, w, h); x.strokeStyle = 'rgba(230,200,60,0.85)'; x.lineWidth = 22; x.beginPath(); x.arc(w / 2, h / 2, w * 0.42, 0, 7); x.stroke(); x.fillStyle = 'rgba(230,200,60,0.85)'; x.font = '900 260px Arial'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText('H', w / 2, h / 2 + 12); x.globalCompositeOperation = 'destination-out'; for (let i = 0; i < 900; i++) { x.globalAlpha = Math.random() * 0.5; x.fillRect(Math.random() * w, Math.random() * h, 8 + Math.random() * 30, 2 + Math.random() * 6); } });
     const m2 = new THREE.MeshStandardMaterial({ map: tex, transparent: true, roughness: 0.8, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }); const p = new THREE.Mesh(new THREE.PlaneGeometry(sz, sz), m2); p.rotation.x = -Math.PI / 2; p.position.set((hp[0] + hp[2] / 2) * TS, 0.02, (hp[1] + hp[3] / 2) * TS); p.receiveShadow = true; p.userData.noAO = true; root.add(p); }

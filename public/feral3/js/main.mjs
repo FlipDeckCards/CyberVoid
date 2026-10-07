@@ -209,15 +209,17 @@ function draw(gg, dt) {
   cam3.position.set(px, py, pz); cam3.rotation.set(pitch + sy * 0.4, yawCam, roll + sr);
   const base = UI.settings.fov, zf = gg === g ? (view.zoomFactor = 1 + (vm.zoomFor(vm.curId) - 1) * view.ads) : 1; const fovNow = base / zf + (view.sprint ? 4 : 0); if (Math.abs(cam3.fov - fovNow) > 0.02) { cam3.fov = fovNow; cam3.updateProjectionMatrix(); }
   const cam = cameraState(P); cam.x = px; cam.y = py; cam.z = pz;
-  engine.followMoon(px, pz);
+  engine.followMoon(px, pz); engine.fill.position.set(px, py + 0.4, pz); { const room = cam3.userData.room || 0; }
+  { const tx = Math.floor(P.x / D.T), ty = Math.floor(P.y / D.T), a = gg.map.area[ty * gg.map.w + tx], cave = a === 3 ? 1 : 0; engine.caveK = (engine.caveK || 0) + (cave - (engine.caveK || 0)) * Math.min(1, dt * 2); engine.hemi.color.setRGB(0.35 + engine.caveK * 0.4, 0.42 - engine.caveK * 0.2, 0.6 - engine.caveK * 0.4); engine.hemi.groundColor.setRGB(0.23 + engine.caveK * 0.3, 0.27 - engine.caveK * 0.1, 0.2 - engine.caveK * 0.1); engine.hemi.intensity = 2.6 - engine.caveK * 0.6; engine.fill.color.setRGB(0.55 + engine.caveK * 0.45, 0.62 - engine.caveK * 0.25, 0.82 - engine.caveK * 0.6); }
   world.update(gg, dt, engine.t, cam);
   creatures.update(gg, dt, engine.t, cam);
   fx.update(dt, engine.t, cam, gg);
   // the player's own shadow and the flashlight
   if (playerShadow && gg === g) { playerShadow.visible = !gg.over; playerShadow.position.set(P.x * S8 - Math.cos(yaw) * 0.05, 0, P.y * S8 - Math.sin(yaw) * 0.05); playerShadow.rotation.y = -yaw + Math.PI / 2; playerShadow.scale.y = 1 - P.crouch * 0.38; }
   flashlight.visible = flashOn && gg === g && !gg.over; if (flashlight.visible) { flashlight.position.set(px + rx * 0.12, py - 0.1, pz + rz * 0.12); const fdx = Math.cos(yaw) * Math.cos(pitch), fdy = Math.sin(pitch), fdz = Math.sin(yaw) * Math.cos(pitch); flashlight.target.position.set(px + fdx * 10, py + fdy * 10, pz + fdz * 10); flashlight.target.updateMatrixWorld(); flashlight.intensity = 900 * (0.92 + Math.sin(engine.t * 31) * 0.03); }
+  { const scoped = gg === g && vm.curId === 'bolt' && view.ads > 0.8; $('scope').classList.toggle('on', scoped); }
   // the gun
-  if (gg === g) { vm.root.visible = true; vm.update(gg, dt, view, lampFor(cam)); } else vm.root.visible = false;
+  if (gg === g) { vm.root.visible = !gg.over && !(vm.curId === 'bolt' && view.ads > 0.8); vm.update(gg, dt, view, lampFor(cam)); } else vm.root.visible = false;
   engine.damage = UI.updateFx(gg === g ? gg : null, dt); if (fx.screenFlash > 0) engine.damage = Math.max(engine.damage, 0);
   engine.render(dt, fx.screenFlash * 0.5);
   if (state === 'play') UI.drawMini(gg, P.aim);
@@ -244,7 +246,7 @@ async function boot() {
     bootProgress(0.88, 'Building Hollow Reach...'); await new Promise((r) => setTimeout(r, 30));
     UI.settings.quality === 'auto' ? engine.setQuality(UI.effectiveQuality()) : engine.setQuality(UI.settings.quality);
     demo = D.createGame({ seed: 7 }); world = buildWorld(demo.map, engine.q, demo); engine.scene.add(world.root); window.__world = world;
-    const pm = new THREE.PMREMGenerator(engine.renderer), envScene = new THREE.Scene(); envScene.add(new THREE.Mesh(world.sky.geometry, world.sky.material)); const env = pm.fromScene(envScene, 0.02); envTex = env.texture; engine.scene.environment = envTex; engine.scene.environmentIntensity = 1.0; engine.scene.background = null; pm.dispose();
+    const pm = new THREE.PMREMGenerator(engine.renderer), envScene = new THREE.Scene(); envScene.add(new THREE.Mesh(world.sky.geometry, world.sky.material)); const env = pm.fromScene(envScene, 0.02); envTex = env.texture; engine.scene.environment = envTex; engine.scene.environmentIntensity = 1.5; engine.scene.background = null; pm.dispose();
     creatures = new Creatures(engine); fx = new FX(engine, world); vm = new ViewModel(engine); vm.setEnv(envTex); window.__fx = fx; window.__creatures = creatures; window.__vm = vm;
     flashlight = new THREE.SpotLight(0xfff0d8, 900, 42, 0.46, 0.55, 1.8); flashlight.castShadow = false; engine.scene.add(flashlight, flashlight.target); flashlight.visible = false;
     engine.onQuality = (q) => { world.makePool(q.lights); world.plantFoliage(q); flashlight.castShadow = q.flashShadow; if (q.flashShadow) { flashlight.shadow.mapSize.set(1024, 1024); flashlight.shadow.bias = -0.0005; flashlight.shadow.camera.near = 0.3; flashlight.shadow.camera.far = 40; } };

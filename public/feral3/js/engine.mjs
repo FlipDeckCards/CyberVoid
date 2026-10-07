@@ -41,19 +41,20 @@ export class Engine {
   constructor(canvas) {
     this.canvas = canvas; this.q = PRESETS.ultra; this.qname = 'ultra'; this.ratioK = 1; this.auto = true; this.t = 0; this.ft = 1 / 60; this.fps = 60; this.govT = 0;
     const gl = this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance', stencil: false, alpha: false });
-    gl.shadowMap.enabled = true; gl.shadowMap.type = THREE.PCFShadowMap; gl.toneMapping = THREE.ACESFilmicToneMapping; gl.toneMappingExposure = 1.25; gl.outputColorSpace = THREE.SRGBColorSpace;
+    gl.shadowMap.enabled = true; gl.shadowMap.type = THREE.PCFShadowMap; gl.toneMapping = THREE.ACESFilmicToneMapping; gl.toneMappingExposure = 1.35; gl.outputColorSpace = THREE.SRGBColorSpace;
     gl.setClearColor(0x05070c, 1); gl.info.autoReset = false;
     this.scene = new THREE.Scene(); this.scene.fog = new THREE.FogExp2(0x0a1018, 0.016);
     this.camera = new THREE.PerspectiveCamera(75, 16 / 9, 0.08, 400); this.camera.rotation.order = 'YXZ'; this.scene.add(this.camera);
     this.viewScene = new THREE.Scene(); this.viewCamera = new THREE.PerspectiveCamera(58, 16 / 9, 0.01, 10); this.viewScene.add(this.viewCamera);
-    this.moon = new THREE.DirectionalLight(0x8fb0ff, 2.2); this.moon.castShadow = true; this.moon.position.set(-40, 70, 30); this.scene.add(this.moon); this.scene.add(this.moon.target);
+    this.moon = new THREE.DirectionalLight(0x9ab8ff, 3.2); this.moon.castShadow = true; this.moon.position.set(-40, 70, 30); this.scene.add(this.moon); this.scene.add(this.moon.target);
     this.moonDir = new THREE.Vector3(-40, 70, 30).normalize();
-    this.hemi = new THREE.HemisphereLight(0x4a5c88, 0x2a3224, 2.0); this.scene.add(this.hemi);
+    this.hemi = new THREE.HemisphereLight(0x5a6c98, 0x3a4430, 2.6); this.scene.add(this.hemi);
+    this.fill = new THREE.PointLight(0x8aa0d0, 14, 16, 2); this.scene.add(this.fill);
     this.grade = new ShaderPass(GradeShader); this.damage = 0; this.flash = 0; this.darkness = 0;
     this.build();
   }
   build() {
-    const q = this.q, w = Math.max(2, window.innerWidth), h = Math.max(2, window.innerHeight), dpr = Math.min(window.devicePixelRatio || 1, q.maxDpr), ratio = Math.max(0.4, dpr * q.scale * this.ratioK);
+    const q = this.q, w = this.forceSize ? this.forceSize[0] : Math.max(2, window.innerWidth), h = this.forceSize ? this.forceSize[1] : Math.max(2, window.innerHeight), dpr = Math.min(window.devicePixelRatio || 1, q.maxDpr), ratio = Math.max(0.4, dpr * q.scale * this.ratioK);
     const r = this.renderer; r.setPixelRatio(ratio); r.setSize(w, h, false); this.w = w; this.h = h; this.ratio = ratio;
     this.camera.aspect = w / h; this.camera.updateProjectionMatrix(); this.viewCamera.aspect = w / h; this.viewCamera.updateProjectionMatrix();
     // moonlight shadow

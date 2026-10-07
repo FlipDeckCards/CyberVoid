@@ -147,3 +147,15 @@ h3 { margin: 1em 0 .3em; color: var(--cyan); font-size: clamp(14px, 2.8vmin, 20p
 .logo .l1 { color: #ff7a4a; text-shadow: 0 4px 0 #3a1408, 0 0 28px rgba(255,100,40,.5); } .logo .l2 { color: #9dff7a; }
 #hRound { color: #ff8a5a; text-shadow: 0 2px 0 #3a1408, 0 0 10px rgba(255,100,40,.5); }
 #mini { position: absolute; right: calc(var(--sr) + .8em); top: calc(var(--st) + 4.2em); width: calc(var(--u) * 10); height: calc(var(--u) * 10); border-radius: 50%; border: 3px solid rgba(255,255,255,.3); background: rgba(6,10,10,.6); }
+.btn.sel-char { background: var(--panel2); color: #fff; font-size: clamp(14px, 3vmin, 22px); padding: clamp(8px, 1.8vmin, 14px) clamp(18px, 4vmin, 34px); box-shadow: none; }
+.btn.sel-char.chosen { background: var(--orange); color: #241200; box-shadow: 0 5px 0 #a35a0a; }
+#charCanvas { max-height: 50vh; width: auto; }
+#sChar h2 { font-size: clamp(18px, 4.5vmin, 36px); }
+#scope { position: fixed; top: 0; right: 0; bottom: 0; left: 0; z-index: 3; pointer-events: none; opacity: 0; transition: opacity .12s; background: radial-gradient(circle at center, transparent 0, transparent 30vmin, #000 30.4vmin); }
+#scope::before, #scope::after { content: ""; position: absolute; background: rgba(0,0,0,.85); } #scope::before { left: 0; right: 0; top: calc(50% - 1px); height: 2px; } #scope::after { top: 0; bottom: 0; left: calc(50% - 1px); width: 2px; }
+#scope.on { opacity: 1; }
+#hitm.head::before, #hitm.head::after { background: #ffd84a; }
+#nums b.head { color: #ffe27a; }
+.perk { display: inline-flex; align-items: center; justify-content: center; width: 2em; height: 2em; border: 2px solid; border-radius: .5em; background: rgba(0,0,0,.55); font-weight: 900; font-size: .8em; }
+#cross i { transition: transform .05s; }
+#cross i:nth-child(1) { transform: translateY(calc(var(--sp, 0) * -.45em)); } #cross i:nth-child(2) { transform: translateY(calc(var(--sp, 0) * .45em)); } #cross i:nth-child(3) { transform: translateX(calc(var(--sp, 0) * -.45em)); } #cross i:nth-child(4) { transform: translateX(calc(var(--sp, 0) * .45em)); }
