@@ -49,6 +49,7 @@ function play(seed, maxRound, shopping) {
     if (g.round !== lastRound) { if (rs) rows.push(rs); lastRound = g.round; rs = { round: g.round, t0: g.t, hpMin: 100, kills0: g.kills, pts0: g.points, maxAlive: 0 }; }
     const inp = b();
     g.update(1 / 60, inp); frames++; g.events.length = 0;
+    if (g.playerStuck()) throw new Error('the player overlapped a wall or window at ' + Math.round(g.t) + 's (seed ' + seed + ')');
     if (rs) { rs.hpMin = Math.min(rs.hpMin, g.player.hp); rs.maxAlive = Math.max(rs.maxAlive, g.enemies.length); rs.end = g.t; rs.kills = g.kills - rs.kills0; rs.pts = g.points; }
   }
   if (rs) rows.push(rs);
