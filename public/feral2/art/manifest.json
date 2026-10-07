@@ -1,0 +1,729 @@
+{
+  "version": 1,
+  "notes": "See README.md in this folder. Replace a PNG and keep the numbers here in step with it; no code changes are needed.",
+  "creatures": {
+    "glumpkin": {
+      "file": "creatures/glumpkin.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "directions": 1,
+      "height": 2.3,
+      "anchor": {
+        "x": 0.5,
+        "y": 0.890625
+      },
+      "hover": 0,
+      "animations": {
+        "idle": {
+          "row": 0,
+          "frames": 2,
+          "fps": 3,
+          "loop": true
+        },
+        "walk": {
+          "row": 1,
+          "frames": 4,
+          "fps": 8,
+          "loop": true
+        },
+        "attack": {
+          "row": 2,
+          "frames": 3,
+          "fps": 10,
+          "loop": false
+        },
+        "hurt": {
+          "row": 3,
+          "frames": 1,
+          "fps": 8,
+          "loop": false
+        },
+        "death": {
+          "row": 4,
+          "frames": 4,
+          "fps": 7,
+          "loop": false
+        }
+      }
+    },
+    "zapling": {
+      "file": "creatures/zapling.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "directions": 1,
+      "height": 1.9,
+      "anchor": {
+        "x": 0.5,
+        "y": 0.890625
+      },
+      "hover": 0,
+      "animations": {
+        "idle": {
+          "row": 0,
+          "frames": 2,
+          "fps": 3,
+          "loop": true
+        },
+        "walk": {
+          "row": 1,
+          "frames": 4,
+          "fps": 8,
+          "loop": true
+        },
+        "attack": {
+          "row": 2,
+          "frames": 3,
+          "fps": 10,
+          "loop": false
+        },
+        "hurt": {
+          "row": 3,
+          "frames": 1,
+          "fps": 8,
+          "loop": false
+        },
+        "death": {
+          "row": 4,
+          "frames": 4,
+          "fps": 7,
+          "loop": false
+        }
+      }
+    },
+    "wisper": {
+      "file": "creatures/wisper.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "directions": 1,
+      "height": 2.6,
+      "anchor": {
+        "x": 0.5,
+        "y": 0.890625
+      },
+      "hover": 0.7,
+      "animations": {
+        "idle": {
+          "row": 0,
+          "frames": 2,
+          "fps": 3,
+          "loop": true
+        },
+        "walk": {
+          "row": 1,
+          "frames": 4,
+          "fps": 8,
+          "loop": true
+        },
+        "attack": {
+          "row": 2,
+          "frames": 3,
+          "fps": 10,
+          "loop": false
+        },
+        "hurt": {
+          "row": 3,
+          "frames": 1,
+          "fps": 8,
+          "loop": false
+        },
+        "death": {
+          "row": 4,
+          "frames": 4,
+          "fps": 7,
+          "loop": false
+        }
+      }
+    },
+    "mossmaw": {
+      "file": "creatures/mossmaw.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "directions": 1,
+      "height": 3.4,
+      "anchor": {
+        "x": 0.5,
+        "y": 0.890625
+      },
+      "hover": 0,
+      "animations": {
+        "idle": {
+          "row": 0,
+          "frames": 2,
+          "fps": 3,
+          "loop": true
+        },
+        "walk": {
+          "row": 1,
+          "frames": 4,
+          "fps": 8,
+          "loop": true
+        },
+        "attack": {
+          "row": 2,
+          "frames": 3,
+          "fps": 10,
+          "loop": false
+        },
+        "hurt": {
+          "row": 3,
+          "frames": 1,
+          "fps": 8,
+          "loop": false
+        },
+        "death": {
+          "row": 4,
+          "frames": 4,
+          "fps": 7,
+          "loop": false
+        }
+      }
+    },
+    "boomkit": {
+      "file": "creatures/boomkit.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "directions": 1,
+      "height": 1.7,
+      "anchor": {
+        "x": 0.5,
+        "y": 0.890625
+      },
+      "hover": 0,
+      "animations": {
+        "idle": {
+          "row": 0,
+          "frames": 2,
+          "fps": 3,
+          "loop": true
+        },
+        "walk": {
+          "row": 1,
+          "frames": 4,
+          "fps": 8,
+          "loop": true
+        },
+        "attack": {
+          "row": 2,
+          "frames": 3,
+          "fps": 10,
+          "loop": false
+        },
+        "hurt": {
+          "row": 3,
+          "frames": 1,
+          "fps": 8,
+          "loop": false
+        },
+        "death": {
+          "row": 4,
+          "frames": 4,
+          "fps": 7,
+          "loop": false
+        }
+      }
+    },
+    "spitbud": {
+      "file": "creatures/spitbud.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "directions": 1,
+      "height": 2.7,
+      "anchor": {
+        "x": 0.5,
+        "y": 0.890625
+      },
+      "hover": 0,
+      "animations": {
+        "idle": {
+          "row": 0,
+          "frames": 2,
+          "fps": 3,
+          "loop": true
+        },
+        "walk": {
+          "row": 1,
+          "frames": 4,
+          "fps": 8,
+          "loop": true
+        },
+        "attack": {
+          "row": 2,
+          "frames": 3,
+          "fps": 10,
+          "loop": false
+        },
+        "hurt": {
+          "row": 3,
+          "frames": 1,
+          "fps": 8,
+          "loop": false
+        },
+        "death": {
+          "row": 4,
+          "frames": 4,
+          "fps": 7,
+          "loop": false
+        }
+      }
+    },
+    "elder": {
+      "file": "creatures/elder.png",
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "directions": 1,
+      "height": 6.2,
+      "anchor": {
+        "x": 0.5,
+        "y": 0.890625
+      },
+      "hover": 0,
+      "animations": {
+        "idle": {
+          "row": 0,
+          "frames": 2,
+          "fps": 3,
+          "loop": true
+        },
+        "walk": {
+          "row": 1,
+          "frames": 4,
+          "fps": 8,
+          "loop": true
+        },
+        "attack": {
+          "row": 2,
+          "frames": 3,
+          "fps": 10,
+          "loop": false
+        },
+        "hurt": {
+          "row": 3,
+          "frames": 1,
+          "fps": 8,
+          "loop": false
+        },
+        "death": {
+          "row": 4,
+          "frames": 4,
+          "fps": 7,
+          "loop": false
+        }
+      }
+    }
+  },
+  "weapons": {
+    "pip": {
+      "view": {
+        "file": "weapons/pip_view.png",
+        "frameWidth": 192,
+        "frameHeight": 192,
+        "scale": 0.44,
+        "anchor": {
+          "x": 0.5,
+          "y": 1
+        },
+        "offset": {
+          "x": 0,
+          "y": 0
+        },
+        "muzzle": {
+          "x": 0.5,
+          "y": 0.1
+        },
+        "animations": {
+          "idle": {
+            "row": 0,
+            "frames": 1,
+            "fps": 1,
+            "loop": true
+          },
+          "fire": {
+            "row": 1,
+            "frames": 3,
+            "fps": 28,
+            "loop": false
+          },
+          "reload": {
+            "row": 2,
+            "frames": 4,
+            "fps": 7,
+            "loop": false
+          }
+        }
+      },
+      "icon": {
+        "file": "weapons/pip_icon.png",
+        "width": 192,
+        "height": 96
+      }
+    },
+    "rattle": {
+      "view": {
+        "file": "weapons/rattle_view.png",
+        "frameWidth": 192,
+        "frameHeight": 192,
+        "scale": 0.44,
+        "anchor": {
+          "x": 0.5,
+          "y": 1
+        },
+        "offset": {
+          "x": 0,
+          "y": 0
+        },
+        "muzzle": {
+          "x": 0.5,
+          "y": 0.1
+        },
+        "animations": {
+          "idle": {
+            "row": 0,
+            "frames": 1,
+            "fps": 1,
+            "loop": true
+          },
+          "fire": {
+            "row": 1,
+            "frames": 3,
+            "fps": 28,
+            "loop": false
+          },
+          "reload": {
+            "row": 2,
+            "frames": 4,
+            "fps": 7,
+            "loop": false
+          }
+        }
+      },
+      "icon": {
+        "file": "weapons/rattle_icon.png",
+        "width": 192,
+        "height": 96
+      }
+    },
+    "scatter": {
+      "view": {
+        "file": "weapons/scatter_view.png",
+        "frameWidth": 192,
+        "frameHeight": 192,
+        "scale": 0.44,
+        "anchor": {
+          "x": 0.5,
+          "y": 1
+        },
+        "offset": {
+          "x": 0,
+          "y": 0
+        },
+        "muzzle": {
+          "x": 0.5,
+          "y": 0.1
+        },
+        "animations": {
+          "idle": {
+            "row": 0,
+            "frames": 1,
+            "fps": 1,
+            "loop": true
+          },
+          "fire": {
+            "row": 1,
+            "frames": 3,
+            "fps": 28,
+            "loop": false
+          },
+          "reload": {
+            "row": 2,
+            "frames": 4,
+            "fps": 7,
+            "loop": false
+          }
+        }
+      },
+      "icon": {
+        "file": "weapons/scatter_icon.png",
+        "width": 192,
+        "height": 96
+      }
+    },
+    "longthorn": {
+      "view": {
+        "file": "weapons/longthorn_view.png",
+        "frameWidth": 192,
+        "frameHeight": 192,
+        "scale": 0.44,
+        "anchor": {
+          "x": 0.5,
+          "y": 1
+        },
+        "offset": {
+          "x": 0,
+          "y": 0
+        },
+        "muzzle": {
+          "x": 0.5,
+          "y": 0.1
+        },
+        "animations": {
+          "idle": {
+            "row": 0,
+            "frames": 1,
+            "fps": 1,
+            "loop": true
+          },
+          "fire": {
+            "row": 1,
+            "frames": 3,
+            "fps": 28,
+            "loop": false
+          },
+          "reload": {
+            "row": 2,
+            "frames": 4,
+            "fps": 7,
+            "loop": false
+          }
+        }
+      },
+      "icon": {
+        "file": "weapons/longthorn_icon.png",
+        "width": 192,
+        "height": 96
+      }
+    },
+    "bubble": {
+      "view": {
+        "file": "weapons/bubble_view.png",
+        "frameWidth": 192,
+        "frameHeight": 192,
+        "scale": 0.44,
+        "anchor": {
+          "x": 0.5,
+          "y": 1
+        },
+        "offset": {
+          "x": 0,
+          "y": 0
+        },
+        "muzzle": {
+          "x": 0.5,
+          "y": 0.1
+        },
+        "animations": {
+          "idle": {
+            "row": 0,
+            "frames": 1,
+            "fps": 1,
+            "loop": true
+          },
+          "fire": {
+            "row": 1,
+            "frames": 3,
+            "fps": 28,
+            "loop": false
+          },
+          "reload": {
+            "row": 2,
+            "frames": 4,
+            "fps": 7,
+            "loop": false
+          }
+        }
+      },
+      "icon": {
+        "file": "weapons/bubble_icon.png",
+        "width": 192,
+        "height": 96
+      }
+    },
+    "sunbeam": {
+      "view": {
+        "file": "weapons/sunbeam_view.png",
+        "frameWidth": 192,
+        "frameHeight": 192,
+        "scale": 0.44,
+        "anchor": {
+          "x": 0.5,
+          "y": 1
+        },
+        "offset": {
+          "x": 0,
+          "y": 0
+        },
+        "muzzle": {
+          "x": 0.5,
+          "y": 0.1
+        },
+        "animations": {
+          "idle": {
+            "row": 0,
+            "frames": 1,
+            "fps": 1,
+            "loop": true
+          },
+          "fire": {
+            "row": 1,
+            "frames": 3,
+            "fps": 28,
+            "loop": false
+          },
+          "reload": {
+            "row": 2,
+            "frames": 4,
+            "fps": 7,
+            "loop": false
+          }
+        }
+      },
+      "icon": {
+        "file": "weapons/sunbeam_icon.png",
+        "width": 192,
+        "height": 96
+      }
+    },
+    "party": {
+      "view": {
+        "file": "weapons/party_view.png",
+        "frameWidth": 192,
+        "frameHeight": 192,
+        "scale": 0.44,
+        "anchor": {
+          "x": 0.5,
+          "y": 1
+        },
+        "offset": {
+          "x": 0,
+          "y": 0
+        },
+        "muzzle": {
+          "x": 0.5,
+          "y": 0.1
+        },
+        "animations": {
+          "idle": {
+            "row": 0,
+            "frames": 1,
+            "fps": 1,
+            "loop": true
+          },
+          "fire": {
+            "row": 1,
+            "frames": 3,
+            "fps": 28,
+            "loop": false
+          },
+          "reload": {
+            "row": 2,
+            "frames": 4,
+            "fps": 7,
+            "loop": false
+          }
+        }
+      },
+      "icon": {
+        "file": "weapons/party_icon.png",
+        "width": 192,
+        "height": 96
+      }
+    }
+  },
+  "pickups": {
+    "ammo": {
+      "file": "pickups/ammo.png",
+      "width": 128,
+      "height": 128,
+      "size": 1.1,
+      "hover": 1,
+      "color": "#c8884a"
+    },
+    "twin": {
+      "file": "pickups/twin.png",
+      "width": 128,
+      "height": 128,
+      "size": 1.1,
+      "hover": 1,
+      "color": "#ffd84a"
+    },
+    "boom": {
+      "file": "pickups/boom.png",
+      "width": 128,
+      "height": 128,
+      "size": 1.1,
+      "hover": 1,
+      "color": "#ff4a6a"
+    },
+    "zap": {
+      "file": "pickups/zap.png",
+      "width": 128,
+      "height": 128,
+      "size": 1.1,
+      "hover": 1,
+      "color": "#b78cff"
+    }
+  },
+  "perks": {
+    "heart": {
+      "file": "icons/perk_heart.png",
+      "width": 96,
+      "height": 96
+    },
+    "fizz": {
+      "file": "icons/perk_fizz.png",
+      "width": 96,
+      "height": 96
+    },
+    "boots": {
+      "file": "icons/perk_boots.png",
+      "width": 96,
+      "height": 96
+    },
+    "lamp": {
+      "file": "icons/perk_lamp.png",
+      "width": 96,
+      "height": 96
+    }
+  },
+  "fx": {
+    "bubble": {
+      "file": "fx/bubble.png",
+      "width": 128,
+      "height": 128
+    },
+    "spore": {
+      "file": "fx/spore.png",
+      "width": 64,
+      "height": 64
+    },
+    "spark": {
+      "file": "fx/spark.png",
+      "width": 64,
+      "height": 64
+    },
+    "splat": {
+      "file": "fx/splat.png",
+      "width": 128,
+      "height": 128
+    },
+    "decal": {
+      "file": "fx/decal.png",
+      "width": 64,
+      "height": 64
+    }
+  },
+  "textures": {
+    "notes": "Optional. Set a file (relative to this folder, a square PNG that tiles) to replace a procedural texture; null keeps the built-in one.",
+    "barn_wall": null,
+    "barn_floor": null,
+    "patch_wall": null,
+    "patch_floor": null,
+    "mill_wall": null,
+    "mill_floor": null,
+    "crypt_wall": null,
+    "crypt_floor": null,
+    "pond_wall": null,
+    "pond_floor": null,
+    "ceiling": null,
+    "door": null
+  }
+}

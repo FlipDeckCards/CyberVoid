@@ -1,0 +1,21 @@
+{
+  "id": "/feral2/",
+  "name": "Feral 2.0",
+  "short_name": "Feral 2.0",
+  "description": "A first-person, Doom-style wave-survival shooter. The cute creatures of Mossy Hollow have gone feral. Hold the barn, buy guns, open the map and survive round after round.",
+  "start_url": "./?source=pwa",
+  "scope": "./",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "landscape",
+  "background_color": "#0b0715",
+  "theme_color": "#0b0715",
+  "lang": "en",
+  "categories": ["games"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
