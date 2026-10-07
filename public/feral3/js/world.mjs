@@ -351,6 +351,28 @@ export function buildWorld(map, quality, game) {
     map.barriers.forEach((b) => { wd.planks.apply(b, 0); wd.planks.last[b.id] = b.planks; });
   }
 
+  // ----- atmosphere: low mist sheets, moonlight shafts through the trees, stalactites in the cave -----
+  wd.mist = []; wd.shafts = [];
+  { const nz = assets.tex.noise;
+    for (const r of D.ROOMS) {
+      const cave = r.floor === 'cave', n = r.floor === 'jungle' ? 3 : 2;
+      for (let i = 0; i < n; i++) {
+        const t = nz.clone(); t.needsUpdate = true; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(r.w / 9, r.h / 9);
+        const m = new THREE.Mesh(new THREE.PlaneGeometry(r.w * TS, r.h * TS), new THREE.MeshBasicMaterial({ map: t, color: cave ? 0xff5a28 : 0x7a96b8, transparent: true, opacity: cave ? 0.05 : 0.085, blending: THREE.AdditiveBlending, depthWrite: false, fog: false, side: THREE.DoubleSide }));
+        m.rotation.x = -Math.PI / 2; m.position.set((r.x + r.w / 2) * TS, 0.35 + i * 0.75, (r.y + r.h / 2) * TS); m.userData.noAO = true; m.renderOrder = 3; root.add(m); wd.mist.push({ t, dir: i % 2 ? 1 : -1, sp: 0.004 + i * 0.002 });
+      }
+    }
+    // moonlight shafts
+    const shaftMat = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, fog: false, uniforms: { uTime: { value: 0 }, uColor: { value: new THREE.Color(0.55, 0.7, 1.0) } },
+      vertexShader: 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+      fragmentShader: 'varying vec2 vUv; uniform float uTime; uniform vec3 uColor; void main(){ float edge = smoothstep(0.0, 0.5, vUv.x) * smoothstep(1.0, 0.5, vUv.x); float len = smoothstep(0.0, 0.25, vUv.y) * smoothstep(1.0, 0.55, vUv.y); float fl = 0.75 + 0.25 * sin(uTime * 0.6 + vUv.y * 3.0); gl_FragColor = vec4(uColor, edge * edge * len * 0.09 * fl); }' });
+    wd.shaftMat = shaftMat; const sr = rng(555), up = new THREE.Vector3(0, 1, 0);
+    for (const r of D.ROOMS) { if (r.floor === 'cave') continue; const n = r.floor === 'jungle' ? 9 : r.floor === 'plaza' ? 6 : 4; for (let i = 0; i < n; i++) {
+      const x = (r.x + 2 + sr() * (r.w - 4)) * TS, z = (r.y + 2 + sr() * (r.h - 4)) * TS, wdt = 2.5 + sr() * 3, hgt = 26; const g = new THREE.PlaneGeometry(wdt, hgt);
+      for (let k = 0; k < 2; k++) { const m = new THREE.Mesh(g, shaftMat); const q = new THREE.Quaternion().setFromUnitVectors(up, moonDir); const rot = new THREE.Quaternion().setFromAxisAngle(moonDir, k * Math.PI / 2 + sr()); m.quaternion.copy(rot.multiply(q)); m.position.set(x + moonDir.x * hgt / 2, moonDir.y * hgt / 2, z + moonDir.z * hgt / 2); m.userData.noAO = true; m.renderOrder = 3; m.frustumCulled = false; root.add(m); } } }
+    // stalactites
+    const cv = D.ROOMS[3], cg = new THREE.ConeGeometry(0.7, 1, 7, 1, true); cg.rotateX(Math.PI); cg.translate(0, -0.5, 0); whiten(cg, 0.7); const cm = new THREE.InstancedMesh(cg, M.basalt(), 90), mt = new THREE.Matrix4(), q2 = new THREE.Quaternion(), v2 = new THREE.Vector3(), s2 = new THREE.Vector3(); cm.castShadow = false; cm.userData.noAO = true;
+    for (let i = 0; i < 90; i++) { const len = 2 + sr() * 5, rad = 0.6 + sr() * 0.9; v2.set((cv.x + 1 + sr() * (cv.w - 2)) * TS, STYLE.cave.H + 0.2, (cv.y + 1 + sr() * (cv.h - 2)) * TS); s2.set(rad, len, rad); mt.compose(v2, q2.identity(), s2); cm.setMatrixAt(i, mt); } cm.frustumCulled = false; root.add(cm); }
   // ----- the real lights: a small pool moved to the nearest candidates -----
   const pool = []; wd.pool = pool; wd.makePool = function (n) {
     for (const l of pool) { root.remove(l.light); l.light.dispose && l.light.dispose(); } pool.length = 0;
@@ -360,7 +382,7 @@ export function buildWorld(map, quality, game) {
   // ----- per frame -----
   const camV = new THREE.Vector3();
   wd.update = function (g, dt, t, cam) {
-    skyMat.uniforms.uTime.value = t; for (const m of wd.foliageMats) m.userData.uTime.value = t;
+    skyMat.uniforms.uTime.value = t; wd.shaftMat.uniforms.uTime.value = t; for (const m of wd.mist) { m.t.offset.x = (t * m.sp * m.dir) % 1; m.t.offset.y = (t * m.sp * 0.6) % 1; } for (const m of wd.foliageMats) m.userData.uTime.value = t;
     wd.waterMat.normalMap.offset.set(t * 0.012, t * 0.008); wd.lavaMat.map.offset.set(t * 0.006, t * 0.004); wd.lavaMat.emissiveMap.offset.copy(wd.lavaMat.map.offset); wd.lavaMat.emissiveIntensity = 2.4 + Math.sin(t * 1.3) * 0.5;
     for (const v of wd.doors) { const target = g.map.doors[v.idx].open ? 1 : 0; v.open += Math.sign(target - v.open) * Math.min(Math.abs(target - v.open), dt * 0.7); v.grp.position.y = v.open * 4.8; v.grp.visible = v.open < 0.999; }
     const pl = wd.planks, bs = g.map.barriers; for (let i = 0; i < bs.length; i++) { const b = bs[i]; if (pl.last[i] !== b.planks || b.hit > 0) { pl.apply(b, b.hit > 0 ? b.hit : 0); pl.last[i] = b.planks; } }
