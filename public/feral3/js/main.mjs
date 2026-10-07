@@ -209,7 +209,10 @@ function draw(gg, dt) {
   cam3.position.set(px, py, pz); cam3.rotation.set(pitch + sy * 0.4, yawCam, roll + sr);
   const base = UI.settings.fov, zf = gg === g ? (view.zoomFactor = 1 + (vm.zoomFor(vm.curId) - 1) * view.ads) : 1; const fovNow = base / zf + (view.sprint ? 4 : 0); if (Math.abs(cam3.fov - fovNow) > 0.02) { cam3.fov = fovNow; cam3.updateProjectionMatrix(); }
   const cam = cameraState(P); cam.x = px; cam.y = py; cam.z = pz;
-  engine.followMoon(px, pz); engine.fill.position.set(px, py + 0.4, pz); { const room = cam3.userData.room || 0; }
+  engine.followMoon(px, pz); engine.fill.position.set(px, py + 0.4, pz);
+  { const k = Math.min(1, Math.max(0, ((gg.round || 1) - 1) / 14)); engine.dread = (engine.dread || 0) + (k - (engine.dread || 0)) * Math.min(1, dt * 0.5); const d = engine.dread;      // the park gets darker, foggier and angrier as the rounds go up
+    engine.moon.intensity = 3.2 * (1 - 0.4 * d); engine.scene.fog.density = 0.016 + 0.014 * d; engine.renderer.toneMappingExposure = 1.35 - 0.25 * d; world.sky.material.uniforms.uDark.value = 0.35 * d;
+    const gu = engine.grade.uniforms; gu.uVignette.value = 0.55 + 0.3 * d; gu.uGrain.value = 0.035 + 0.02 * d; gu.uSat.value = 1.08 - 0.2 * d; gu.uHighTint.value.set(1.1 + 0.1 * d, 1.02 - 0.1 * d, 0.9 - 0.15 * d); gu.uShadowTint.value.set(0.9 + 0.1 * d, 1.0 - 0.05 * d, 1.12 - 0.2 * d); } { const room = cam3.userData.room || 0; }
   { const tx = Math.floor(P.x / D.T), ty = Math.floor(P.y / D.T), a = gg.map.area[ty * gg.map.w + tx], cave = a === 3 ? 1 : 0; engine.caveK = (engine.caveK || 0) + (cave - (engine.caveK || 0)) * Math.min(1, dt * 2); engine.hemi.color.setRGB(0.35 + engine.caveK * 0.4, 0.42 - engine.caveK * 0.2, 0.6 - engine.caveK * 0.4); engine.hemi.groundColor.setRGB(0.23 + engine.caveK * 0.3, 0.27 - engine.caveK * 0.1, 0.2 - engine.caveK * 0.1); engine.hemi.intensity = 2.6 - engine.caveK * 0.6; engine.fill.color.setRGB(0.55 + engine.caveK * 0.45, 0.62 - engine.caveK * 0.25, 0.82 - engine.caveK * 0.6); }
   world.update(gg, dt, engine.t, cam);
   creatures.update(gg, dt, engine.t, cam);
