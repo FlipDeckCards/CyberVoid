@@ -1,0 +1,30 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Feral 3 model viewer</title>
+<style>body{margin:0;background:#222;color:#fff;font:12px sans-serif}canvas{display:block}</style>
+<script type="importmap">{"imports":{"three":"/feral3/lib/three/three.module.js","three/addons/":"/feral3/lib/three/addons/"}}</script></head><body>
+<canvas id="c"></canvas>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+const q = new URLSearchParams(location.search), ids = (q.get('ids') || 'small1,small2,small3,medium1,medium2,medium3,large1,large2,boss,male,female,pistol,shotgun,rifle,bolt,mg').split(','), view = q.get('view') || 'side';
+const W = 1600, H = 1200, cols = 4, rows = Math.ceil(ids.length / cols), cw = W / cols, ch = H / rows;
+const canvas = document.getElementById('c'); canvas.width = W; canvas.height = H; canvas.style.width = '100%';
+const r = new THREE.WebGLRenderer({ canvas, antialias: true }); r.setSize(W, H, false); r.setScissorTest(true); r.toneMapping = THREE.ACESFilmicToneMapping;
+const loader = new GLTFLoader(); loader.setMeshoptDecoder(MeshoptDecoder);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x30343c);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 1.6)); const dl = new THREE.DirectionalLight(0xffffff, 3); dl.position.set(-3, 5, 2); scene.add(dl);
+const objs = [];
+for (const [i, id] of ids.entries()) {
+  const g = await loader.loadAsync('/feral3/models/' + id + '.glb'); const o = g.scene; o.position.set(i * 30, 0, 0); scene.add(o); objs.push(o);
+  const box = new THREE.Box3().setFromObject(o), size = box.getSize(new THREE.Vector3()), ctr = box.getCenter(new THREE.Vector3());
+  const z = new THREE.ArrowHelper(new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0.02, 0), Math.max(size.z, 0.5) * 0.9, 0xff0000); o.add(z); o.add(new THREE.ArrowHelper(new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0.02, 0), Math.max(size.x, 0.5) * 0.9, 0x00ff00));
+  const cam = new THREE.PerspectiveCamera(30, cw / ch, 0.05, 100), d = Math.max(size.x, size.y, size.z) * 2.6;
+  if (view === 'side') cam.position.set(ctr.x - d, ctr.y + size.y * 0.1, ctr.z); else if (view === 'top') cam.position.set(ctr.x, ctr.y + d, ctr.z + 0.001); else cam.position.set(ctr.x - d * 0.7, ctr.y + d * 0.3, ctr.z + d * 0.7);
+  cam.lookAt(ctr); if (view === 'top') cam.up.set(0, 0, 1), cam.lookAt(ctr);
+  objs[i].userData = { cam, x: (i % cols) * cw, y: H - (Math.floor(i / cols) + 1) * ch };
+}
+for (const [i, id] of ids.entries()) { const u = objs[i].userData; r.setViewport(u.x, u.y, cw, ch); r.setScissor(u.x, u.y, cw, ch); r.render(scene, u.cam); }
+const ctx = document.createElement('canvas'); window.__done = true;
+const lab = document.createElement('div'); lab.style.cssText = 'position:fixed;left:0;top:0;width:100%;pointer-events:none'; document.body.appendChild(lab);
+ids.forEach((id, i) => { const d = document.createElement('div'); const u = objs[i].userData; d.textContent = id; d.style.cssText = `position:absolute;left:${u.x / W * 100}%;top:${(H - u.y - ch) / W * 100}vw;background:#000a;padding:2px 6px;font-size:14px`; lab.appendChild(d); });
+</script></body></html>

@@ -1,2 +1,15 @@
 tools-feral/.server.pid
 tools-feral2/.server.pid
+node_modules/
+tools-feral3/node_modules/
+tools-feral3/.server.pid
+# Feral 3.0: never commit the raw 3D assets (they are huge) or local screenshots/work files
+IMAGES FOR 3D/
+**/IMAGES FOR 3D/**
+*.glb.raw
+feral3-work/
+public/feral3/shots/
+public/feral3/models-raw/
+tools-feral3/audit.json
+tools-feral3/optimized.json
+Map Section*.glb

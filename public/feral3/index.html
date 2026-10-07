@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Feral 3.0 — DEADZONE</title>
+<meta name="description" content="Feral 3.0 is a full 3D first-person wave-survival shooter. An overgrown jungle park, monsters in the dark, buy guns, open the map and survive round after round.">
+<meta name="theme-color" content="#06080c">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Feral 3.0">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="css/style.css">
+<script type="importmap">{ "imports": { "three": "./lib/three/three.module.js", "three/addons/": "./lib/three/addons/" } }</script>
+</head>
+<body class="menu">
+<canvas id="gl"></canvas>
+
+<div id="fx"><div id="vig"></div><div id="dmgInd"></div><div id="nums"></div><div id="flash"></div></div>
+
+<!-- in-game HUD -->
+<div id="hud" class="hidden" aria-live="polite">
+  <div id="cross"><i></i><i></i><i></i><i></i><span id="hitm"></span></div>
+  <div id="hudTL">
+    <div class="pts"><span class="coin"></span><b id="hPts">500</b><span id="hPtsX" class="x2">x2</span></div>
+    <div class="hp"><div id="hHpFill"></div><span id="hHp">100</span></div>
+    <div id="hPerks"></div>
+  </div>
+  <div id="hudTop">
+    <div id="hRound">ROUND 1</div>
+    <div id="hSub"></div>
+    <div id="hBoss" class="hidden"><span id="hBossName">Cinder Hydra</span><div class="bar"><div id="hBossFill"></div></div></div>
+    <div id="hPowers"></div>
+  </div>
+  <canvas id="mini" width="200" height="200"></canvas>
+  <div id="hudBR">
+    <div id="hWpnRow"><img id="hWpnImg" alt=""><div><div id="hWpnName">Ranger Pistol</div><div id="hAmmo"><b id="hMag">12</b><span id="hRes"> / 96</span></div></div></div>
+    <div id="hSlots"></div>
+    <div id="hReload" class="hidden">RELOADING</div>
+  </div>
+  <div id="prompt" class="hidden"><span class="key" id="pKey">E</span><span id="pText"></span><span id="pCost"></span></div>
+  <div id="repairBar" class="hidden"><i></i></div>
+  <div id="toast" class="hidden"></div>
+  <div id="banner" class="hidden"></div>
+  <div id="hudBtns"><button id="bMute" class="mini" aria-label="Mute">&#128266;</button><button id="bPause" class="mini" aria-label="Pause">&#10074;&#10074;</button></div>
+  <div id="hint" class="hidden"></div>
+  <div id="lockHint" class="hidden">Click to look around</div>
+  <div id="perf" class="hidden"></div>
+</div>
+
+<!-- touch controls (basic) -->
+<div id="touch" class="hidden">
+  <div class="stickBase" id="baseL"></div><div class="stickKnob" id="knobL"></div>
+  <div id="tBtns">
+    <button id="tSwap" class="tbtn">SWAP</button>
+    <button id="tReload" class="tbtn">RELOAD</button>
+    <button id="tUse" class="tbtn">USE</button>
+    <button id="tFire" class="tbtn">FIRE</button>
+  </div>
+</div>
+
+<!-- screens -->
+<div id="screens">
+  <section id="sMenu" class="screen">
+    <div class="logo"><div class="l1">FERAL</div><div class="l2">3.0</div></div>
+    <div class="tag">Hollow Reach. The park is overgrown, the lights are dying, and something is hunting in the dark.</div>
+    <div class="col">
+      <button class="btn big" data-act="play" id="bPlay">Play</button>
+      <div class="row">
+        <button class="btn" data-act="how">How to play</button>
+        <button class="btn" data-act="settings">Settings</button>
+      </div>
+      <div class="row">
+        <button class="btn sm" data-act="fullscreen" id="bFs">Full screen</button>
+        <button class="btn sm hidden" data-act="install" id="bInstall">Install app</button>
+        <a class="btn sm" href="/" id="bHome">All games</a>
+      </div>
+    </div>
+    <div id="hiscore" class="hi"></div>
+    <div id="padHint" class="padhint"></div>
+  </section>
+
+  <section id="sChar" class="screen">
+    <h2>Choose your survivor</h2>
+    <div class="charwrap">
+      <canvas id="charCanvas" width="640" height="560"></canvas>
+      <div class="col">
+        <button class="btn big sel-char" data-char="male" id="bMale">Male survivor</button>
+        <button class="btn big sel-char" data-char="female" id="bFemale">Female survivor</button>
+        <div class="tag" id="charInfo">Your survivor is seen when you fall, in the menus, and as a shadow on the ground.</div>
+        <div class="row"><button class="btn" data-act="start" id="bStart">Start</button><button class="btn" data-act="back">Back</button></div>
+        <div id="loadInfo" class="padhint"></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="sHow" class="screen">
+    <h2>How to play</h2>
+    <div class="scroll" id="howBody"></div>
+    <button class="btn" data-act="back">Back</button>
+  </section>
+
+  <section id="sSettings" class="screen">
+    <h2>Settings</h2>
+    <div class="scroll">
+      <div class="set"><label for="vMaster">Master volume</label><input type="range" id="vMaster" min="0" max="100" data-set="master"><output id="oMaster"></output></div>
+      <div class="set"><label for="vMusic">Music</label><input type="range" id="vMusic" min="0" max="100" data-set="music"><output id="oMusic"></output></div>
+      <div class="set"><label for="vSfx">Sound effects</label><input type="range" id="vSfx" min="0" max="100" data-set="sfx"><output id="oSfx"></output></div>
+      <div class="set"><label for="vAmb">Ambience</label><input type="range" id="vAmb" min="0" max="100" data-set="amb"><output id="oAmb"></output></div>
+      <div class="set"><label>Mute everything</label><button class="tog" data-tog="muted"></button></div>
+      <div class="set"><label for="vFov">Field of view</label><input type="range" id="vFov" min="60" max="110" data-set="fov" data-scale="1"><output id="oFov"></output></div>
+      <div class="set"><label for="vMouse">Mouse sensitivity</label><input type="range" id="vMouse" min="10" max="300" data-set="mouseSens"><output id="oMouseSens"></output></div>
+      <div class="set"><label>Invert mouse Y</label><button class="tog" data-tog="invertY"></button></div>
+      <div class="set"><label for="vPad">Controller look sensitivity</label><input type="range" id="vPad" min="10" max="300" data-set="padSens"><output id="oPadSens"></output></div>
+      <div class="set"><label>Invert controller Y</label><button class="tog" data-tog="invertYpad"></button></div>
+      <div class="set"><label>Aim assist (controller and touch)</label><button class="tog" data-tog="aimAssist"></button></div>
+      <div class="set"><label>Toggle crouch</label><button class="tog" data-tog="toggleCrouch"></button></div>
+      <div class="set"><label>Toggle aim down sights</label><button class="tog" data-tog="toggleAds"></button></div>
+      <div class="set"><label>Graphics quality</label><button class="sel" data-sel="quality" data-opts="auto,ultra,high,medium,low" id="selQuality"></button></div>
+      <div class="set"><label>Screen shake</label><button class="tog" data-tog="shake"></button></div>
+      <div class="set"><label>Damage numbers</label><button class="tog" data-tog="numbers"></button></div>
+      <div class="set"><label>Mini-map</label><button class="tog" data-tog="minimap"></button></div>
+      <div class="set"><label>Show frame rate</label><button class="tog" data-tog="showFps"></button></div>
+      <h3>Controls</h3>
+      <div class="controls" id="ctlHelp"></div>
+    </div>
+    <button class="btn" data-act="back">Back</button>
+  </section>
+
+  <section id="sPause" class="screen">
+    <h2>Paused</h2>
+    <div class="col">
+      <button class="btn big" data-act="resume">Resume</button>
+      <button class="btn" data-act="settings">Settings</button>
+      <button class="btn" data-act="how">How to play</button>
+      <button class="btn danger" data-act="quit">Quit to menu</button>
+    </div>
+  </section>
+
+  <section id="sOver" class="screen">
+    <h2 class="red">You fell</h2>
+    <div class="stats">
+      <div><span>Round reached</span><b id="oRound">0</b></div>
+      <div><span>Creatures beaten</span><b id="oKills">0</b></div>
+      <div><span>Headshots</span><b id="oHead">0</b></div>
+      <div><span>Points</span><b id="oPts">0</b></div>
+    </div>
+    <div id="oBest" class="hi"></div>
+    <div class="col">
+      <button class="btn big" data-act="again">Play again</button>
+      <button class="btn" data-act="menu">Main menu</button>
+    </div>
+  </section>
+
+  <section id="sConfirm" class="screen">
+    <h2>Quit this run?</h2>
+    <div class="row"><button class="btn danger" data-act="quitYes">Quit</button><button class="btn" data-act="quitNo">Keep playing</button></div>
+  </section>
+</div>
+
+<div id="rotate"><div><div class="ph"></div><p>Turn your phone sideways to play</p></div></div>
+<div id="boot"><div class="bl1">FERAL</div><div class="bl2">3.0</div><div id="bootBar"><div id="bootFill"></div></div><div id="bootMsg">Loading...</div></div>
+<div id="err"><div style="font-size:22px">Feral 3.0 could not start</div><div id="errMsg" style="font-weight:400;color:#e0d6f0;max-width:560px"></div><a class="btn" href="/">All games</a></div>
+
+<script src="js/data.js"></script>
+<script src="js/sim.js"></script>
+<script type="module" src="js/main.mjs"></script>
+</body>
+</html>

@@ -1,0 +1,307 @@
+{
+ "notes": "Add real sound files by listing them here, e.g. \"pistol_shot\": { \"files\": [\"sfx/pistol_shot_1.ogg\", \"sfx/pistol_shot_2.ogg\"], \"volume\": 1 }. Paths are relative to this folder. A sound with no files uses the game's built-in placeholder. See README.md for every sound and what it is for.",
+ "sounds": {
+  "pistol_shot": {
+   "files": [],
+   "volume": 1
+  },
+  "shotgun_shot": {
+   "files": [],
+   "volume": 1
+  },
+  "rifle_shot": {
+   "files": [],
+   "volume": 1
+  },
+  "bolt_shot": {
+   "files": [],
+   "volume": 1
+  },
+  "mg_shot": {
+   "files": [],
+   "volume": 1
+  },
+  "gun_dry": {
+   "files": [],
+   "volume": 1
+  },
+  "weapon_swap": {
+   "files": [],
+   "volume": 1
+  },
+  "reload_pistol": {
+   "files": [],
+   "volume": 1
+  },
+  "reload_shotgun": {
+   "files": [],
+   "volume": 1
+  },
+  "reload_rifle": {
+   "files": [],
+   "volume": 1
+  },
+  "reload_bolt": {
+   "files": [],
+   "volume": 1
+  },
+  "reload_mg": {
+   "files": [],
+   "volume": 1
+  },
+  "shotgun_pump": {
+   "files": [],
+   "volume": 1
+  },
+  "bolt_cycle": {
+   "files": [],
+   "volume": 1
+  },
+  "shell_drop": {
+   "files": [],
+   "volume": 1
+  },
+  "impact_hard": {
+   "files": [],
+   "volume": 1
+  },
+  "impact_flesh": {
+   "files": [],
+   "volume": 1
+  },
+  "hit_head": {
+   "files": [],
+   "volume": 1
+  },
+  "hit_marker": {
+   "files": [],
+   "volume": 1
+  },
+  "kill_small": {
+   "files": [],
+   "volume": 1
+  },
+  "kill_medium": {
+   "files": [],
+   "volume": 1
+  },
+  "kill_large": {
+   "files": [],
+   "volume": 1
+  },
+  "kill_boss": {
+   "files": [],
+   "volume": 1
+  },
+  "growl_small": {
+   "files": [],
+   "volume": 1
+  },
+  "growl_medium": {
+   "files": [],
+   "volume": 1
+  },
+  "growl_large": {
+   "files": [],
+   "volume": 1
+  },
+  "boss_roar": {
+   "files": [],
+   "volume": 1
+  },
+  "attack_small": {
+   "files": [],
+   "volume": 1
+  },
+  "attack_large": {
+   "files": [],
+   "volume": 1
+  },
+  "leap": {
+   "files": [],
+   "volume": 1
+  },
+  "charge_roar": {
+   "files": [],
+   "volume": 1
+  },
+  "stomp": {
+   "files": [],
+   "volume": 1
+  },
+  "spit": {
+   "files": [],
+   "volume": 1
+  },
+  "acid_splash": {
+   "files": [],
+   "volume": 1
+  },
+  "breath_fire": {
+   "files": [],
+   "volume": 1
+  },
+  "explosion": {
+   "files": [],
+   "volume": 1
+  },
+  "enrage": {
+   "files": [],
+   "volume": 1
+  },
+  "summon": {
+   "files": [],
+   "volume": 1
+  },
+  "footstep_small": {
+   "files": [],
+   "volume": 1
+  },
+  "footstep_large": {
+   "files": [],
+   "volume": 1
+  },
+  "step_concrete": {
+   "files": [],
+   "volume": 1
+  },
+  "step_dirt": {
+   "files": [],
+   "volume": 1
+  },
+  "step_metal": {
+   "files": [],
+   "volume": 1
+  },
+  "player_hurt": {
+   "files": [],
+   "volume": 1
+  },
+  "player_death": {
+   "files": [],
+   "volume": 1
+  },
+  "heartbeat": {
+   "files": [],
+   "volume": 1
+  },
+  "barricade_break": {
+   "files": [],
+   "volume": 1
+  },
+  "barricade_repair": {
+   "files": [],
+   "volume": 1
+  },
+  "gate_open": {
+   "files": [],
+   "volume": 1
+  },
+  "buy": {
+   "files": [],
+   "volume": 1
+  },
+  "deny": {
+   "files": [],
+   "volume": 1
+  },
+  "pickup": {
+   "files": [],
+   "volume": 1
+  },
+  "powerup_drop": {
+   "files": [],
+   "volume": 1
+  },
+  "perk_buy": {
+   "files": [],
+   "volume": 1
+  },
+  "crate_open": {
+   "files": [],
+   "volume": 1
+  },
+  "crate_ready": {
+   "files": [],
+   "volume": 1
+  },
+  "bench_forge": {
+   "files": [],
+   "volume": 1
+  },
+  "round_start": {
+   "files": [],
+   "volume": 1
+  },
+  "round_end": {
+   "files": [],
+   "volume": 1
+  },
+  "boss_spawn": {
+   "files": [],
+   "volume": 1
+  },
+  "flashlight": {
+   "files": [],
+   "volume": 1
+  },
+  "ui_click": {
+   "files": [],
+   "volume": 1
+  },
+  "ui_tick": {
+   "files": [],
+   "volume": 1
+  },
+  "gameover": {
+   "files": [],
+   "volume": 1
+  },
+  "lava_crackle": {
+   "files": [],
+   "volume": 1
+  },
+  "amb_wind": {
+   "files": [],
+   "volume": 1
+  },
+  "amb_crickets": {
+   "files": [],
+   "volume": 1
+  },
+  "amb_rumble": {
+   "files": [],
+   "volume": 1
+  },
+  "music_menu": {
+   "files": [],
+   "volume": 1,
+   "loop": true
+  },
+  "music_low": {
+   "files": [],
+   "volume": 1,
+   "loop": true
+  },
+  "music_mid": {
+   "files": [],
+   "volume": 1,
+   "loop": true
+  },
+  "music_high": {
+   "files": [],
+   "volume": 1,
+   "loop": true
+  },
+  "music_boss": {
+   "files": [],
+   "volume": 1,
+   "loop": true
+  },
+  "music_over": {
+   "files": [],
+   "volume": 1,
+   "loop": true
+  }
+ }
+}
