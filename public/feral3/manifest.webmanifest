@@ -1,7 +1,7 @@
 {
   "id": "/feral3/",
-  "name": "Feral 3.0",
-  "short_name": "Feral 3.0",
+  "name": "Dinosaurs",
+  "short_name": "Dinosaurs",
   "description": "A full 3D first-person wave-survival shooter in an overgrown jungle park. Buy guns, open the map, survive the monsters and the Cinder Hydra.",
   "start_url": "./?source=pwa",
   "scope": "./",

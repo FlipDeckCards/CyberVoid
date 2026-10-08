@@ -1,4 +1,4 @@
-# Feral 3.0 - sound guide
+# Dinosaurs - sound guide
 
 The game makes its own placeholder sound for every id below, so nothing is silent. To use real sounds:
 

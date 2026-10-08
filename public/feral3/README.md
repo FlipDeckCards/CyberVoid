@@ -1,4 +1,4 @@
-# Feral 3.0
+# Dinosaurs (Feral 3.0)
 
 A full 3D first-person wave-survival shooter set in *Hollow Reach*, an overgrown jungle park. Desktop first (Chrome on a decent PC); basic touch support.
 
