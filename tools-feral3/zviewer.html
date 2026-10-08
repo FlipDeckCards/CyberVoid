@@ -1,0 +1,16 @@
+<!doctype html><html><head><meta charset="utf-8"><title>Zombies map viewer</title><style>body{margin:0;background:#222}canvas{display:block}</style>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script></head><body>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
+import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
+const q = new URLSearchParams(location.search), file = q.get('file') || '/zombies/assets/map/MIKE2.0_compressed.glb';
+const W = 1280, H = 800, r = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true }); r.setSize(W, H); r.toneMapping = THREE.ACESFilmicToneMapping; document.body.appendChild(r.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x7a8aa0); scene.add(new THREE.HemisphereLight(0xffffff, 0x555544, 2.2)); const dl = new THREE.DirectionalLight(0xffffff, 2.5); dl.position.set(50, 80, 30); scene.add(dl);
+const gl = new GLTFLoader(); const dr = new DRACOLoader(); dr.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/'); gl.setDRACOLoader(dr); gl.setMeshoptDecoder(MeshoptDecoder);
+const g = await gl.loadAsync(file); const m = g.scene; if (q.get('apply') !== '0') { m.scale.setScalar(+(q.get('scale') || 1)); } scene.add(m);
+window.map = m; window.THREE = THREE; window.scene = scene; window.renderer = r;
+window.view = async function (name, px, py, pz, tx, ty, tz, fov) { const cam = new THREE.PerspectiveCamera(fov || 50, W / H, 0.5, 3000); cam.position.set(px, py, pz); cam.up.set(0, 1, 0); cam.lookAt(tx, ty, tz); if (Math.abs(px - tx) < 0.01 && Math.abs(pz - tz) < 0.01) { cam.up.set(0, 0, -1); cam.lookAt(tx, ty, tz); } r.render(scene, cam); const b = await (await fetch(r.domElement.toDataURL('image/jpeg', 0.9))).blob(); await fetch('/__save?path=' + encodeURIComponent('shots/' + name + '.jpg'), { method: 'POST', body: b }); return 1; };
+window.ready = true;
+</script></body></html>

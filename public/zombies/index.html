@@ -58,6 +58,9 @@
         #acct-out { display:flex; flex-direction:column; align-items:center; gap:10px; width:100%; }
         #acct-name { color:#39FF14; font-size:0.95rem; letter-spacing:2px; text-align:left; word-break:break-all; }
         #acct-in .acct-btn { flex:0 0 auto; }
+        #focus-pause { position:fixed; inset:0; z-index:60; display:flex; flex-direction:column; align-items:center; justify-content:center; background:rgba(0,0,0,.6);
+            color:#39FF14; font-family:'Courier New',monospace; font-size:3rem; letter-spacing:8px; text-align:center; cursor:pointer; }
+        #focus-pause span { font-size:1rem; letter-spacing:3px; color:#ccc; margin-top:12px; }
         #login-status {
             color: #666; font-size: 1.5rem; letter-spacing: 2px;
             min-height: 16px; text-align: center;
@@ -333,8 +336,8 @@
             <div id="acct-in" style="display:none;"><div id="acct-name"></div><button type="button" class="acct-btn" id="btn-logout">LOG OUT</button></div>
             <div id="acct-out">
                 <input type="text" id="callsign-input" placeholder="CALLSIGN" maxlength="20" autocomplete="username" />
-                <input type="password" id="password-input" placeholder="PASSWORD (TO LOG IN / SIGN UP)" maxlength="100" autocomplete="current-password" />
-                <input type="email" id="email-input" placeholder="EMAIL (OPTIONAL, SIGN-UP ONLY)" autocomplete="email" />
+                <input type="password" id="password-input" placeholder="PASSWORD" maxlength="100" autocomplete="current-password" />
+                <input type="email" id="email-input" placeholder="EMAIL (OPTIONAL)" autocomplete="email" />
                 <div class="acct-row"><button type="button" class="acct-btn" id="btn-login">LOG IN</button><button type="button" class="acct-btn" id="btn-signup">SIGN UP</button></div>
                 <div class="acct-hint">or just tap to play as a guest with a callsign</div>
             </div>
@@ -345,8 +348,11 @@
             <div id="lb-rows"></div>
         </div>
         <div class="start-text" id="start-text">Loading...</div>
+        <div class="acct-hint" id="pad-hint" style="display:none;">&#127918; CONTROLLER READY - PRESS &#10005; TO START</div>
         <div id="loading-bar"><div id="loading-fill"></div></div>
     </div>
+
+    <div id="focus-pause" style="display:none;">PAUSED<br><span>CLICK (or press ✕) TO RESUME</span></div>
 
     <div id="hud">
         <div id="crosshair">
@@ -420,6 +426,8 @@
     import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
     import { clone as skeletonClone } from 'three/addons/utils/SkeletonUtils.js';
     import { Sky } from 'three/addons/objects/Sky.js';
+    import { buildArena } from './world.js';
+    import * as LAYOUT from './layout.js';
 
     // ═══════════════════════════════════════
     // CALLSIGN / EMAIL / LEADERBOARD API
@@ -957,59 +965,41 @@
     // ═══════════════════════════════════════
     // SCENE
     // ═══════════════════════════════════════
+    const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
     const scene = new THREE.Scene();
     window.scene = scene;
-    scene.background = new THREE.Color(0x0d1117);
-    scene.fog = new THREE.FogExp2(0x0d1117, 0.0015);
+    scene.background = new THREE.Color(0x0b101a);
+    scene.fog = new THREE.FogExp2(0x0b101a, 0.011);
 
-    const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.1, 2000);
+    const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.1, 600);
     camera.position.set(0, CONFIG.player.height, 0);
     scene.add(camera);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
     renderer.setSize(innerWidth, innerHeight);
-    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(devicePixelRatio, isMobileDevice ? 1.5 : 2));
     renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.2;
     document.body.appendChild(renderer.domElement);
 
-    scene.add(new THREE.AmbientLight(0xffffff, 2.0));
-    const ambientLight = new THREE.AmbientLight(0xffffff, 2.0); scene.add(ambientLight);
-    const moon = new THREE.DirectionalLight(0x6699bb, 1.5);
-    moon.position.set(-10, 20, -10);
+    // Lighting: cool moonlight + sky fill, warm floodlights and fires come from the arena
+    scene.add(new THREE.HemisphereLight(0xa9bde0, 0x3a342b, 1.7));
+    const ambientLight = new THREE.AmbientLight(0x8a96b8, 0.7); scene.add(ambientLight);
+    const moon = new THREE.DirectionalLight(0x9db8e0, 2.0);
+    moon.position.set(-22, 36, -16);
     moon.castShadow = true;
-    moon.shadow.mapSize.set(2048, 2048);
+    moon.shadow.mapSize.set(isMobileDevice ? 1024 : 2048, isMobileDevice ? 1024 : 2048);
+    moon.shadow.bias = -0.0004; moon.shadow.normalBias = 0.05;
     const sc = moon.shadow.camera;
-    sc.near = 0.5; sc.far = 60;
-    sc.left = sc.bottom = -30;
-    sc.right = sc.top = 30;
-    scene.add(moon);
+    sc.near = 1; sc.far = 110;
+    sc.left = sc.bottom = -36;
+    sc.right = sc.top = 36;
+    scene.add(moon); scene.add(moon.target);
 
-    const glow = new THREE.PointLight(0x99FF14, 1.5, 40);
-    glow.position.set(0, 3, 0);
-    scene.add(glow);
-
-    const floodPositions = [
-        [-35, 12, -35], [35, 12, -35], [-35, 12, 35], [35, 12, 35]
-    ];
-    for (const pos of floodPositions) {
-        const fl = new THREE.SpotLight(0xffeedd, 3.0, 80, Math.PI / 4, 0.5, 1);
-        fl.position.set(pos[0], pos[1], pos[2]);
-        fl.target.position.set(0, 0, 0);
-        scene.add(fl);
-        scene.add(fl.target);
-
-    }
-
-    const ground = new THREE.Mesh(
-        new THREE.PlaneGeometry(80, 80),
-        new THREE.MeshStandardMaterial({ color: 0x1a1a1a, roughness: 0.95 })
-    );
-    ground.rotation.x = -Math.PI / 2;
-    ground.receiveShadow = true;
-    scene.add(ground);
+    // The yard: walls, cover, lamps, fires (layout.js holds the positions and collision, world.js draws them)
+    const arena = buildArena(scene, renderer);
 
     // === DYNAMIC SKY SYSTEM ===
     const sky = new Sky();
@@ -1046,63 +1036,19 @@
     const starField = new THREE.Points(starGeo, starMat);
     scene.add(starField);
 
+    // Fixed deep-dusk sky: the look no longer depends on the player's clock
+    let skySet = false;
     function updateSky() {
-        const now = new Date();
-        const h = now.getHours() + now.getMinutes() / 60 + now.getSeconds() / 3600;
-        const angle = ((h - 6) / 24) * Math.PI * 2;
-        const elevation = Math.sin(angle);
-        const phi = Math.acos(Math.max(-1, Math.min(1, elevation)));
-        const theta = angle;
-        sunVec.setFromSphericalCoords(1, phi, theta);
+        if (skySet) return; skySet = true;
+        sunVec.setFromSphericalCoords(1, Math.PI / 2 + 0.1, 2.2);
         sky.material.uniforms['sunPosition'].value.copy(sunVec);
-        sunLight.position.copy(sunVec).multiplyScalar(100);
-        sunLight.intensity = Math.max(0, elevation) * 2.5;
-        ambientLight.intensity = 0.15 + Math.max(0, elevation) * 1.85;
-        if (elevation > 0) {
-            ambientLight.color.setHSL(0.1, 0.2, 0.7);
-        } else {
-            ambientLight.color.setHSL(0.65, 0.3, 0.3);
-        }
+        sunLight.intensity = 0;
         moonMesh.position.copy(sunVec).multiplyScalar(-250);
-        moonMesh.visible = elevation < 0.1;
-        const starOpacity = Math.max(0, Math.min(1, -elevation * 3 + 0.8));
-        starMat.opacity = starOpacity;
-        starField.visible = starOpacity > 0.01;
+        moonMesh.position.y = Math.abs(moonMesh.position.y) + 60;
+        moonMesh.material.fog = false; starMat.fog = false;
+        moonMesh.visible = true; starMat.opacity = 0.9; starField.visible = true;
     }
     updateSky();
-
-    const gridHelper = new THREE.GridHelper(80, 40, 0x333333, 0x222222);
-    gridHelper.position.y = 0.01;
-    scene.add(gridHelper);
-
-
-
-    const skyGeo = new THREE.SphereGeometry(150, 32, 32);
-    const skyMat = new THREE.ShaderMaterial({
-        side: THREE.BackSide,
-        uniforms: {
-            topColor: { value: new THREE.Color(0x0a0a15) },
-            bottomColor: { value: new THREE.Color(0x1a1a2e) }
-        },
-        vertexShader: `
-            varying vec3 vWorldPosition;
-            void main() {
-                vec4 worldPos = modelMatrix * vec4(position, 1.0);
-                vWorldPosition = worldPos.xyz;
-                gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-            }
-        `,
-        fragmentShader: `
-            uniform vec3 topColor;
-            uniform vec3 bottomColor;
-            varying vec3 vWorldPosition;
-            void main() {
-                float h = normalize(vWorldPosition).y;
-                gl_FragColor = vec4(mix(bottomColor, topColor, max(h, 0.0)), 1.0);
-            }
-        `
-    });
-    scene.add(new THREE.Mesh(skyGeo, skyMat));
 
     // ═══════════════════════════════════════
     // FIRST-PERSON WEAPON SYSTEM
@@ -1501,6 +1447,7 @@
         return { sprite, canvas, texture, typeName };
     }
 
+    // Redraws the bar (only when health changed) and positions it
     function updateHealthBar(enemy) {
         const hb = enemy.healthBar;
         if (!hb) return;
@@ -1522,24 +1469,27 @@
         ctx.fillRect(30, 36, 196 * pct, 14);
 
         hb.texture.needsUpdate = true;
+        moveHealthBar(enemy);
+    }
 
-        const box = new THREE.Box3().setFromObject(enemy.group);
-        hb.sprite.position.set(
-            enemy.group.position.x,
-            box.max.y + 0.5,
-            enemy.group.position.z
-        );
+    // Cheap per-frame follow (no canvas work, no bounding boxes)
+    function moveHealthBar(enemy) {
+        const hb = enemy.healthBar;
+        if (!hb) return;
+        hb.sprite.position.set(enemy.group.position.x, enemy.group.position.y + enemy.topY + 0.5, enemy.group.position.z);
     }
 
     let pitch = 0, yaw = 0;
+    const MOUSE_SENS = 0.0022;
     const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
     let aimTouchId = null, aimX = 0, aimY = 0;
 
     if (!isMobile) {
         document.addEventListener('mousemove', e => {
             if (document.pointerLockElement !== renderer.domElement) return;
-            yaw -= e.movementX * 0.002;
-            pitch -= e.movementY * 0.002;
+            const mx = Math.max(-150, Math.min(150, e.movementX)), my = Math.max(-150, Math.min(150, e.movementY));
+            yaw -= mx * MOUSE_SENS;
+            pitch -= my * MOUSE_SENS;
             pitch = Math.max(-1.2, Math.min(1.2, pitch));
         });
     }
@@ -1697,13 +1647,14 @@
             }
             raycaster.set(camera.position, d);
 
-            const meshes = [];
-            activeEnemies.forEach(e => {
-                if (e.dead) return;
-                e.group.traverse(c => { if (c.isMesh) meshes.push(c); });
-            });
-
-            const hits = raycaster.intersectObjects(meshes, false);
+            // Bullets hit the invisible hit-cylinders (cheap), and stop at walls and cover
+            const targets = [];
+            for (const e of activeEnemies) if (!e.dead && e.hitbox) targets.push(e.hitbox);
+            let hits = targets.length ? raycaster.intersectObjects(targets, false) : [];
+            if (hits.length) {
+                const wall = raycaster.intersectObjects(arena.solids, false)[0];
+                if (wall) hits = hits.filter(h => h.distance < wall.distance);
+            }
             if (hits.length > 0) {
                 const maxPierce = w.pierce || 1;
                 let pierced = 0;
@@ -1711,27 +1662,19 @@
 
                 for (const hit of hits) {
                     if (pierced >= maxPierce) break;
-                    const hitObj = hit.object;
-
-                    for (const enemy of activeEnemies) {
-                        if (enemy.dead || hitEnemies.has(enemy)) continue;
-                        let found = false;
-                        enemy.group.traverse(c => { if (c === hitObj) found = true; });
-                        if (found) {
-                            let effectiveDamage = w.damage;
-                            if (w.falloffStart !== undefined && w.falloffEnd !== undefined) {
-                                const hitDist = camera.position.distanceTo(hit.point);
-                                if (hitDist > w.falloffStart) {
-                                    const falloff = 1 - Math.min(1, (hitDist - w.falloffStart) / (w.falloffEnd - w.falloffStart));
-                                    effectiveDamage = w.damage * Math.max(0.1, falloff);
-                                }
-                            }
-                            damageEnemy(enemy, effectiveDamage, hit.point);
-                            hitEnemies.add(enemy);
-                            pierced++;
-                            break;
+                    const enemy = hit.object.userData.enemy;
+                    if (!enemy || enemy.dead || hitEnemies.has(enemy)) continue;
+                    let effectiveDamage = w.damage;
+                    if (w.falloffStart !== undefined && w.falloffEnd !== undefined) {
+                        const hitDist = camera.position.distanceTo(hit.point);
+                        if (hitDist > w.falloffStart) {
+                            const falloff = 1 - Math.min(1, (hitDist - w.falloffStart) / (w.falloffEnd - w.falloffStart));
+                            effectiveDamage = w.damage * Math.max(0.1, falloff);
                         }
                     }
+                    damageEnemy(enemy, effectiveDamage, hit.point);
+                    hitEnemies.add(enemy);
+                    pierced++;
                 }
             }
         }
@@ -2035,12 +1978,13 @@
         });
         group.scale.setScalar(cfg.scale);
 
-        const angle = Math.random() * Math.PI * 2;
-        group.position.set(
-            Math.cos(angle) * CONFIG.spawnRadius,
-            0.27,
-            Math.sin(angle) * CONFIG.spawnRadius
-        );
+        const gate = pickGate();
+        group.position.set(gate[0], 0.27, gate[1]);
+        {
+            const o = { x: group.position.x, z: group.position.z };
+            LAYOUT.resolveCircle(o, 0.6);
+            group.position.x = o.x; group.position.z = o.z;
+        }
 
         const mixer = new THREE.AnimationMixer(group);
         const clips = anims[modelKey] || [];
@@ -2076,6 +2020,8 @@
         );
         hitbox.position.y = hitHeight / 2;
         group.add(hitbox);
+        const flashMats = []; group.traverse(c => { if (c.isMesh && c.material && c.material.emissive) flashMats.push(c.material); });
+        const hbBox = new THREE.Box3().setFromObject(group); const topY = hbBox.max.y - group.position.y;
 
         scene.add(group);
 
@@ -2117,10 +2063,14 @@
             enraged: false,
             slamCooldown: 0,
             redPulseTimer: 0,
-            lastLane: Math.floor(Math.random() * 3)
+            radius: type === 'boss' ? 1.1 : type === 'tank' ? 0.8 : type === 'brute' ? 0.7 : 0.45,
+            dirX: 0, dirZ: 0, flashMats, flashing: false, topY, hbDirty: true
         };
+        hitbox.userData.enemy = enemy; enemy.hitbox = hitbox;
+        enemy.dirX = -group.position.x; enemy.dirZ = -group.position.z;
 
         activeEnemies.push(enemy);
+        if (hb) updateHealthBar(enemy);
 
         if (type === 'boss') {
             activeBoss = enemy;
@@ -2131,12 +2081,9 @@
             updateBossHUD();
 
             const entourageCount = 2;
-            for (let ei = 0; ei < entourageCount; ei++) {
-                setTimeout(() => {
-                    if (state === 'playing') spawnEnemy('shambler');
-                }, 800 + ei * 400);
-            }
-            waveEnemiesLeft += entourageCount;
+            spawnQueue.unshift('shambler', 'shambler');
+            spawnTimer = 0.8;
+                        waveEnemiesLeft += entourageCount;
         }
     }
 
@@ -2249,7 +2196,49 @@
         }
     }
 
+    // Wave spawner: a timed queue (no setInterval / setTimeout, so nothing leaks into the next game)
+    const spawnQueue = [];
+    let spawnTimer = 0;
+    const MAX_ALIVE = 30;
+    const _fd = { x: 0, z: 0 };
+    const _rp = { x: 0, z: 0 };
+
+    function pickGate() {
+        const far = LAYOUT.GATES.filter(g => Math.hypot(g[0] - playerPos.x, g[1] - playerPos.z) > 28);
+        const list = far.length ? far : LAYOUT.GATES;
+        const g = list[Math.floor(Math.random() * list.length)];
+        const along = (Math.random() - 0.5) * 3;
+        return Math.abs(g[0]) > Math.abs(g[1]) ? [g[0], g[1] + along] : [g[0] + along, g[1]];
+    }
+
+    function updateSpawner(dt) {
+        if (!spawnQueue.length) return;
+        spawnTimer -= dt;
+        if (spawnTimer > 0) return;
+        let alive = 0;
+        for (const e of activeEnemies) if (!e.dead) alive++;
+        if (alive >= MAX_ALIVE) { spawnTimer = 0.5; return; }
+        const type = spawnQueue.shift();
+        spawnEnemy(type);
+        spawnTimer = type === 'boss' ? 1.5 : Math.max(0.35, 0.9 - wave * 0.02);
+    }
+
+    // Frees everything an enemy owns (cloned materials, health-bar texture, mixer) - the shared model geometry stays
+    function disposeEnemy(e) {
+        scene.remove(e.group);
+        if (e.mixer) { e.mixer.stopAllAction(); e.mixer.uncacheRoot(e.group); }
+        for (const m of e.flashMats || []) m.dispose();
+        e.group.traverse(c => { if (c.isSkinnedMesh && c.skeleton) c.skeleton.dispose(); });
+        if (e.healthBar) {
+            scene.remove(e.healthBar.sprite);
+            e.healthBar.texture.dispose();
+            e.healthBar.sprite.material.dispose();
+            e.healthBar = null;
+        }
+    }
+
     function updateEnemies(dt) {
+        LAYOUT.updateFlow(playerPos.x, playerPos.z);
         for (let i = activeEnemies.length - 1; i >= 0; i--) {
             const e = activeEnemies[i];
 
@@ -2258,8 +2247,7 @@
                 if (e.mixer) e.mixer.update(dt);
 
                 if (e.despawnTimer > CONFIG.despawnTime) {
-                    scene.remove(e.group);
-                    if (e.healthBar) scene.remove(e.healthBar.sprite);
+                    disposeEnemy(e);
                     activeEnemies.splice(i, 1);
                 }
                 continue;
@@ -2268,40 +2256,52 @@
             e.mixer.update(dt);
 
 
-            if (!e.isBoss) updateHealthBar(e);
+            if (!e.isBoss) moveHealthBar(e);
 
-            const dir = new THREE.Vector3(
-                camera.position.x - e.group.position.x,
-                0,
-                camera.position.z - e.group.position.z
-            );
-            const dist = dir.length();
-            dir.normalize();
-
-            if (dist > 0.5) {
-                _currentQuat.copy(e.group.quaternion);
-                e.group.lookAt(camera.position.x, e.group.position.y, camera.position.z);
-                _targetQuat.copy(e.group.quaternion);
-                e.group.quaternion.copy(_currentQuat);
-                e.group.quaternion.slerp(_targetQuat, Math.min(1, 5 * dt));
+            // hit flash
+            const flash = e.hitFlashTimer > 0;
+            if (flash) e.hitFlashTimer -= dt;
+            if (flash !== e.flashing && !(e.isBoss && e.enraged)) {
+                e.flashing = flash;
+                for (const m of e.flashMats) m.emissive.setRGB(flash ? 0.7 : 0, flash ? 0.12 : 0, flash ? 0.08 : 0);
             }
 
-            if (dist > CONFIG.meleeRange) {
-                const laneSpread = 2.5;
-                const myLane = Math.floor((e.group.position.x + ARENA_BOUNDS) / (ARENA_BOUNDS * 2 / 3));
-                for (const other of activeEnemies) {
-                    if (other === e || other.dead) continue;
-                    const otherLane = Math.floor((other.group.position.x + ARENA_BOUNDS) / (ARENA_BOUNDS * 2 / 3));
-                    if (myLane === otherLane) {
-                        const awayX = e.group.position.x - other.group.position.x;
-                        if (Math.abs(awayX) < laneSpread && Math.abs(awayX) > 0.1) {
-                            dir.x += (awayX / Math.abs(awayX)) * 0.4;
-                            dir.normalize();
-                        }
-                    }
-                }
+            const gx = e.group.position.x, gz = e.group.position.z;
+            const toX = playerPos.x - gx, toZ = playerPos.z - gz;
+            const dist = Math.hypot(toX, toZ);
 
-                e.group.position.addScaledVector(dir, e.speed * dt);
+            // turn smoothly: face the player when close, otherwise face where we are walking
+            const faceX = dist < 3.5 ? toX : e.dirX, faceZ = dist < 3.5 ? toZ : e.dirZ;
+            if (faceX * faceX + faceZ * faceZ > 1e-6) {
+                let da = Math.atan2(faceX, faceZ) - e.group.rotation.y;
+                da = Math.atan2(Math.sin(da), Math.cos(da));
+                e.group.rotation.y += da * Math.min(1, 8 * dt);
+            }
+
+            // in melee range only if nothing solid is in between (no hitting through cover)
+            const inMelee = dist <= CONFIG.meleeRange && LAYOUT.sightClear(gx, gz, playerPos.x, playerPos.z);
+
+            if (!inMelee) {
+                // straight at the player when close and in the open, otherwise follow the flow field around cover
+                let wx = toX / (dist || 1), wz = toZ / (dist || 1);
+                if (dist > 9 || !LAYOUT.lineClear(gx, gz, playerPos.x, playerPos.z)) {
+                    if (LAYOUT.flowDir(gx, gz, _fd)) { wx = _fd.x; wz = _fd.z; }
+                }
+                // keep apart from other zombies so a crowd spreads out instead of stacking
+                let sx = 0, sz = 0;
+                for (const o of activeEnemies) {
+                    if (o === e || o.dead) continue;
+                    const ox = gx - o.group.position.x, oz = gz - o.group.position.z, d2 = ox * ox + oz * oz, rr = e.radius + o.radius + 0.3;
+                    if (d2 < rr * rr && d2 > 1e-6) { const d = Math.sqrt(d2), w = (rr - d) / rr; sx += ox / d * w; sz += oz / d * w; }
+                }
+                wx += sx * 1.3; wz += sz * 1.3;
+                const wl = Math.hypot(wx, wz) || 1; wx /= wl; wz /= wl;
+                const k = Math.min(1, 7 * dt);
+                e.dirX += (wx - e.dirX) * k; e.dirZ += (wz - e.dirZ) * k;
+                const dl = Math.hypot(e.dirX, e.dirZ) || 1; e.dirX /= dl; e.dirZ /= dl;
+                _rp.x = gx + e.dirX * e.speed * dt; _rp.z = gz + e.dirZ * e.speed * dt;
+                LAYOUT.resolveCircle(_rp, e.radius);
+                e.group.position.x = _rp.x; e.group.position.z = _rp.z;
 
                 if (e.walkAction) {
                     let tScale = e.speed / ANIM_REFERENCE_SPEED;
@@ -2377,19 +2377,10 @@
         showWaveAnnounce(`WAVE ${wave}`);
         playWaveKlaxon(wave % 10 === 0);
 
-        let spawned = 0;
-        const spawnInterval = setInterval(() => {
-            if (spawned >= totalEnemies || state !== 'playing') {
-                clearInterval(spawnInterval);
-                if (isBossWave && state === 'playing') {
-                    setTimeout(() => spawnEnemy('boss'), 1500);
-                }
-                return;
-            }
-            const type = pickEnemyType();
-            spawnEnemy(type);
-            spawned++;
-        }, 900);
+        spawnQueue.length = 0;
+        for (let k = 0; k < totalEnemies; k++) spawnQueue.push(pickEnemyType());
+        if (isBossWave) spawnQueue.push('boss');
+        spawnTimer = 0.5;
     }
 
     function pickEnemyType() {
@@ -2544,9 +2535,8 @@
     }
 
     function updateScreenShake(dt) {
-        const camSmooth = Math.min(1, dt * 25);
-        camera.position.x += (playerPos.x - camera.position.x) * camSmooth;
-        camera.position.z += (playerPos.z - camera.position.z) * camSmooth;
+        camera.position.x = playerPos.x;
+        camera.position.z = playerPos.z;
         camera.position.y = CONFIG.player.height;
         if (isMoving) {
             const bobFreq = isSprinting ? 9 : 5;
@@ -2577,6 +2567,22 @@
     const _moveRight = new THREE.Vector3();
     const _yAxis = new THREE.Vector3(0, 1, 0);
 
+    const PLAYER_R = 0.4;      // collision radius
+    const ACCEL = 13;          // how fast we reach full speed (1/s, exponential)
+    const DECEL = 10;          // how fast we stop
+    let velX = 0, velZ = 0;
+    let padSprintPrev = false;
+    const _pp = { x: 0, z: 0 };
+
+    // radial dead-zone for sticks: returns [x, y] scaled so the output grows smoothly from 0 at the edge of the dead-zone
+    function padStick(x, y, dead, curve) {
+        const m = Math.hypot(x, y);
+        if (m < dead) return [0, 0];
+        const s = Math.min(1, (m - dead) / (1 - dead));
+        const k = Math.pow(s, curve) / m;
+        return [x * k, y * k];
+    }
+
     function updateMovement(dt) {
         let inputX = moveJoyDeltaX || 0;
         let inputY = moveJoyDeltaY || 0;
@@ -2587,55 +2593,100 @@
         if (keys['d'] || keys['arrowright']) inputX += 1;
 
         const gp = getGamepad();
+        let padSprint = false;
         if (gp) {
-            const dead = 0.15;
-            let lx = gp.axes[0] || 0;
-            let ly = gp.axes[1] || 0;
-            if (Math.abs(lx) < dead) lx = 0;
-            if (Math.abs(ly) < dead) ly = 0;
+            const [lx, ly] = padStick(gp.axes[0] || 0, gp.axes[1] || 0, 0.18, 1.0);
             inputX += lx;
             inputY -= ly;
-            isSprinting = gp.buttons[10] ? gp.buttons[10].pressed : false;
+            padSprint = !!(gp.buttons[10] && gp.buttons[10].pressed);   // L3
         }
 
-        const len = Math.sqrt(inputX * inputX + inputY * inputY);
+        const len = Math.hypot(inputX, inputY);
         if (len > 1) { inputX /= len; inputY /= len; }
+        const want = len > 0.08;
 
-        isMoving = len > 0.1;
-        if (isADS || !isMoving) isSprinting = false;
-        if (!isMoving) return;
+        // sprint: Shift or L3, only while moving forward and not aiming
+        isSprinting = want && !isADS && inputY > 0.1 && (!!keys['shift'] || padSprint);
+        padSprintPrev = padSprint;
 
-        const sprintMult = isSprinting ? SPRINT_MULT : 1.0;
-        const adsMult = isADS ? ADS_MOVE_MULT : 1.0;
-        const boostMult = speedBoostTimer > 0 ? 1.5 : 1.0;
-        const speed = MOVE_SPEED * sprintMult * adsMult * boostMult * dt;
+        const maxSp = MOVE_SPEED * (isSprinting ? SPRINT_MULT : 1) * (isADS ? ADS_MOVE_MULT : 1) * (speedBoostTimer > 0 ? 1.5 : 1);
+        const fx = -Math.sin(yaw), fz = -Math.cos(yaw), rx = Math.cos(yaw), rz = -Math.sin(yaw);
+        const tvx = (fx * inputY + rx * inputX) * maxSp;
+        const tvz = (fz * inputY + rz * inputX) * maxSp;
 
-        _moveForward.set(0, 0, -1).applyAxisAngle(_yAxis, yaw);
-        _moveRight.set(1, 0, 0).applyAxisAngle(_yAxis, yaw);
+        // accelerate / decelerate toward the wanted velocity (feels weighty but never sluggish)
+        const k = 1 - Math.exp(-(want ? ACCEL : DECEL) * dt);
+        velX += (tvx - velX) * k;
+        velZ += (tvz - velZ) * k;
 
-        playerPos.x += (_moveForward.x * inputY + _moveRight.x * inputX) * speed;
-        playerPos.z += (_moveForward.z * inputY + _moveRight.z * inputX) * speed;
+        // move in small steps so a long frame can never tunnel through a thin wall; collision slides along surfaces
+        const mx = velX * dt, mz = velZ * dt;
+        const steps = Math.max(1, Math.ceil(Math.hypot(mx, mz) / 0.25));
+        const x0 = playerPos.x, z0 = playerPos.z;
+        _pp.x = x0; _pp.z = z0;
+        for (let i = 0; i < steps; i++) { _pp.x += mx / steps; _pp.z += mz / steps; LAYOUT.resolveCircle(_pp, PLAYER_R); }
+        playerPos.x = _pp.x; playerPos.z = _pp.z;
+        if (dt > 0) { velX = (playerPos.x - x0) / dt; velZ = (playerPos.z - z0) / dt; }   // a wall eats the part of the speed that pushed into it
 
-
+        isMoving = Math.hypot(velX, velZ) > 0.6;
     }
     // ═══════════════════════════════════════
     // GAMEPAD SUPPORT
     // ═══════════════════════════════════════
+    // PlayStation (standard mapping): sticks move/look, R2 shoot, L2 aim, L3 sprint, Square reload, Triangle / L1 / R1 / D-pad swap weapon,
+    // Options use the pause charge, Cross start / confirm / resume, Circle back to menu (game-over screen). Other pads follow the same layout.
+    const padNow = [], padEdge = [];
+    let padSeen = false, padAdsHeld = false, padStartAt = 0;
+
+    function onPadSeen() {
+        if (padSeen) return; padSeen = true;
+        const h = document.getElementById('pad-hint'); if (h) h.style.display = 'block';
+        const t = document.getElementById('start-text'); if (t && t.textContent === 'TAP TO START') t.textContent = 'TAP / PRESS ✕ TO START';
+    }
     window.addEventListener('gamepadconnected', e => {
         gamepadIndex = e.gamepad.index;
+        onPadSeen();
         console.log('Gamepad connected:', e.gamepad.id);
     });
     window.addEventListener('gamepaddisconnected', e => {
         if (gamepadIndex === e.gamepad.index) gamepadIndex = null;
-        gpFireHeld = false;
-        isADS = false;
+        if (gpFireHeld) { gpFireHeld = false; fireHeld = false; }
+        if (padAdsHeld) { padAdsHeld = false; isADS = false; }
+        padNow.length = 0; padEdge.length = 0;
         console.log('Gamepad disconnected');
     });
 
+    // Finds the connected pad every call (browsers only report a pad after its first button press).
     function getGamepad() {
-        if (gamepadIndex === null) return null;
-        const gamepads = navigator.getGamepads();
-        return gamepads[gamepadIndex] || null;
+        const list = navigator.getGamepads ? navigator.getGamepads() : [];
+        if (gamepadIndex !== null && list[gamepadIndex] && list[gamepadIndex].connected) return list[gamepadIndex];
+        for (const g of list) if (g && g.connected) { gamepadIndex = g.index; onPadSeen(); return g; }
+        gamepadIndex = null;
+        return null;
+    }
+
+    // once per frame: which buttons are down, and which just went down
+    function samplePad() {
+        const gp = getGamepad();
+        if (!gp) { padNow.length = 0; padEdge.length = 0; return null; }
+        for (let i = 0; i < 17; i++) {
+            const b = gp.buttons[i];
+            const p = !!(b && (b.pressed || b.value > 0.5));
+            padEdge[i] = p && !padNow[i];
+            padNow[i] = p;
+        }
+        return gp;
+    }
+
+    // menus: Cross / Options start, Circle = main menu on the game-over screen
+    function pollMenuPad() {
+        const now = performance.now();
+        if (now - padStartAt < 1200) return;
+        if (state === 'menu' && (padEdge[0] || padEdge[9])) { padStartAt = now; startGame(); }
+        else if (state === 'gameover') {
+            if (padEdge[0]) { padStartAt = now; startGame(); }
+            else if (padEdge[1]) { padStartAt = now; showMainMenu(); }
+        }
     }
 
     const _aaDir = new THREE.Vector3();
@@ -2678,62 +2729,51 @@
         const gp = getGamepad();
         if (!gp) return;
 
-        const dead = 0.15;
-        let rx = gp.axes[2] || 0;
-        let ry = gp.axes[3] || 0;
-        if (Math.abs(rx) < dead) rx = 0;
-        if (Math.abs(ry) < dead) ry = 0;
+        const [rx, ry] = padStick(gp.axes[2] || 0, gp.axes[3] || 0, 0.16, 1.6);   // response curve: fine aim near the centre, fast turns at the edge
 
         const aaTarget = getAimAssistTarget();
         let aimSens = 1.0;
 
         if (aaTarget) {
             const frictionBase = isADS ? 0.2 : 0.4;
-            aimSens = frictionBase + (1 - frictionBase) * (aaTarget.angle / 0.35);
-            const stickMag = Math.sqrt(rx * rx + ry * ry);
+            aimSens = frictionBase + (1 - frictionBase) * Math.min(1, aaTarget.angle / 0.35);
+            const stickMag = Math.hypot(rx, ry);
             if (stickMag > 0.05) {
                 const pullBase = isADS ? 4.0 : 2.5;
-                const pullStr = pullBase * (1 - aaTarget.angle / 0.35);
+                const pullStr = pullBase * Math.max(0, 1 - aaTarget.angle / 0.35);
                 yaw -= aaTarget.yawOffset * pullStr * dt;
                 pitch -= aaTarget.pitchOffset * pullStr * 0.3 * dt;
             }
         }
 
         const adsTurnMult = isADS ? 0.6 : 1.0;
-        yaw -= rx * 3.0 * aimSens * adsTurnMult * dt;
-        pitch -= ry * 2.0 * aimSens * adsTurnMult * dt;
+        yaw -= rx * 3.6 * aimSens * adsTurnMult * dt;
+        pitch -= ry * 2.4 * aimSens * adsTurnMult * dt;
         pitch = Math.max(-1.2, Math.min(1.2, pitch));
 
-        isADS = gp.buttons[4] ? gp.buttons[4].pressed : false;
-        if (isADS) isSprinting = false;
+        // L2 = aim down sights (only touches isADS on press / release, so the mouse button keeps working)
+        if (padNow[6] && !padAdsHeld) { padAdsHeld = true; isADS = true; }
+        else if (!padNow[6] && padAdsHeld) { padAdsHeld = false; isADS = false; }
 
-        const r1 = gp.buttons[5] ? gp.buttons[5].pressed : false;
-        if (r1) {
+        // R2 = fire
+        if (padNow[7]) {
             if (!gpFireHeld) {
                 gpFireHeld = true;
                 fireHeld = true;
                 hasFiredThisClick = false;
                 shoot();
             }
-        } else {
-            if (gpFireHeld) {
-                gpFireHeld = false;
-                fireHeld = false;
-                hasFiredThisClick = false;
-            }
+        } else if (gpFireHeld) {
+            gpFireHeld = false;
+            fireHeld = false;
+            hasFiredThisClick = false;
         }
 
         const maxWpn = document.getElementById('raygun-slot').style.display !== 'none' ? 4 : 3;
-
-        const l2 = gp.buttons[6] ? gp.buttons[6].pressed : false;
-        if (l2 && !gpLBPrev) swapWeapon((curWeapon + maxWpn - 1) % maxWpn);
-        gpLBPrev = l2;
-
-        const r2 = gp.buttons[7] ? gp.buttons[7].pressed : false;
-        if (r2 && !gpRBPrev) swapWeapon((curWeapon + 1) % maxWpn);
-        gpRBPrev = r2;
-
-        if (gp.buttons[2] && gp.buttons[2].pressed) startReload();
+        if (padEdge[2]) startReload();                                              // Square
+        if (padEdge[3] || padEdge[5] || padEdge[15]) swapWeapon((curWeapon + 1) % maxWpn);            // Triangle, R1, D-pad right
+        if (padEdge[4] || padEdge[14]) swapWeapon((curWeapon + maxWpn - 1) % maxWpn);                 // L1, D-pad left
+        if (padEdge[9]) activatePause();                                            // Options: use the pause charge
     }
         // ═══════════════════════════════════════
     // MENU
@@ -2761,13 +2801,13 @@
         document.getElementById('reload-indicator').style.display = 'none';
         document.getElementById('speed-timer').style.display = 'none';
 
-        playerPos.set(0, 0, 0);
+        playerPos.set(0, 0, 0); velX = velZ = 0;
 
         for (const e of activeEnemies) {
-            scene.remove(e.group);
-            if (e.healthBar) scene.remove(e.healthBar.sprite);
+            disposeEnemy(e);
         }
         activeEnemies.length = 0;
+        spawnQueue.length = 0;
         for (const p of activePowerups) scene.remove(p.group);
         activePowerups.length = 0;
         for (const dn of activeDamageNumbers) {
@@ -2844,13 +2884,13 @@
         isSprinting = false;
         adsAmount = 0;
 
-        playerPos.set(0, 0, 0);
+        playerPos.set(0, 0, 0); velX = velZ = 0;
 
         for (const e of activeEnemies) {
-            scene.remove(e.group);
-            if (e.healthBar) scene.remove(e.healthBar.sprite);
+            disposeEnemy(e);
         }
         activeEnemies.length = 0;
+        spawnQueue.length = 0;
 
         for (const p of activePowerups) scene.remove(p.group);
         activePowerups.length = 0;
@@ -2894,9 +2934,7 @@
         updateHealthHUD();
         updateWeaponHUD();
 
-        if (!isMobile) {
-            renderer.domElement.requestPointerLock();
-        }
+        if (!isMobile) tryPointerLock();
 
         startWave();
     }
@@ -2968,6 +3006,7 @@
     document.getElementById('back-to-deadzone').addEventListener('touchend', e => { e.stopPropagation(); });
 
     renderer.domElement.addEventListener('mousedown', e => {
+        if (e.button === 0 && !isMobile && state === 'playing' && document.pointerLockElement !== renderer.domElement) { tryPointerLock(); return; }
         if (e.button === 0) {
             fireHeld = true;
             hasFiredThisClick = false;
@@ -3041,6 +3080,33 @@
 
         if (e.key === 'p' || e.key === 'P') activatePause();
     });
+
+    // Losing the mouse (Esc), the tab or the window pauses the action instead of letting zombies eat you.
+    let focusPaused = false;
+    function tryPointerLock() {
+        try { const p = renderer.domElement.requestPointerLock(); if (p && p.catch) p.catch(() => {}); } catch (e) {}
+    }
+    function setFocusPause(on) {
+        if (focusPaused === on) return;
+        focusPaused = on;
+        document.getElementById('focus-pause').style.display = on ? 'flex' : 'none';
+        if (on) {
+            fireHeld = false; gpFireHeld = false; isADS = false; padAdsHeld = false;
+            for (const k in keys) keys[k] = false;
+        }
+    }
+    document.addEventListener('pointerlockchange', () => {
+        if (isMobile) return;
+        if (document.pointerLockElement === renderer.domElement) setFocusPause(false);
+        else if (state === 'playing') setFocusPause(true);
+    });
+    window.addEventListener('blur', () => {
+        for (const k in keys) keys[k] = false;
+        fireHeld = false; isADS = false;
+        if (state === 'playing') setFocusPause(true);
+    });
+    document.addEventListener('visibilitychange', () => { if (document.hidden && state === 'playing') setFocusPause(true); });
+    document.getElementById('focus-pause').addEventListener('click', () => { setFocusPause(false); if (!isMobile) tryPointerLock(); });
 
     document.addEventListener('keyup', e => {
         keys[e.key.toLowerCase()] = false;
@@ -3132,17 +3198,32 @@
     // ═══════════════════════════════════════
     // GAME LOOP
     // ═══════════════════════════════════════
+    // Read-only-ish handle for the browser tests in tools-feral3/ (not used by the game itself)
+    window.__dz = {
+        get state() { return state; }, get hp() { return hp; }, get wave() { return wave; }, get score() { return score; }, get kills() { return kills; },
+        get yaw() { return yaw; }, set yaw(v) { yaw = v; }, get pitch() { return pitch; }, set pitch(v) { pitch = v; },
+        get vel() { return [velX, velZ]; }, get focusPaused() { return focusPaused; }, get queue() { return spawnQueue.length; },
+        playerPos, activeEnemies, keys, camera, LAYOUT, renderer, scene, arena, spawnEnemy, shoot, CONFIG
+    };
+
     function gameLoop() {
         requestAnimationFrame(gameLoop);
         updateSky();
 
-        const dt = Math.min(clock.getDelta(), 0.1);
+        const dt = Math.min(clock.getDelta(), 0.05);
+
+        const pad = samplePad();
+        if (pad) {
+            pollMenuPad();
+            if (focusPaused && padEdge[0]) setFocusPause(false);
+        }
+        if (state !== 'playing' && focusPaused) setFocusPause(false);
 
         camera.rotation.order = 'YXZ';
         camera.rotation.y = yaw;
         camera.rotation.x = pitch;
 
-        if (state === 'playing') {
+        if (state === 'playing' && !focusPaused) {
             updateGamepad(dt);
             updateMovement(dt);
 
@@ -3151,6 +3232,7 @@
             updatePause(dt);
 
             if (!isPaused) {
+                updateSpawner(dt);
                 updateEnemies(dt);
                 updatePowerups(dt);
                 updateDamageNumbers(dt);
@@ -3168,6 +3250,11 @@
             }
         }
 
+        // the moon's shadow window follows the player; fires and lamps animate
+        moon.position.set(playerPos.x - 22, 36, playerPos.z - 16);
+        moon.target.position.set(playerPos.x, 0, playerPos.z);
+        arena.update(dt);
+
         renderer.render(scene, camera);
     }
     gameLoop();
@@ -3177,10 +3264,6 @@
         camera.updateProjectionMatrix();
         renderer.setSize(innerWidth, innerHeight);
     });
-    </script>
-    <script type="module">
-      import './assets/map/arena.js';
-      console.log("arena module loaded");
     </script>
 </body>
 </html>
