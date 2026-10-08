@@ -1814,10 +1814,26 @@
         return group;
     }
 
+    // Pick-up glow is a cheap additive sprite, not a light: adding and removing lights makes every material recompile (stutter)
+    let glowTex = null;
     function addGlow(group, color) {
-        const light = new THREE.PointLight(color, 1.5, 5);
-        light.position.y = 0.3;
-        group.add(light);
+        if (!glowTex) {
+            const c = document.createElement('canvas'); c.width = c.height = 64;
+            const g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+            gr.addColorStop(0, 'rgba(255,255,255,0.9)'); gr.addColorStop(0.35, 'rgba(255,255,255,0.35)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+            g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+            glowTex = new THREE.CanvasTexture(c);
+        }
+        const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
+        sp.scale.set(1.6, 1.6, 1); sp.position.y = 0.3;
+        group.add(sp);
+    }
+    function disposeGroup(g) {
+        scene.remove(g);
+        g.traverse(o => {
+            if (o.geometry) o.geometry.dispose();
+            if (o.material) { for (const m of [].concat(o.material)) m.dispose(); }
+        });
     }
 
     const POWERUP_TYPES = [
@@ -1895,7 +1911,7 @@
                 updateAmmoHUD();
                 break;
         }
-        scene.remove(pu.group);
+        disposeGroup(pu.group);
         activePowerups.splice(index, 1);
     }
 
@@ -1928,7 +1944,7 @@
             }
 
             if (p.life <= 0) {
-                scene.remove(p.group);
+                disposeGroup(p.group);
                 activePowerups.splice(i, 1);
             }
         }
@@ -2014,9 +2030,10 @@
 
         const hitRadius = type === 'boss' ? 1.3 : 0.9;
         const hitHeight = type === 'boss' ? 3.2 : 2.5;
+        const hitKey = hitRadius + 'x' + hitHeight;
         const hitbox = new THREE.Mesh(
-            new THREE.CylinderGeometry(hitRadius, hitRadius, hitHeight, 8),
-            new THREE.MeshBasicMaterial({ visible: false })
+            hitGeos[hitKey] || (hitGeos[hitKey] = new THREE.CylinderGeometry(hitRadius, hitRadius, hitHeight, 8)),
+            hitMat
         );
         hitbox.position.y = hitHeight / 2;
         group.add(hitbox);
@@ -2064,7 +2081,7 @@
             slamCooldown: 0,
             redPulseTimer: 0,
             radius: type === 'boss' ? 1.1 : type === 'tank' ? 0.8 : type === 'brute' ? 0.7 : 0.45,
-            dirX: 0, dirZ: 0, flashMats, flashing: false, topY, hbDirty: true
+            age: 0, dirX: 0, dirZ: 0, flashMats, flashing: false, topY, hbDirty: true
         };
         hitbox.userData.enemy = enemy; enemy.hitbox = hitbox;
         enemy.dirX = -group.position.x; enemy.dirZ = -group.position.z;
@@ -2198,13 +2215,17 @@
 
     // Wave spawner: a timed queue (no setInterval / setTimeout, so nothing leaks into the next game)
     const spawnQueue = [];
+    const hitGeos = {};   // hit-cylinders are shared between zombies
+    const hitMat = new THREE.MeshBasicMaterial({ visible: false });
     let spawnTimer = 0;
     const MAX_ALIVE = 30;
     const _fd = { x: 0, z: 0 };
     const _rp = { x: 0, z: 0 };
 
     function pickGate() {
-        const far = LAYOUT.GATES.filter(g => Math.hypot(g[0] - playerPos.x, g[1] - playerPos.z) > 28);
+        // enter from one of the nearer gates that is still out of sight (>24 m), so waves arrive in reasonable time
+        const byDist = LAYOUT.GATES.map(g => [Math.hypot(g[0] - playerPos.x, g[1] - playerPos.z), g]).sort((a, b) => a[0] - b[0]);
+        const far = byDist.filter(x => x[0] > 24).slice(0, 4).map(x => x[1]);
         const list = far.length ? far : LAYOUT.GATES;
         const g = list[Math.floor(Math.random() * list.length)];
         const along = (Math.random() - 0.5) * 3;
@@ -2299,7 +2320,9 @@
                 const k = Math.min(1, 7 * dt);
                 e.dirX += (wx - e.dirX) * k; e.dirZ += (wz - e.dirZ) * k;
                 const dl = Math.hypot(e.dirX, e.dirZ) || 1; e.dirX /= dl; e.dirZ /= dl;
-                _rp.x = gx + e.dirX * e.speed * dt; _rp.z = gz + e.dirZ * e.speed * dt;
+                e.age += dt;
+                const sp = e.speed * (e.age > 22 ? 1.7 : 1);   // stragglers that are still far away hurry up
+                _rp.x = gx + e.dirX * sp * dt; _rp.z = gz + e.dirZ * sp * dt;
                 LAYOUT.resolveCircle(_rp, e.radius);
                 e.group.position.x = _rp.x; e.group.position.z = _rp.z;
 
@@ -2808,7 +2831,7 @@
         }
         activeEnemies.length = 0;
         spawnQueue.length = 0;
-        for (const p of activePowerups) scene.remove(p.group);
+        for (const p of activePowerups) disposeGroup(p.group);
         activePowerups.length = 0;
         for (const dn of activeDamageNumbers) {
             scene.remove(dn.sprite);
@@ -2892,7 +2915,7 @@
         activeEnemies.length = 0;
         spawnQueue.length = 0;
 
-        for (const p of activePowerups) scene.remove(p.group);
+        for (const p of activePowerups) disposeGroup(p.group);
         activePowerups.length = 0;
 
         for (const dn of activeDamageNumbers) {
