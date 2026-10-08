@@ -13,3 +13,5 @@ public/feral3/models-raw/
 tools-feral3/audit.json
 tools-feral3/optimized.json
 Map Section*.glb
+data/
+tools-feral3/.api.pid

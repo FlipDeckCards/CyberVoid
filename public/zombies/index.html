@@ -48,6 +48,16 @@
             border-color: #39FF14;
             background: rgba(57,255,20,0.05);
         }
+        .acct-row { display:flex; gap:10px; width:100%; }
+        .acct-btn { flex:1; padding:9px 10px; background:rgba(57,255,20,0.08); border:1px solid #39FF14; color:#39FF14; border-radius:4px;
+            font-family:'Courier New',monospace; letter-spacing:2px; font-size:0.8rem; cursor:pointer; }
+        .acct-btn:hover { background:rgba(57,255,20,0.22); }
+        .acct-btn:disabled { opacity:.4; cursor:default; }
+        .acct-hint { color:#666; font-size:0.7rem; letter-spacing:1px; }
+        #acct-in { display:flex; align-items:center; gap:12px; width:100%; justify-content:space-between; }
+        #acct-out { display:flex; flex-direction:column; align-items:center; gap:10px; width:100%; }
+        #acct-name { color:#39FF14; font-size:0.95rem; letter-spacing:2px; text-align:left; word-break:break-all; }
+        #acct-in .acct-btn { flex:0 0 auto; }
         #login-status {
             color: #666; font-size: 1.5rem; letter-spacing: 2px;
             min-height: 16px; text-align: center;
@@ -320,8 +330,14 @@
         <div class="mode">Zombies</div>
         <a href="/" id="back-to-deadzone" style="color:#FF4444; font-size:0.7rem; text-decoration:none; letter-spacing:3px; text-transform:uppercase; margin-top:5px; margin-bottom:10px;">← ALL ARENAS</a>
         <div id="login-fields" style="display:none;">
-            <input type="text" id="callsign-input" placeholder="CALLSIGN" maxlength="20" autocomplete="off" />
-            <input type="email" id="email-input" placeholder="EMAIL (SYNC ACROSS DEVICES)" autocomplete="email" />
+            <div id="acct-in" style="display:none;"><div id="acct-name"></div><button type="button" class="acct-btn" id="btn-logout">LOG OUT</button></div>
+            <div id="acct-out">
+                <input type="text" id="callsign-input" placeholder="CALLSIGN" maxlength="20" autocomplete="username" />
+                <input type="password" id="password-input" placeholder="PASSWORD (TO LOG IN / SIGN UP)" maxlength="100" autocomplete="current-password" />
+                <input type="email" id="email-input" placeholder="EMAIL (OPTIONAL, SIGN-UP ONLY)" autocomplete="email" />
+                <div class="acct-row"><button type="button" class="acct-btn" id="btn-login">LOG IN</button><button type="button" class="acct-btn" id="btn-signup">SIGN UP</button></div>
+                <div class="acct-hint">or just tap to play as a guest with a callsign</div>
+            </div>
             <div id="login-status"></div>
         </div>
         <div id="menu-leaderboard" style="display:none;">
@@ -408,8 +424,76 @@
     // ═══════════════════════════════════════
     // CALLSIGN / EMAIL / LEADERBOARD API
     // ═══════════════════════════════════════
-    let playerCallsign = localStorage.getItem('dz_callsign') || '';
-    let playerEmail = localStorage.getItem('dz_email') || '';
+    const store = {
+        get(k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } },
+        set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+        del(k) { try { localStorage.removeItem(k); } catch (e) {} }
+    };
+    let playerCallsign = store.get('dz_callsign');
+    let authToken = store.get('dz_token');   // set only while logged in to a real account
+    let loggedIn = false;
+    const $status = document.getElementById('login-status');
+    const callsignInput = document.getElementById('callsign-input');
+    const passwordInput = document.getElementById('password-input');
+    const emailInput = document.getElementById('email-input');
+    const esc = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const setStatus = (t, bad) => { $status.textContent = t; $status.style.color = bad ? '#ff6666' : '#39FF14'; };
+
+    async function api(path, method, body) {
+        const headers = { 'Content-Type': 'application/json' };
+        if (authToken) headers.Authorization = 'Bearer ' + authToken;
+        const r = await fetch(path, { method, headers, body: body ? JSON.stringify(body) : undefined });
+        let data = {}; try { data = await r.json(); } catch (e) {}
+        if (!r.ok && !data.error) data.error = 'Server error - try again';
+        return data;
+    }
+
+    function showAccount() {
+        document.getElementById('acct-in').style.display = loggedIn ? 'flex' : 'none';
+        document.getElementById('acct-out').style.display = loggedIn ? 'none' : 'flex';
+        document.getElementById('acct-name').textContent = loggedIn ? 'LOGGED IN: ' + playerCallsign : '';
+        callsignInput.value = playerCallsign;
+    }
+
+    function applyAuth(data) {
+        authToken = data.token; loggedIn = true; playerCallsign = data.callsign;
+        store.set('dz_token', authToken); store.set('dz_callsign', playerCallsign);
+        passwordInput.value = ''; emailInput.value = '';
+        showAccount();
+    }
+
+    async function authSubmit(kind) {
+        const cs = callsignInput.value.trim(), pw = passwordInput.value;
+        if (cs.length < 2) return setStatus('ENTER A CALLSIGN (2+ CHARS)', true);
+        if (!pw) return setStatus('ENTER A PASSWORD', true);
+        const btns = document.querySelectorAll('.acct-btn'); btns.forEach(b => b.disabled = true);
+        setStatus(kind === 'signup' ? 'CREATING ACCOUNT...' : 'LOGGING IN...');
+        try {
+            const body = kind === 'signup' ? { callsign: cs, password: pw, email: emailInput.value.trim() } : { login: cs, password: pw };
+            const data = await api('/api/' + kind, 'POST', body);
+            if (data.error) setStatus(data.error.toUpperCase(), true);
+            else { applyAuth(data); setStatus(kind === 'signup' ? 'ACCOUNT CREATED - YOU ARE LOGGED IN' : 'LOGGED IN'); fetchLeaderboard(); }
+        } catch (e) { setStatus('CANNOT REACH THE SERVER - CHECK YOUR CONNECTION', true); }
+        btns.forEach(b => b.disabled = false);
+    }
+
+    async function logout() {
+        try { await api('/api/logout', 'POST', {}); } catch (e) {}
+        authToken = ''; loggedIn = false; playerCallsign = '';
+        store.del('dz_token'); store.del('dz_callsign');
+        showAccount(); setStatus('LOGGED OUT'); fetchLeaderboard();
+    }
+
+    async function restoreSession() {
+        if (!authToken) { showAccount(); return; }
+        try {
+            const r = await fetch('/api/me', { headers: { Authorization: 'Bearer ' + authToken } });
+            if (r.ok) { const d = await r.json(); loggedIn = true; playerCallsign = d.callsign; store.set('dz_callsign', playerCallsign); }
+            else if (r.status === 401) { authToken = ''; store.del('dz_token'); }
+            else { loggedIn = !!playerCallsign; }   // server asleep: keep the token, try again next time
+        } catch (e) { loggedIn = !!playerCallsign; }
+        showAccount();
+    }
 
     async function fetchLeaderboard() {
         try {
@@ -421,80 +505,42 @@
                 const isYou = row.callsign === playerCallsign;
                 const div = document.createElement('div');
                 div.className = 'lb-row' + (isYou ? ' lb-you' : '');
-                div.innerHTML = `<span class="lb-rank">${i + 1}.</span><span class="lb-name">${row.callsign}</span><span class="lb-wave">R${row.wave || 0}</span><span class="lb-score">${row.score}</span>`;
+                div.innerHTML = `<span class="lb-rank">${i + 1}.</span><span class="lb-name">${esc(row.callsign)}</span><span class="lb-wave">R${row.wave | 0}</span><span class="lb-score">${row.score | 0}</span>`;
                 container.appendChild(div);
             });
             document.getElementById('menu-leaderboard').style.display = 'block';
         } catch (e) { console.warn('Leaderboard fetch failed:', e); }
     }
 
-    async function registerPlayer(callsign, email) {
+    // Guest play: callsign only; only your scores are stored.
+    async function registerPlayer(callsign) {
+        if (loggedIn) return true;
         try {
-            const body = { callsign };
-            if (email) body.email = email;
-            const r = await fetch('/api/register', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
-            });
-            const data = await r.json();
-            if (data.error) {
-                document.getElementById('login-status').textContent = data.error;
-                return false;
-            }
-            localStorage.setItem('dz_callsign', callsign);
-            if (email) localStorage.setItem('dz_email', email);
-            playerCallsign = callsign;
-            playerEmail = email || '';
-            document.getElementById('login-status').textContent = data.linked ? 'LINKED ✓' : 'READY';
-            return true;
-        } catch (e) {
-            document.getElementById('login-status').textContent = 'OFFLINE — PLAYING LOCAL';
-            localStorage.setItem('dz_callsign', callsign);
-            playerCallsign = callsign;
-            return true;
-        }
-    }
-
-    async function lookupCallsign(email) {
-        try {
-            const r = await fetch(`/api/callsign?email=${encodeURIComponent(email)}`);
-            const data = await r.json();
-            return data.callsign || null;
-        } catch (e) { return null; }
+            const data = await api('/api/register', 'POST', { callsign });
+            if (data.error) { setStatus(data.error.toUpperCase(), true); return false; }
+        } catch (e) { setStatus('OFFLINE - PLAYING LOCAL'); }
+        playerCallsign = callsign; store.set('dz_callsign', callsign);
+        return true;
     }
 
     async function submitScore(scoreVal, waveVal, killsVal) {
         if (!playerCallsign) return;
-        try {
-            await fetch('/api/score', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ callsign: playerCallsign, score: scoreVal, wave: waveVal, kills: killsVal })
-            });
-        } catch (e) { console.warn('Score submit failed'); }
+        try { await api('/api/score', 'POST', { callsign: playerCallsign, score: scoreVal, wave: waveVal, kills: killsVal }); }
+        catch (e) { console.warn('Score submit failed'); }
     }
 
-    const callsignInput = document.getElementById('callsign-input');
-    const emailInput = document.getElementById('email-input');
+    [callsignInput, passwordInput, emailInput, ...document.querySelectorAll('.acct-btn'), document.getElementById('acct-in')].forEach(el => {
+        el.addEventListener('click', e => e.stopPropagation());
+        el.addEventListener('touchend', e => e.stopPropagation());
+        el.addEventListener('keydown', e => e.stopPropagation());
+        el.addEventListener('keyup', e => e.stopPropagation());
+    });
+    document.getElementById('btn-login').addEventListener('click', () => authSubmit('login'));
+    document.getElementById('btn-signup').addEventListener('click', () => authSubmit('signup'));
+    document.getElementById('btn-logout').addEventListener('click', logout);
+    passwordInput.addEventListener('keydown', e => { if (e.key === 'Enter') authSubmit('login'); });
     callsignInput.value = playerCallsign;
-    emailInput.value = playerEmail;
-
-    if (playerEmail && !playerCallsign) {
-        lookupCallsign(playerEmail).then(cs => {
-            if (cs) {
-                playerCallsign = cs;
-                callsignInput.value = cs;
-                localStorage.setItem('dz_callsign', cs);
-                document.getElementById('login-status').textContent = 'CALLSIGN RECOVERED ✓';
-            }
-        });
-    }
-
-    callsignInput.addEventListener('click', e => e.stopPropagation());
-    callsignInput.addEventListener('touchend', e => e.stopPropagation());
-    emailInput.addEventListener('click', e => e.stopPropagation());
-    emailInput.addEventListener('touchend', e => e.stopPropagation());
+    restoreSession();
 
     // ═══════════════════════════════════════
     // CONFIG
@@ -2756,15 +2802,14 @@
     // START / GAME OVER
     // ═══════════════════════════════════════
     async function startGame() {
-        const csVal = callsignInput.value.trim();
-        const emVal = emailInput.value.trim();
+        const csVal = loggedIn ? playerCallsign : callsignInput.value.trim();
 
         if (!csVal || csVal.length < 2) {
-            document.getElementById('login-status').textContent = 'ENTER A CALLSIGN (2+ CHARS)';
+            setStatus('ENTER A CALLSIGN (2+ CHARS)', true);
             return;
         }
 
-        const ok = await registerPlayer(csVal, emVal || null);
+        const ok = await registerPlayer(csVal);
         if (!ok) return;
         initAudio();
         startBackgroundMusic();
