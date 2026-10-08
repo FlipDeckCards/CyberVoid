@@ -54,6 +54,12 @@ function makeMaterials() {
         noise(g, s, 4000, '#9a5a30', '#1a1008', .45);
     }, 1, 1);
     const rust = canvasTex(256, (g, s) => { g.fillStyle = '#4a4036'; g.fillRect(0, 0, s, s); noise(g, s, 7000, '#8a4a22', '#1e1610', .6); }, 1, 1);
+    const doorTex = canvasTex(256, (g, s) => {   // riveted steel slats with a hazard-stripe band
+        g.fillStyle = '#4b535c'; g.fillRect(0, 0, s, s); noise(g, s, 5000, '#6a737d', '#262b30', .5);
+        for (let i = 0; i < 8; i++) { g.fillStyle = 'rgba(0,0,0,.45)'; g.fillRect(0, i * s / 8, s, 3); g.fillStyle = '#8b949e'; for (const x of [10, s - 10]) { g.beginPath(); g.arc(x, i * s / 8 + 12, 3, 0, 7); g.fill(); } }
+        g.fillStyle = '#d6a21c'; g.fillRect(0, s - 40, s, 32); g.fillStyle = '#16181a';
+        for (let x = -40; x < s + 40; x += 32) { g.beginPath(); g.moveTo(x, s - 8); g.lineTo(x + 16, s - 8); g.lineTo(x + 40, s - 40); g.lineTo(x + 24, s - 40); g.fill(); }
+    }, 1, 1);
     const std = (map, rough, metal, color) => new THREE.MeshStandardMaterial({ map, roughness: rough, metalness: metal || 0, color: color || 0xffffff });
     return {
         asphalt: std(asphalt, .95), dirt: std(dirt, 1), concrete: std(concrete, .9), hesco: std(hesco, 1), sandbag: std(sandbag, 1), wood: std(wood, .85),
@@ -62,7 +68,9 @@ function makeMaterials() {
         car: std(canvasTex(128, (g, s) => { g.fillStyle = '#2a2420'; g.fillRect(0, 0, s, s); noise(g, s, 3000, '#6a3a1a', '#0c0806', .7); }), .6, .6),
         dark: new THREE.MeshStandardMaterial({ color: 0x1b1d20, roughness: .8, metalness: .3 }),
         lampOn: new THREE.MeshBasicMaterial({ color: 0xfff1cc }),
-        gateRed: new THREE.MeshBasicMaterial({ color: 0xff2a1a })
+        gateRed: new THREE.MeshBasicMaterial({ color: 0xff2a1a }),
+        // the spawn doors are solid steel gates (lit, with a faint red glow) so they read as doors, not as holes
+        gateDoor: new THREE.MeshStandardMaterial({ map: doorTex, color: 0xffffff, roughness: .55, metalness: .45, emissive: 0x3a0a08, emissiveIntensity: 1 })
     };
 }
 
@@ -138,7 +146,9 @@ export function buildArena(scene, renderer) {
     for (const [gx, gz] of GATES) {
         const onX = Math.abs(gx) > Math.abs(gz); const sx = Math.sign(gx), sz = Math.sign(gz);
         const px = onX ? sx * (HALF - WALL_T / 2 - .05) : gx, pz = onX ? gz : sz * (HALF - WALL_T / 2 - .05);
-        add(M.dark, boxGeo(onX ? .2 : 5, 3.2, onX ? 5 : .2, 2), px, 1.6, pz);
+        add(M.gateDoor, boxGeo(onX ? .2 : 5, 3.2, onX ? 5 : .2, 2), px, 1.6, pz);
+        add(M.dark, boxGeo(onX ? .3 : 5.4, .3, onX ? 5.4 : .3, 2), px, 3.3, pz);   // lintel
+        for (const e of [-2.6, 2.6]) add(M.dark, boxGeo(onX ? .3 : .3, 3.3, onX ? .3 : .3, 1), onX ? px : px + e, 1.65, onX ? pz + e : pz);   // posts
         add(M.gateRed, boxGeo(onX ? .3 : .6, .4, onX ? .6 : .3, 1), px - (onX ? sx * .1 : 0), 3.5, pz - (onX ? 0 : sz * .1));
     }
 
@@ -146,7 +156,7 @@ export function buildArena(scene, renderer) {
     for (const [mat, geos] of batches) {
         const merged = mergeGeometries(geos.map(g => g.index ? g.toNonIndexed() : g), false);
         const mesh = new THREE.Mesh(merged, mat);
-        const lit = mat === M.lampOn || mat === M.gateRed;
+        const lit = mat === M.lampOn || mat === M.gateRed || mat === M.gateDoor;
         mesh.castShadow = !lit; mesh.receiveShadow = !lit; scene.add(mesh); if (!lit) solids.push(mesh);
         geos.forEach(g => g.dispose());
     }

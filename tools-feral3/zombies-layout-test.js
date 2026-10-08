@@ -29,5 +29,20 @@
     ok(moved > 2.0 && o.z >= 6 + 0.65 + 0.4 - 1e-3, `slides along a sandbag wall (moved ${moved.toFixed(1)} m along it)`);
     const q = { x: 0, z: 0 }; L.resolveCircle(q, 0.4); ok(q.x === 0 && q.z === 0, 'bunker centre is open floor');
     const e = { x: 49.9, z: 0 }; L.resolveCircle(e, 0.4); ok(e.x <= L.FLOOR - 0.4 + 1e-6, 'perimeter wall holds');
+    // spawn openings: the player can never get in front of one, zombies walk straight through
+    for (const [gx, gz] of L.GATES) {
+        const onX = Math.abs(gx) > Math.abs(gz), s = Math.sign(onX ? gx : gz);
+        let minGap = 1e9, enemyThrough = true;
+        for (let along = -3.2; along <= 3.2; along += 0.4) {
+            const p = onX ? { x: gx - s * 6, z: gz + along } : { x: gx + along, z: gz - s * 6 };
+            for (let k = 0; k < 80; k++) { if (onX) p.x += s * 0.2; else p.z += s * 0.2; L.resolveCircle(p, 0.4, true); }
+            minGap = Math.min(minGap, L.FLOOR - (onX ? Math.abs(p.x) : Math.abs(p.z)));
+            const q = onX ? { x: gx - s * 6, z: gz + along } : { x: gx + along, z: gz - s * 6 };
+            for (let k = 0; k < 80; k++) { if (onX) q.x += s * 0.2; else q.z += s * 0.2; L.resolveCircle(q, 0.45); }
+            if ((onX ? Math.abs(q.x) : Math.abs(q.z)) < L.FLOOR - 0.5) enemyThrough = false;   // zombies are only stopped by the wall itself
+        }
+        ok(minGap >= 0.99, `player cannot reach opening ${gx},${gz} (closest to wall face ${minGap.toFixed(2)} m)`);
+        ok(enemyThrough, `zombies are not blocked at opening ${gx},${gz}`);
+    }
     console.log(fails ? fails + ' FAILED' : 'ALL PASSED'); process.exit(fails ? 1 : 0);
 })();

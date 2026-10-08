@@ -41,7 +41,7 @@ for (const [x, z, s] of [[-34, -34, 2], [-31.4, -34.6, 1.6], [-34.6, -31.4, 1.6]
 box('car', -8, -27, 4.6, 2, 1.6); box('car', 18, 12, 2, 4.6, 1.6); box('car', -20, 12, 4.6, 2, 1.6); box('car', 24, -10, 2, 4.6, 1.6);
 
 // Barrels (some burning)
-for (const [x, z, fire] of [[-5, -21, 0], [-4, -22, 0], [-5.4, -22.2, 0], [10, 22, 1], [11, 21, 0], [-41, 12, 1], [41, -14, 1], [0, -43, 0], [1, -43.5, 0], [14, -38, 0], [-16, 40, 0]])
+for (const [x, z, fire] of [[-5, -21, 0], [-4, -22, 0], [-5.4, -22.2, 0], [10, 22, 1], [11, 21, 0], [-41, 12, 1], [41, -14, 1], [-14, -44, 0], [-15, -44.6, 0], [14, -38, 0], [-16, 40, 0]])
     circ('barrel', x, z, 0.55, 1.1, { fire });
 
 // Floodlight poles (also solid)
@@ -53,14 +53,24 @@ for (const [x, z] of [[-45, -45], [45, -45], [-45, 45], [45, 45]]) box('tower', 
 export const PROPS = P;
 
 // Enemy gates: places along the inside of the perimeter wall where enemies enter (a red light marks each one).
-export const GATES = [[0, -46.5], [0, 46.5], [-46.5, 0], [46.5, 0], [-46.5, -24], [46.5, 24], [-24, 46.5], [24, -46.5], [-46.5, 24], [46.5, -24], [-24, -46.5], [24, 46.5]];
+// They stand right at the doorway (just inside the wall face), so zombies walk out of the opening.
+const G = 47.8;
+export const GATES = [[0, -G], [0, G], [-G, 0], [G, 0], [-G, -24], [G, 24], [-24, G], [24, -G], [-G, 24], [G, -24], [-24, -G], [24, G]];
 
 export const FLOOR = HALF - WALL_T / 2;   // playable half-extent (inner face of the wall)
+
+// Player-only blocks: an invisible wall across every spawn opening, flush with the wall face (it also keeps the player 0.6 m back from the doorway).
+// Zombies ignore these, so they can still come through.
+export const GATE_BLOCKS = GATES.map(([gx, gz]) => {
+    const onX = Math.abs(gx) > Math.abs(gz), s = Math.sign(onX ? gx : gz);
+    const a = FLOOR - 0.6, b = FLOOR + 2.5, c = s * (a + b) / 2, depth = b - a;   // from 0.6 m in front of the face to 2.5 m inside the wall
+    return onX ? { x: c, z: gz, w: depth, d: 7 } : { x: gx, z: c, w: 7, d: depth };
+});
 
 // ---- collision ----------------------------------------------------------------------------------
 // resolveCircle moves the point (o.x, o.z) out of every solid so a circle of radius r does not overlap anything,
 // which makes the player and enemies slide along walls instead of stopping dead.
-export function resolveCircle(o, r) {
+export function resolveCircle(o, r, playerOnly) {
     for (let pass = 0; pass < 3; pass++) {
         let moved = false;
         for (const p of P) {
@@ -82,6 +92,16 @@ export function resolveCircle(o, r) {
                     }
                     moved = true;
                 }
+            }
+        }
+        if (playerOnly) for (const p of GATE_BLOCKS) {
+            const hw = p.w / 2, hd = p.d / 2;
+            const cx = Math.max(p.x - hw, Math.min(o.x, p.x + hw)), cz = Math.max(p.z - hd, Math.min(o.z, p.z + hd));
+            const dx = o.x - cx, dz = o.z - cz, d2 = dx * dx + dz * dz;
+            if (d2 < r * r) {
+                if (d2 > 1e-8) { const d = Math.sqrt(d2); o.x = cx + dx / d * r; o.z = cz + dz / d * r; }
+                else { const px = hw - Math.abs(o.x - p.x), pz = hd - Math.abs(o.z - p.z); if (px < pz) o.x = p.x + Math.sign(o.x - p.x || 1) * (hw + r); else o.z = p.z + Math.sign(o.z - p.z || 1) * (hd + r); }
+                moved = true;
             }
         }
         const lim = FLOOR - r;

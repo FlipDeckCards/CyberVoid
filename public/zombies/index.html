@@ -1594,6 +1594,7 @@
             loadWeapon('raygun')
         ]);
 
+        const tg = performance.now(); computeGroundCurves(); console.log("ground curves ms", Math.round(performance.now() - tg));
         equipWeapon(0);
         state = 'menu';
         document.getElementById('start-text').textContent = 'TAP TO START';
@@ -1995,7 +1996,7 @@
         group.scale.setScalar(cfg.scale);
 
         const gate = pickGate();
-        group.position.set(gate[0], 0.27, gate[1]);
+        group.position.set(gate[0], 0, gate[1]);
         {
             const o = { x: group.position.x, z: group.position.z };
             LAYOUT.resolveCircle(o, 0.6);
@@ -2087,6 +2088,7 @@
         enemy.dirX = -group.position.x; enemy.dirZ = -group.position.z;
 
         activeEnemies.push(enemy);
+        groundEnemy(enemy);
         if (hb) updateHealthBar(enemy);
 
         if (type === 'boss') {
@@ -2214,6 +2216,69 @@
     }
 
     // Wave spawner: a timed queue (no setInterval / setTimeout, so nothing leaks into the next game)
+    // ---- grounding: feet exactly on the floor ----
+    // For every zombie type the lowest vertex height is sampled along its walk and death animations (skinned, scaled); each frame the zombie is
+    // lifted by minus that value (interpolated at the current animation time), so the lowest foot / body point sits on the floor in every frame.
+    const groundCurves = {};
+    function floorHeight(x, z) { return 0; }   // the yard is flat; this is the one place to read terrain height from if that ever changes
+    function pickClips(clips) {
+        let walkClip = null, deathClip = null;
+        for (const clip of clips) {
+            const n = clip.name.toLowerCase();
+            if (n.includes('dead') || n.includes('death') || n.includes('die') || n.includes('dying') || n.includes('shot') || n.includes('fall')) deathClip = clip;
+            else if (n.includes('run')) { /* run clips are not used */ }
+            else if (n.includes('walk')) walkClip = clip;
+        }
+        if (!walkClip && clips.length > 0) walkClip = clips[0];
+        if (!deathClip && clips.length > 2) deathClip = clips[2];
+        return { walkClip, deathClip };
+    }
+    function sampleMinY(group, mixer, clip, n) {
+        const act = mixer.clipAction(clip); act.reset().play(); act.paused = true;
+        const v = new THREE.Vector3(), vals = [];
+        for (let k = 0; k <= n; k++) {
+            act.time = clip.duration * k / n; mixer.update(0); group.updateMatrixWorld(true);
+            let mn = 1e9;
+            group.traverse(o => {
+                if (!o.isSkinnedMesh) return;
+                o.skeleton.update();
+                const pos = o.geometry.attributes.position;
+                for (let i = 0; i < pos.count; i += 3) { o.getVertexPosition(i, v); v.applyMatrix4(o.matrixWorld); if (v.y < mn) mn = v.y; }
+            });
+            vals.push(mn);
+        }
+        act.stop();
+        return { dur: clip.duration, vals };
+    }
+    function computeGroundCurves() {
+        for (const type of Object.keys(CONFIG.enemies)) {
+            if (!models[type]) continue;
+            const group = skeletonClone(models[type]); group.scale.setScalar(CONFIG.enemies[type].scale);
+            const mixer = new THREE.AnimationMixer(group);
+            const { walkClip, deathClip } = pickClips(anims[type] || []);
+            const c = {};
+            if (walkClip) c.walk = sampleMinY(group, mixer, walkClip, 24);
+            if (deathClip) c.dead = sampleMinY(group, mixer, deathClip, 60);
+            groundCurves[type] = c;
+            mixer.stopAllAction(); mixer.uncacheRoot(group);
+        }
+    }
+    function curveAt(c, t, loop) {
+        if (!c || !c.vals.length) return 0;
+        let u = c.dur > 0 ? t / c.dur : 0;
+        u = loop ? u - Math.floor(u) : Math.max(0, Math.min(1, u));
+        const f = u * (c.vals.length - 1), i = Math.min(c.vals.length - 2, Math.floor(f)), k = f - i;
+        return c.vals[i] * (1 - k) + c.vals[i + 1] * k;
+    }
+    // Put the zombie on the floor for the current frame of whichever animation is playing.
+    function groundEnemy(e) {
+        const gc = groundCurves[e.type]; if (!gc) return;
+        let minY = 0;
+        if (e.dead && e.deadAction && gc.dead) minY = curveAt(gc.dead, e.deadAction.time, false);
+        else if (gc.walk) minY = curveAt(gc.walk, e.walkAction ? e.walkAction.time : 0, true);
+        e.group.position.y = floorHeight(e.group.position.x, e.group.position.z) - minY;
+    }
+
     const spawnQueue = [];
     const hitGeos = {};   // hit-cylinders are shared between zombies
     const hitMat = new THREE.MeshBasicMaterial({ visible: false });
@@ -2266,6 +2331,7 @@
             if (e.dead) {
                 e.despawnTimer += dt;
                 if (e.mixer) e.mixer.update(dt);
+                groundEnemy(e);
 
                 if (e.despawnTimer > CONFIG.despawnTime) {
                     disposeEnemy(e);
@@ -2275,6 +2341,7 @@
             }
 
             e.mixer.update(dt);
+            groundEnemy(e);
 
 
             if (!e.isBoss) moveHealthBar(e);
@@ -2647,7 +2714,7 @@
         const steps = Math.max(1, Math.ceil(Math.hypot(mx, mz) / 0.25));
         const x0 = playerPos.x, z0 = playerPos.z;
         _pp.x = x0; _pp.z = z0;
-        for (let i = 0; i < steps; i++) { _pp.x += mx / steps; _pp.z += mz / steps; LAYOUT.resolveCircle(_pp, PLAYER_R); }
+        for (let i = 0; i < steps; i++) { _pp.x += mx / steps; _pp.z += mz / steps; LAYOUT.resolveCircle(_pp, PLAYER_R, true); }
         playerPos.x = _pp.x; playerPos.z = _pp.z;
         if (dt > 0) { velX = (playerPos.x - x0) / dt; velZ = (playerPos.z - z0) / dt; }   // a wall eats the part of the speed that pushed into it
 
@@ -3226,15 +3293,18 @@
         get state() { return state; }, get hp() { return hp; }, get wave() { return wave; }, get score() { return score; }, get kills() { return kills; },
         get yaw() { return yaw; }, set yaw(v) { yaw = v; }, get pitch() { return pitch; }, set pitch(v) { pitch = v; },
         get vel() { return [velX, velZ]; }, get focusPaused() { return focusPaused; }, get queue() { return spawnQueue.length; },
-        playerPos, activeEnemies, keys, camera, LAYOUT, renderer, scene, arena, spawnEnemy, shoot, CONFIG
+        update, damageEnemy, playerPos, activeEnemies, keys, camera, LAYOUT, renderer, scene, arena, spawnEnemy, shoot, CONFIG
     };
 
     function gameLoop() {
         requestAnimationFrame(gameLoop);
         updateSky();
+        update(Math.min(clock.getDelta(), 0.05));
+        renderer.render(scene, camera);
+    }
 
-        const dt = Math.min(clock.getDelta(), 0.05);
-
+    // One simulation step (the tests in tools-feral3/ also call this directly, so they do not depend on the tab being visible)
+    function update(dt) {
         const pad = samplePad();
         if (pad) {
             pollMenuPad();
@@ -3277,8 +3347,6 @@
         moon.position.set(playerPos.x - 22, 36, playerPos.z - 16);
         moon.target.position.set(playerPos.x, 0, playerPos.z);
         arena.update(dt);
-
-        renderer.render(scene, camera);
     }
     gameLoop();
 
