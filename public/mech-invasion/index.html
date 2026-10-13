@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content" />
   <title>Mech Invasion</title>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/style.css" />
@@ -117,8 +117,10 @@
     <input type="email" id="emailInput" placeholder="Email (optional)" maxlength="64" />
     <div id="emailHint">SYNC CALLSIGN ACROSS DEVICES</div>
     <input type="text" id="nameInput" placeholder="Enter callsign..." maxlength="16" />
-    <div id="callsignError"></div>
-    <button id="startBtn">JACK IN</button>
+    <div id="startFooter">
+      <div id="callsignError"></div>
+      <button id="startBtn">JACK IN</button>
+    </div>
   </div>
   <div id="gameOverScreen" style="display:none;">
     <div class="go-title" id="goTitle">TERMINATED</div>
@@ -129,6 +131,7 @@
     <button id="mainMenuBtn">MAIN MENU</button>
   </div>
   <canvas id="game"></canvas>
+  <script src="js/login-fit.js"></script>
   <script src="js/sound.js"></script>
   <script src="js/game.js"></script>
 </body>
