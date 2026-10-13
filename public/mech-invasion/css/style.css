@@ -173,6 +173,9 @@ body {
 }
 
 #game {
+  touch-action: none;                 /* a finger on the game is for aiming and firing, never for scrolling or zooming */
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
   display: block;
   position: fixed;
   top: 0;
@@ -230,3 +233,7 @@ body {
   #callsignError { height: 14px; margin-top: 0; }
   #startBtn { padding: 10px 36px; font-size: 1rem; }
 }
+
+/* While a game is running: no page scroll, no rubber-band, no pull-to-refresh (the login panel scrolls only when the game is not running). */
+html, body { overscroll-behavior: none; }
+body.playing { touch-action: none; position: fixed; inset: 0; width: 100%; height: 100%; overflow: hidden; }
