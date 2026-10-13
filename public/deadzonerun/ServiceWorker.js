@@ -1,9 +1,9 @@
 const cacheName = "DefaultCompany-DeadZone Run-0.1.0";
 const contentToCache = [
-    "Build/70b95b4a34b0af6096c8aab14309d161.loader.js",
+    "Build/82c74cbf93e025414409b29e00523e54.loader.js",
     "Build/f6a9c6efe479a377e032a68afd0f4249.framework.js",
-    "Build/6dbaa6676ef679d79639ded34167b491.data",
-    "Build/2681b7c57488bb14e71e99b3bf8acbbe.wasm",
+    "Build/97c6b0e785684a6cb00774a85c859de3.data",
+    "Build/177cb49304d4fd6d5d7d6f06346f266c.wasm",
     "TemplateData/style.css"
 
 ];
