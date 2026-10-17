@@ -1,4 +1,13 @@
 <!doctype html>
+<!--
+  Checked against the FlipDeck Cards code on main (October 16, 2026):
+  - device tokens: max 10 per account (device-tokens.js MAX_TOKENS_PER_USER), removed on logout (native-app.js onLogout -> DELETE /api/devices), no push sending code exists yet
+  - offline copy: scan list and watchlist only, keys matching token/secret/password/email/stripe/payment/authorization/cookie removed, cleared on logout (native-app.js)
+  - login cookie 30 days (server.js), passwords hashed with bcrypt (server.js)
+  - analytics: only the Meta pixel plus the site own page counts (page-tracking.js); no other tracker found in public/ or server.js
+  - support address: support@flipdeckcards.com (support.js)
+  - Android app has no checkout; website payments are Stripe
+-->
 <html lang="en">
 <head>
 <meta charset="utf-8">
