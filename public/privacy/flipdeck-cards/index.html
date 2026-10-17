@@ -6,7 +6,8 @@
   - login cookie 30 days (server.js), passwords hashed with bcrypt (server.js)
   - analytics: only the Meta pixel plus the site own page counts (page-tracking.js); no other tracker found in public/ or server.js
   - support address: support@flipdeckcards.com (support.js)
-  - Android app has no checkout; website payments are Stripe
+  - Updated October 17, 2026 against the FlipDeck Cards play-billing branch (not yet released): Android subscriptions use Google Play Billing through RevenueCat (play-billing.js), 7-day grace for Google Play rows (GRACE_DAYS), a Stripe or Google Play subscription blocks buying the other (purchaseCheck), account deletion in account-deletion.js and docs/account-deletion-needed.md
+  - Website payments are Stripe
 -->
 <html lang="en">
 <head>
@@ -47,7 +48,7 @@
 <body>
 <main>
   <h1>Privacy Policy: FlipDeck Cards</h1>
-  <p class="updated">Last updated: October 16, 2026</p>
+  <p class="updated">Last updated: October 17, 2026</p>
 
   <p>This policy explains what information FlipDeck LLC, doing business as FlipDeck Cards ("we", "us"), collects through the FlipDeck Cards website at <a href="https://flipdeckcards.com">flipdeckcards.com</a> and the FlipDeck Cards Android app (together, "the Service"), why we collect it, and who else handles it. The Android app shows the same website inside a native app, so the website rules below apply to the app too.</p>
 
@@ -56,7 +57,7 @@
     <li><strong>Account:</strong> your email address, a username, and your password (stored only as a one-way hash, never in readable form). Optionally your name, profile photo and bio if you add them. A personal referral code, and who referred you if you joined through a referral link.</li>
     <li><strong>Your saved cards and tracker data:</strong> the cards you save to your scan list, your watchlist, price alerts, and the flips you log (card names, prices, dates, platforms, grades, notes and any card photo you attach).</li>
     <li><strong>Searches and use:</strong> the card searches you run, the pages you open (page address, referring page, browser type), the campaign tags in the link you arrived through (such as utm_source) and basic usage counts, linked to your account when you are logged in. We use this to run and improve the Service.</li>
-    <li><strong>Payments:</strong> Stripe handles payment on the website. We receive your email, subscription status and Stripe reference numbers. We do not receive or store your full card number. Subscriptions cannot be bought inside the Android app.</li>
+    <li><strong>Payments and subscriptions:</strong> you can buy a subscription on the website through Stripe, and in the Android app through Google Play Billing. Stripe and Google Play each handle the payment themselves, and we receive only your email, your subscription status, and a reference ID from each. We do not receive or store your full card number or other payment details. If a renewal payment on a Google Play subscription fails, your access continues for 7 days before it ends, which gives you time to fix the payment. If you already have an active Stripe subscription, you cannot also buy one through Google Play: the app checks first and tells you to manage the one you have.</li>
     <li><strong>Card show alerts (optional):</strong> if you turn on "Card shows near me", the ZIP code you enter, your chosen distance and show type.</li>
     <li><strong>Scanner photos:</strong> a card photo you upload to the scanner is sent to an AI service to identify the card.</li>
     <li><strong>Emails:</strong> we send account emails such as a welcome message and password resets and, only if you turn them on, deal alert emails and the weekly card show email.</li>
@@ -76,7 +77,9 @@
   <h2>4. Who else handles your information</h2>
   <p>We use these companies to run the Service. They receive only what is needed for their job:</p>
   <ul>
-    <li>Stripe: payments and subscription billing.</li>
+    <li>Stripe: payments and subscription billing on the website.</li>
+    <li>Google Play: payments and subscription billing in the Android app (Google Play Billing).</li>
+    <li>RevenueCat: confirms Google Play subscription purchases to us (your account ID and the purchase reference).</li>
     <li>Google Firebase Cloud Messaging: delivers push notifications to the Android app (device token).</li>
     <li>OpenAI: AI processing. Card names and search text, and scanner photos, are sent to produce estimates and identify cards.</li>
     <li>eBay: card searches (search text) to find listings, prices and images.</li>
@@ -91,16 +94,28 @@
   <h2>5. What other members can see</h2>
   <p>Community and profile features can show your username, and any name, photo and bio you add, together with tracker totals such as overall profit, to other members. If you do not want that, leave those profile fields empty. Your email address is not shown to other members.</p>
 
-  <h2>6. How long we keep it, and deleting your data</h2>
-  <p>We keep your account information for as long as your account exists. To have your account and personal data deleted, or to get a copy of it, email <a href="mailto:support@flipdeckcards.com">support@flipdeckcards.com</a> from the address on your account and we will handle it. We may keep limited records where the law requires (for example payment records). Cancelling your subscription does not by itself delete your data. Uninstalling the Android app removes the offline copy and the app's local data from your phone, but not your account.</p>
+  <h2>6. How long we keep it</h2>
+  <p>We keep your account information for as long as your account exists. You can delete your account yourself (see section 7). If you cannot sign in, or to get a copy of your data, email <a href="mailto:support@flipdeckcards.com">support@flipdeckcards.com</a> from the address on your account and we will handle it. We keep limited billing records where the law requires, as described in section 7. Cancelling your subscription does not by itself delete your data. Uninstalling the Android app removes the offline copy and the app's local data from your phone, but not your account.</p>
 
-  <h2>7. Security</h2>
+  <h2>7. Deleting your account</h2>
+  <p><strong>Note:</strong> The retention period and deletion details are pending legal review.</p>
+  <p>You can delete your account yourself at any time:</p>
+  <ul>
+    <li><strong>In the Android app:</strong> open the Profile page and choose Delete account. The app asks for your password, lists what will be removed, and clears the data stored on your phone only after our server confirms the deletion.</li>
+    <li><strong>On the web:</strong> go to <a href="https://flipdeckcards.com/delete-account">flipdeckcards.com/delete-account</a> and enter the email and password of your account to confirm. You do not need the app.</li>
+  </ul>
+  <p><strong>What is deleted:</strong> your profile, saved cards, watchlist, price alerts, logged flips, card photos stored with your account, referral and reward records (unless they hold payment data), promo code redemptions, support messages, follows, push notification registrations and sign-in sessions.</p>
+  <p><strong>What is kept:</strong> billing records only (for example subscription dates, status and the Stripe or Google Play reference IDs). They are stored without any link to your account, for 7 years, to meet tax and accounting rules, and are then deleted.</p>
+  <p><strong>What is not touched:</strong> information that Stripe and Google Play hold about you under their own policies. See the <a href="https://stripe.com/privacy">Stripe privacy policy</a> and the <a href="https://policies.google.com/privacy">Google privacy policy</a> (Google Play). Other service providers listed in section 4 also keep their own data.</p>
+  <p><strong>Before you delete:</strong> deletion is immediate and cannot be undone. You must cancel any active subscription first (on the website under Cancel subscription, or in Google Play under Subscriptions); deleting your account does not cancel a subscription or refund you, and an account with an active subscription cannot be deleted.</p>
+
+  <h2>8. Security</h2>
   <p>Passwords are stored hashed, and the Service is served over HTTPS. No system is perfectly secure, so we cannot guarantee absolute security. Choose a strong password and keep it private.</p>
 
-  <h2>8. Children</h2>
+  <h2>9. Children</h2>
   <p>The Service is not meant for children under 13, and we do not knowingly collect their information.</p>
 
-  <h2>9. Your rights and contact</h2>
+  <h2>10. Your rights and contact</h2>
   <p>Depending on where you live you may have rights to access, correct, delete or object to our use of your information. To use them, or with any privacy question, email <a href="mailto:support@flipdeckcards.com">support@flipdeckcards.com</a>. We may update this policy; the date at the top shows the latest version.</p>
 
   <p>FlipDeck LLC<br>flipdeckcards.com<br>Email: support@flipdeckcards.com</p>
