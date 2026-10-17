@@ -1,0 +1,109 @@
+<!doctype html>
+<!--
+  Checked against the FlipDeck Cards code on main (October 16, 2026):
+  - device tokens: max 10 per account (device-tokens.js MAX_TOKENS_PER_USER), removed on logout (native-app.js onLogout -> DELETE /api/devices), no push sending code exists yet
+  - offline copy: scan list and watchlist only, keys matching token/secret/password/email/stripe/payment/authorization/cookie removed, cleared on logout (native-app.js)
+  - login cookie 30 days (server.js), passwords hashed with bcrypt (server.js)
+  - analytics: only the Meta pixel plus the site own page counts (page-tracking.js); no other tracker found in public/ or server.js
+  - support address: support@flipdeckcards.com (support.js)
+  - Android app has no checkout; website payments are Stripe
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy Policy: FlipDeck Cards</title>
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin: 0;
+    background: #0a0a0f;
+    color: #d8d8d8;
+    font-family: "Courier New", Courier, monospace;
+    line-height: 1.6;
+  }
+  main {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 24px 16px 64px;
+    overflow-wrap: anywhere;
+  }
+  h1 {
+    color: #39FF14;
+    font-size: 1.6rem;
+    margin: 0 0 4px;
+    text-shadow: 0 0 8px rgba(57, 255, 20, 0.35);
+  }
+  h2 {
+    color: #39FF14;
+    font-size: 1.1rem;
+    margin: 28px 0 8px;
+  }
+  a { color: #BF40FF; }
+  ul { padding-left: 20px; }
+  .updated { color: #888; margin-top: 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Privacy Policy: FlipDeck Cards</h1>
+  <p class="updated">Last updated: October 16, 2026</p>
+
+  <p>This policy explains what information FlipDeck LLC, doing business as FlipDeck Cards ("we", "us"), collects through the FlipDeck Cards website at <a href="https://flipdeckcards.com">flipdeckcards.com</a> and the FlipDeck Cards Android app (together, "the Service"), why we collect it, and who else handles it. The Android app shows the same website inside a native app, so the website rules below apply to the app too.</p>
+
+  <h2>1. What we collect</h2>
+  <ul>
+    <li><strong>Account:</strong> your email address, a username, and your password (stored only as a one-way hash, never in readable form). Optionally your name, profile photo and bio if you add them. A personal referral code, and who referred you if you joined through a referral link.</li>
+    <li><strong>Your saved cards and tracker data:</strong> the cards you save to your scan list, your watchlist, price alerts, and the flips you log (card names, prices, dates, platforms, grades, notes and any card photo you attach).</li>
+    <li><strong>Searches and use:</strong> the card searches you run, the pages you open (page address, referring page, browser type), the campaign tags in the link you arrived through (such as utm_source) and basic usage counts, linked to your account when you are logged in. We use this to run and improve the Service.</li>
+    <li><strong>Payments:</strong> Stripe handles payment on the website. We receive your email, subscription status and Stripe reference numbers. We do not receive or store your full card number. Subscriptions cannot be bought inside the Android app.</li>
+    <li><strong>Card show alerts (optional):</strong> if you turn on "Card shows near me", the ZIP code you enter, your chosen distance and show type.</li>
+    <li><strong>Scanner photos:</strong> a card photo you upload to the scanner is sent to an AI service to identify the card.</li>
+    <li><strong>Emails:</strong> we send account emails such as a welcome message and password resets and, only if you turn them on, deal alert emails and the weekly card show email.</li>
+    <li><strong>Optional giveaway details:</strong> only if you add them in your Profile: a name for shipping, a mailing address and phone number.</li>
+  </ul>
+
+  <h2>2. What the Android app adds</h2>
+  <ul>
+    <li><strong>Push notification token:</strong> if you allow notifications, the app registers your phone with Google Firebase Cloud Messaging and sends the resulting device token to our server, where it is stored with your account, the platform (Android), the app version, and the dates it was created and last seen. We keep at most 10 tokens per account, and the app asks us to delete this phone's token when you log out. Today the token is only stored; we do not yet send push notifications. You can refuse the permission and still use the app.</li>
+    <li><strong>Offline copy of your saved cards:</strong> after a successful load, a copy of your scan list and watchlist is kept in the app's private storage on your phone so you can see them without a connection. It never includes payment details, your login token, your email address or other account details, and it is removed when you log out.</li>
+    <li><strong>Sharing:</strong> the Share buttons open the Android share sheet with a short summary of the card or list you choose and a link to flipdeckcards.com. Nothing is shared unless you pick an app and send it.</li>
+  </ul>
+
+  <h2>3. Cookies, local storage and analytics</h2>
+  <p>We use a login cookie (it lasts up to 30 days, or until you log out) and your browser's or the app's local storage to keep you signed in and remember simple preferences. We count visits to our own pages ourselves (page, referrer, browser type, and your account when logged in). Our pages also include the Meta (Facebook) pixel, which lets Meta receive information about visits and sign-ups (for example page views and a sign-up or purchase event) to measure advertising. Because the Android app displays these same pages, the pixel also loads there. We also load fonts and code libraries from Google Fonts and jsDelivr, which means those providers can see your IP address when a page loads. We do not use any other third-party analytics or advertising service.</p>
+
+  <h2>4. Who else handles your information</h2>
+  <p>We use these companies to run the Service. They receive only what is needed for their job:</p>
+  <ul>
+    <li>Stripe: payments and subscription billing.</li>
+    <li>Google Firebase Cloud Messaging: delivers push notifications to the Android app (device token).</li>
+    <li>OpenAI: AI processing. Card names and search text, and scanner photos, are sent to produce estimates and identify cards.</li>
+    <li>eBay: card searches (search text) to find listings, prices and images.</li>
+    <li>PSA: certificate numbers you look up.</li>
+    <li>Card-data and price sources (for example CardSight, 130point and image search): card names used in lookups.</li>
+    <li>Postmark or another email provider: delivers our emails to you.</li>
+    <li>Render: hosts the website and database.</li>
+    <li>Meta: advertising measurement through the pixel described above.</li>
+  </ul>
+  <p>We do not sell your personal information. We may share information if the law requires it, or to protect our rights, or as part of a sale of the business.</p>
+
+  <h2>5. What other members can see</h2>
+  <p>Community and profile features can show your username, and any name, photo and bio you add, together with tracker totals such as overall profit, to other members. If you do not want that, leave those profile fields empty. Your email address is not shown to other members.</p>
+
+  <h2>6. How long we keep it, and deleting your data</h2>
+  <p>We keep your account information for as long as your account exists. To have your account and personal data deleted, or to get a copy of it, email <a href="mailto:support@flipdeckcards.com">support@flipdeckcards.com</a> from the address on your account and we will handle it. We may keep limited records where the law requires (for example payment records). Cancelling your subscription does not by itself delete your data. Uninstalling the Android app removes the offline copy and the app's local data from your phone, but not your account.</p>
+
+  <h2>7. Security</h2>
+  <p>Passwords are stored hashed, and the Service is served over HTTPS. No system is perfectly secure, so we cannot guarantee absolute security. Choose a strong password and keep it private.</p>
+
+  <h2>8. Children</h2>
+  <p>The Service is not meant for children under 13, and we do not knowingly collect their information.</p>
+
+  <h2>9. Your rights and contact</h2>
+  <p>Depending on where you live you may have rights to access, correct, delete or object to our use of your information. To use them, or with any privacy question, email <a href="mailto:support@flipdeckcards.com">support@flipdeckcards.com</a>. We may update this policy; the date at the top shows the latest version.</p>
+
+  <p>FlipDeck LLC<br>flipdeckcards.com<br>Email: support@flipdeckcards.com</p>
+</main>
+</body>
+</html>
