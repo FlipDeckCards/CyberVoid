@@ -1,4 +1,14 @@
 <!doctype html>
+<!--
+  Draft: update before Play submission.
+  This text describes a FUTURE version of Deadzone Run (accounts, cloud profile, server-side purchased coins, Google Play purchases).
+  The shipped 1.0.0 game does none of this, so DO NOT deploy this version until the game that matches it is released.
+  Items that still depend on decisions (see docs/deadzone-backend-plan.md in the game project):
+    - which sign-in methods are offered (email, Google)
+    - who hosts the server and database
+    - the retention period for purchase records
+    - the final address of the web account-deletion page (the link below is a planned path, the page does not exist yet)
+-->
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -43,34 +53,62 @@
   <p>This policy describes how the Deadzone Run mobile game ("the App") handles information. The App is published by FlipDeck LLC, a company based in California ("we", "us").</p>
 
   <h2>Summary</h2>
-  <p>Deadzone Run does not collect, transmit, or share personal information. It has no accounts, no sign-in, no advertising, and no in-app purchases. Your game progress stays on your device.</p>
+  <p>You can play Deadzone Run with an account. The account keeps your profile and any coins you buy safe if you change phones. We collect only what is needed to run the account, the leaderboard and purchases. We do not run advertising, we do not sell your information, and you can delete your account and its data at any time, inside the App or on the web.</p>
 
-  <h2>Information stored on your device</h2>
-  <p>The App saves the following data only on your device, using the game engine's local storage (PlayerPrefs):</p>
+  <h2>Accounts and sign-in</h2>
+  <p>To create an account you sign in with your email address or with your Google account. We receive and store:</p>
   <ul>
-    <li>Your best score and best level</li>
+    <li>Your email address (and, if you use Google sign-in, the Google account identifier that goes with it)</li>
+    <li>A password hash, only if you choose email and password sign-in. We never store your password in readable form.</li>
+    <li>The date you created the account and when you last signed in</li>
+  </ul>
+  <p>We use this to let you sign in, to recover your account, and to contact you about your account if we need to.</p>
+
+  <h2>Cloud profile</h2>
+  <p>When you are signed in, the App saves a profile on our server so your progress follows you to a new device:</p>
+  <ul>
+    <li>Your player name</li>
+    <li>Your best score and best level, and your place on the top-scores list (name, score, and level)</li>
     <li>Your coin balance, shop items, and extra lives</li>
     <li>Your selected character and your sound and trail settings</li>
-    <li>The player name you type (default "PLAYER")</li>
-    <li>The local top-scores list (name, score, and level)</li>
   </ul>
-  <p>This data is never sent to us or to anyone else. Uninstalling the App deletes it.</p>
+  <p>Your player name and scores can be shown to other players on the top-scores list. Do not use your real name if you do not want it shown.</p>
+
+  <h2>Purchased coins and purchase data</h2>
+  <p>Coin packs are bought through Google Play. Google handles the payment: we never receive your card number or other payment details. When you buy a coin pack, Google sends us a purchase record (the product, the order ID, the purchase token and the time of purchase). We check it with Google and then add the coins to the balance on our server. We keep a ledger of the coins you bought and spent so we can restore your balance and resolve problems. Coins have no cash value and cannot be transferred or refunded by us except as Google Play's rules require.</p>
+
+  <h2>Information stored only on your device</h2>
+  <p>The App also keeps some data on your device using the game engine's local storage (PlayerPrefs), such as your sound and trail settings and a local copy of your progress. Uninstalling the App deletes this local data. It does not delete your account.</p>
 
   <h2>Information we do not collect</h2>
-  <p>The App does not collect or transmit: location, contacts, photos, camera or microphone input, device identifiers, advertising identifiers, usage analytics, crash reports from the App itself, or payment information. The App makes no network requests and contains no advertising or analytics SDK.</p>
-  <p>Google Play and Android may report anonymous crash and performance statistics to the developer under Google's own policies. You can manage those in your Android settings.</p>
+  <p>The App does not collect your location, contacts, photos, camera or microphone input, or advertising identifiers, and it contains no advertising or third-party analytics SDK. Google Play and Android may report anonymous crash and performance statistics to the developer under Google's own policies. You can manage those in your Android settings.</p>
 
   <h2>Permissions</h2>
-  <p>The App requests the Android internet permission, which the game engine adds by default. The App does not use it to send or receive personal data.</p>
+  <p>The App requests the Android internet permission so it can sign you in, save your profile, show the leaderboard and verify purchases. It does not use it for anything else.</p>
+
+  <h2>Who else handles your information</h2>
+  <ul>
+    <li>Google (Google Play): processes payments and sends us purchase records. Google sign-in, if you choose it, is provided by Google.</li>
+    <li>Our hosting and database provider: stores your account, profile and purchase ledger on our behalf.</li>
+  </ul>
+  <p>We do not sell your personal information and we do not share it for advertising. We may share information if the law requires it, or to protect our rights, or as part of a sale of the business.</p>
+
+  <h2>Deleting your account and data</h2>
+  <p>You can delete your account in two ways:</p>
+  <ul>
+    <li><strong>In the App:</strong> open Settings and choose Delete account, then confirm.</li>
+    <li><strong>On the web:</strong> use the account deletion page at <a href="/privacy/deadzone-run/delete/">/privacy/deadzone-run/delete/</a>, or email <a href="mailto:support@flipdeckcards.com">support@flipdeckcards.com</a> from the address on your account.</li>
+  </ul>
+  <p>Deleting your account removes your sign-in details, your cloud profile, your leaderboard entries and your coin balance. We may keep a limited record of purchases where the law requires it (for example for tax and accounting). Deleting your account does not refund coins you bought.</p>
+
+  <h2>How long we keep it</h2>
+  <p>We keep your account information for as long as your account exists. After you delete it, the data above is removed, except the purchase records described in the previous section.</p>
 
   <h2>Children</h2>
-  <p>The App does not knowingly collect personal information from anyone, including children under 13.</p>
-
-  <h2>Third parties</h2>
-  <p>The App does not share information with third parties, because it does not collect information.</p>
+  <p>The App does not knowingly collect personal information from children under 13. If you believe a child has created an account, contact us and we will delete it.</p>
 
   <h2>Changes to this policy</h2>
-  <p>If the App begins to collect or share data, we will update this policy and the Google Play Data safety section before the change takes effect.</p>
+  <p>If we change what the App collects or shares, we will update this policy and the Google Play Data safety section before the change takes effect.</p>
 
   <h2>Contact</h2>
   <p>FlipDeck LLC<br>Email: support@flipdeckcards.com</p>
