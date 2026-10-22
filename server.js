@@ -8,6 +8,16 @@ const PORT = process.env.PORT || 3000;
 
 app.disable('x-powered-by');
 app.use(express.json({ limit: '20kb' }));
+// Unity WebGL builds compressed with Brotli (*.br, e.g. Merge Dungeon): tell the browser so it unpacks them itself.
+const BR_TYPES = { '.js': 'application/javascript', '.wasm': 'application/wasm', '.data': 'application/octet-stream' };
+app.use((req, res, next) => {
+    if (req.path.endsWith('.br')) {
+        res.set('Content-Encoding', 'br');
+        res.type(BR_TYPES[path.extname(req.path.slice(0, -3))] || 'application/octet-stream');
+        res.set('Vary', 'Accept-Encoding');
+    }
+    next();
+});
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ---------------------------------------------------------------------------
