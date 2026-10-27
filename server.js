@@ -7,6 +7,8 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.disable('x-powered-by');
+// Wreckfall (Mint economy, test mode). Mounted before express.json so the webhook can read the raw body.
+require('./wreckfall/routes')(app);
 app.use(express.json({ limit: '20kb' }));
 // Unity WebGL builds compressed with Brotli (*.br, e.g. Merge Dungeon): tell the browser so it unpacks them itself.
 const BR_TYPES = { '.js': 'application/javascript', '.wasm': 'application/wasm', '.data': 'application/octet-stream' };

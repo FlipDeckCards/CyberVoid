@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mint Store (TEST MODE)</title>
+<style>
+  :root { --bg:#0f1115; --panel:#181b22; --text:#e8eaf0; --muted:#8a90a0; --accent:#f0b429; --warn:#ff6b6b; }
+  @media (prefers-color-scheme: light) {
+    :root { --bg:#f5f6f8; --panel:#ffffff; --text:#171a21; --muted:#5c6474; --accent:#b7791f; --warn:#c53030; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family: system-ui, sans-serif; }
+  .banner { background:var(--warn); color:#fff; text-align:center; padding:10px 16px; font-weight:600; }
+  main { max-width: 760px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 1.5rem; margin: 12px 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 16px; }
+  .balance { background: var(--panel); border-radius: 12px; padding: 14px 16px; margin-bottom: 16px; }
+  .balance strong { font-size: 1.4rem; color: var(--accent); }
+  .packs { display:grid; grid-template-columns: repeat(auto-fit, minmax(180px,1fr)); gap:12px; }
+  .pack { background: var(--panel); border-radius: 12px; padding: 16px; }
+  .pack h2 { font-size: 1.05rem; margin: 0 0 6px; }
+  .pack .mint { color: var(--accent); font-weight: 700; }
+  button { width:100%; margin-top:10px; padding:10px; border:0; border-radius:8px; font-weight:600; cursor:pointer; background: var(--accent); color:#111; }
+  button:disabled { opacity: .5; cursor: default; }
+  .log { margin-top: 18px; background: var(--panel); border-radius: 12px; padding: 12px 16px; font-size: .9rem; color: var(--muted); }
+  .log div { padding: 3px 0; }
+  .note { margin-top: 18px; font-size: .85rem; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="banner">TEST MODE. No real money is charged and no payment is processed.</div>
+<main>
+  <h1>Mint Store</h1>
+  <p class="sub">Buy Mint to spend on items in the game. Mint can never be cashed out.</p>
+
+  <div class="balance">Test account balance: <strong id="bal">0</strong> Mint</div>
+
+  <div class="packs" id="packs"></div>
+
+  <div class="log" id="log"><div>Event log</div></div>
+
+  <p class="note">This page simulates the purchase flow for testing only. It sends nothing to a payment provider. The real purchase flow will use the payment provider's checkout, and the same rules: Mint is credited once per verified payment, and there's no way to withdraw it.</p>
+</main>
+<script>
+  // Pack prices are placeholders for testing.
+  const PACKS = [
+    { id: "pack_small",  name: "Starter",  mint: 500,  price: "$4.99" },
+    { id: "pack_medium", name: "Scout",    mint: 1200, price: "$9.99" },
+    { id: "pack_large",  name: "Commander", mint: 3000, price: "$19.99" }
+  ];
+
+  let balance = 0;
+  const credited = new Set();   // payment ids already credited, same as the server
+  let seq = 0;
+
+  function log(msg) {
+    const d = document.createElement("div");
+    d.textContent = new Date().toLocaleTimeString() + "  " + msg;
+    document.getElementById("log").appendChild(d);
+  }
+
+  // Simulated verified payment event. The real server checks a signature
+  // and credits Mint only once per payment id.
+  function simulateWebhook(event) {
+    if (credited.has(event.payment_id)) {
+      log("Duplicate event " + event.payment_id + " ignored");
+      return;
+    }
+    credited.add(event.payment_id);
+    balance += event.mint;
+    render();
+    log("Credited " + event.mint + " Mint (" + event.payment_id + ")");
+  }
+
+  function buy(pack) {
+    seq += 1;
+    const paymentId = "test_pay_" + seq;
+    log("Test purchase started: " + pack.name + " (" + pack.price + ")");
+    // Simulate a webhook that arrives twice, to show idempotency.
+    simulateWebhook({ event: "payment_succeeded", mint: pack.mint, payment_id: paymentId });
+    simulateWebhook({ event: "payment_succeeded", mint: pack.mint, payment_id: paymentId });
+  }
+
+  function render() {
+    document.getElementById("bal").textContent = balance.toLocaleString();
+  }
+
+  const packsEl = document.getElementById("packs");
+  PACKS.forEach(p => {
+    const card = document.createElement("div");
+    card.className = "pack";
+    card.innerHTML = `<h2>${p.name}</h2><div class="mint">${p.mint.toLocaleString()} Mint</div><div>${p.price} (test)</div>`;
+    const btn = document.createElement("button");
+    btn.textContent = "Test buy";
+    btn.onclick = () => buy(p);
+    card.appendChild(btn);
+    packsEl.appendChild(card);
+  });
+  render();
+</script>
+</body>
+</html>
