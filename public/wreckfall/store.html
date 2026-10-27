@@ -34,7 +34,7 @@
   <h1>Mint Store</h1>
   <p class="sub">Buy Mint to spend on items in the game. Mint can never be cashed out.</p>
 
-  <div class="balance">Test account balance: <strong id="bal">0</strong> Mint</div>
+  <div class="balance">Test account balance: <strong id="bal">0</strong> Mint <span id="mode" style="float:right;color:var(--muted)"></span></div>
 
   <div class="packs" id="packs"></div>
 
@@ -45,14 +45,15 @@
 <script>
   // Pack prices are placeholders for testing.
   const PACKS = [
-    { id: "pack_small",  name: "Starter",  mint: 500,  price: "$4.99" },
-    { id: "pack_medium", name: "Scout",    mint: 1200, price: "$9.99" },
+    { id: "pack_small",  name: "Starter",   mint: 500,  price: "$4.99" },
+    { id: "pack_medium", name: "Scout",     mint: 1200, price: "$9.99" },
     { id: "pack_large",  name: "Commander", mint: 3000, price: "$19.99" }
   ];
-
+  const API = "/api/wreckfall";
   let balance = 0;
-  const credited = new Set();   // payment ids already credited, same as the server
+  let online = false;
   let seq = 0;
+  const account = "test_" + Math.random().toString(36).slice(2, 8);
 
   function log(msg) {
     const d = document.createElement("div");
@@ -60,30 +61,48 @@
     document.getElementById("log").appendChild(d);
   }
 
-  // Simulated verified payment event. The real server checks a signature
-  // and credits Mint only once per payment id.
-  function simulateWebhook(event) {
-    if (credited.has(event.payment_id)) {
-      log("Duplicate event " + event.payment_id + " ignored");
-      return;
-    }
-    credited.add(event.payment_id);
-    balance += event.mint;
-    render();
-    log("Credited " + event.mint + " Mint (" + event.payment_id + ")");
-  }
-
-  function buy(pack) {
-    seq += 1;
-    const paymentId = "test_pay_" + seq;
-    log("Test purchase started: " + pack.name + " (" + pack.price + ")");
-    // Simulate a webhook that arrives twice, to show idempotency.
-    simulateWebhook({ event: "payment_succeeded", mint: pack.mint, payment_id: paymentId });
-    simulateWebhook({ event: "payment_succeeded", mint: pack.mint, payment_id: paymentId });
-  }
-
   function render() {
     document.getElementById("bal").textContent = balance.toLocaleString();
+    document.getElementById("mode").textContent = online ? "Connected to test server" : "Offline demo (no server)";
+  }
+
+  async function post(path, body) {
+    const r = await fetch(API + path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const data = await r.json().catch(() => ({}));
+    return { ok: r.ok, status: r.status, data };
+  }
+
+  async function init() {
+    try {
+      const reg = await post("/register", { account, age: 25 });
+      if (!reg.ok) throw new Error("register " + reg.status);
+      online = true;
+      const b = await fetch(API + "/balance/" + encodeURIComponent(account)).then(r => r.json());
+      balance = b.balance || 0;
+      log("Connected. Test account " + account + " created.");
+    } catch (e) {
+      online = false;
+      log("No test server reachable. Using offline demo.");
+    }
+    render();
+  }
+
+  async function buy(pack) {
+    seq += 1;
+    const paymentId = "test_pay_" + account + "_" + seq;
+    log("Test purchase: " + pack.name + " (" + pack.price + ")");
+    if (online) {
+      // Send the same payment twice to show it is credited only once.
+      const first = await post("/test-purchase", { account, mint: pack.mint, payment_id: paymentId });
+      const second = await post("/test-purchase", { account, mint: pack.mint, payment_id: paymentId });
+      if (first.ok) { balance = first.data.balance; log("Credited " + pack.mint + " Mint (" + paymentId + ")"); }
+      else log("Server refused: " + (first.data.error || first.status));
+      if (second.ok) log("Retry of " + paymentId + " handled (credited once)");
+    } else {
+      balance += pack.mint;
+      log("Credited " + pack.mint + " Mint locally (" + paymentId + ")");
+    }
+    render();
   }
 
   const packsEl = document.getElementById("packs");
@@ -98,6 +117,7 @@
     packsEl.appendChild(card);
   });
   render();
+  init();
 </script>
 </body>
 </html>
